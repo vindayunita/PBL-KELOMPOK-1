@@ -17,3 +17,15 @@ Stream<User?> authStateChanges(Ref ref) {
 User? currentUser(Ref ref) {
   return ref.watch(authStateChangesProvider).value;
 }
+
+// ── User role provider — reads 'admin' custom claim from Firebase ID token ────
+// Returns 'admin' or 'buyer'. Always force-refreshes token to get latest claims.
+@riverpod
+Future<String> userRole(Ref ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return 'guest';
+  // forceRefresh: true ensures we always get the latest claims from the server
+  final idTokenResult = await user.getIdTokenResult(true);
+  final isAdmin = idTokenResult.claims?['admin'] == true;
+  return isAdmin ? 'admin' : 'buyer';
+}
