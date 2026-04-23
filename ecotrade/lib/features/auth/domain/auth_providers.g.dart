@@ -81,3 +81,36 @@ final class CurrentUserProvider extends $FunctionalProvider<User?, User?, User?>
 }
 
 String _$currentUserHash() => r'e1def305834fa8da12d4836c37f49c54eb99468a';
+
+@ProviderFor(userRole)
+const userRoleProvider = UserRoleProvider._();
+
+final class UserRoleProvider
+    extends $FunctionalProvider<AsyncValue<String>, String, FutureOr<String>>
+    with $FutureModifier<String>, $FutureProvider<String> {
+  const UserRoleProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'userRoleProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$userRoleHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<String> create(Ref ref) {
+    return userRole(ref);
+  }
+}
+
+String _$userRoleHash() => r'672953e4eea7942660358d8a04657893ab471260';
