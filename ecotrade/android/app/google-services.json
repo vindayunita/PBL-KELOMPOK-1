@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "371585623396",
+    "project_id": "ecotrade-119cc",
+    "storage_bucket": "ecotrade-119cc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371585623396:android:9d878dba529044a4a70671",
+        "android_client_info": {
+          "package_name": "com.example.ecotrade"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6Y4koHoIwhiDGMJJMMjtGPkE8kH_KfDQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
