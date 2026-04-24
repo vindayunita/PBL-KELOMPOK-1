@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
+import 'buyer_profile_screen.dart';
 
 part 'buyer_dashboard_screen.g.dart';
 
@@ -60,7 +61,7 @@ Stream<List<ProductListing>> marketListings(Ref ref) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Screen
+// Screen — shell with indexed body switching
 // ─────────────────────────────────────────────────────────────────────────────
 class BuyerDashboardScreen extends ConsumerStatefulWidget {
   const BuyerDashboardScreen({super.key});
@@ -81,28 +82,57 @@ class _BuyerDashboardScreenState
     super.dispose();
   }
 
+  // Pages indexed by bottom nav
+  Widget _buildBody() {
+    switch (_selectedNavIndex) {
+      case 3:
+        return const BuyerProfileScreen();
+      default:
+        return _MarketPage(searchController: _searchController);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      body: SafeArea(child: _buildBody()),
+      bottomNavigationBar: _BottomNav(
+        selectedIndex: _selectedNavIndex,
+        onTap: (i) => setState(() => _selectedNavIndex = i),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Market page — extracted from former build()
+// ─────────────────────────────────────────────────────────────────────────────
+class _MarketPage extends StatelessWidget {
+  const _MarketPage({required this.searchController});
+  final TextEditingController searchController;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLowest,
-      body: SafeArea(
-        child: CustomScrollView(
+    return CustomScrollView(
           slivers: [
             // ── App Bar ──────────────────────────────────────────────────────
             SliverAppBar(
-              backgroundColor: colorScheme.surfaceContainerLowest,
-              elevation: 0,
-              floating: true,
-              snap: true,
-              leadingWidth: 56,
-              leading: IconButton(
-                icon: Icon(Icons.menu_rounded,
-                    color: colorScheme.onSurface, size: 26),
-                onPressed: () {},
-              ),
+              // backgroundColor: colorScheme.surfaceContainerLowest,
+              // elevation: 0,
+              // floating: true,
+              // snap: true,
+              // leadingWidth: 56,
+              // leading: IconButton(
+              //   icon: Icon(Icons.menu_rounded,
+              //       color: colorScheme.onSurface, size: 26),
+              //   onPressed: () {},
+              // ),
               title: Text(
                 'EcoTrade',
                 style: textTheme.titleLarge?.copyWith(
@@ -111,27 +141,27 @@ class _BuyerDashboardScreenState
                   letterSpacing: -0.3,
                 ),
               ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: GestureDetector(
-                    onTap: () => _showProfileMenu(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A3A5C),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              // actions: [
+              //   Padding(
+              //     padding: const EdgeInsets.only(right: 16),
+              //     child: GestureDetector(
+              //       onTap: () {},
+              //       child: Container(
+              //         width: 40,
+              //         height: 40,
+              //         decoration: BoxDecoration(
+              //           color: const Color(0xFF1A3A5C),
+              //           borderRadius: BorderRadius.circular(12),
+              //         ),
+              //         child: const Icon(
+              //           Icons.person_rounded,
+              //           color: Colors.white,
+              //           size: 22,
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ],
             ),
 
             // ── Search + Filter ───────────────────────────────────────────────
@@ -149,7 +179,7 @@ class _BuyerDashboardScreenState
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: TextField(
-                          controller: _searchController,
+                          controller: searchController,
                           style: textTheme.bodyMedium,
                           decoration: InputDecoration(
                             hintText: 'Search premium organic waste...',
@@ -249,51 +279,8 @@ class _BuyerDashboardScreenState
 
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
-        ),
-      ),
-
-      // ── Bottom Nav ────────────────────────────────────────────────────────
-      bottomNavigationBar: _BottomNav(
-        selectedIndex: _selectedNavIndex,
-        onTap: (i) => setState(() => _selectedNavIndex = i),
-      ),
-    );
-  }
-
-  void _showProfileMenu(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: colorScheme.outline.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.logout_rounded, color: colorScheme.error),
-              title: Text('Sign Out',
-                  style: TextStyle(color: colorScheme.error)),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(authRepositoryProvider).signOut();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+        )
+      ;
   }
 }
 
@@ -653,19 +640,11 @@ class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
 
-  static const _items = [
-    (icon: Icons.storefront_outlined,
-     active: Icons.storefront_rounded,
-     label: 'MARKET'),
-    (icon: Icons.receipt_long_outlined,
-     active: Icons.receipt_long_rounded,
-     label: 'ORDERS'),
-    (icon: Icons.shopping_cart_outlined,
-     active: Icons.shopping_cart_rounded,
-     label: 'CART'),
-    (icon: Icons.person_outline_rounded,
-     active: Icons.person_rounded,
-     label: 'PROFILE'),
+  static const _items = <_NavItem>[
+    _NavItem(icon: Icons.storefront_outlined,  active: Icons.storefront_rounded,    label: 'MARKET'),
+    _NavItem(icon: Icons.receipt_long_outlined, active: Icons.receipt_long_rounded,  label: 'ORDERS'),
+    _NavItem(icon: Icons.shopping_cart_outlined, active: Icons.shopping_cart_rounded, label: 'CART'),
+    _NavItem(icon: Icons.person_outline_rounded, active: Icons.person_rounded,        label: 'PROFILE'),
   ];
 
   @override
@@ -734,4 +713,15 @@ class _BottomNav extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NavItem {
+  const _NavItem({
+    required this.icon,
+    required this.active,
+    required this.label,
+  });
+  final IconData icon;
+  final IconData active;
+  final String label;
 }
