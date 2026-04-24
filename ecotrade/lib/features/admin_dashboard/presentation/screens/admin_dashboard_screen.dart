@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
+import 'admin_profile_screen.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -24,7 +25,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
-      body: SafeArea(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          // Index 0 — Home Dashboard
+          SafeArea(
         child: CustomScrollView(
           slivers: [
             // ── App Bar ──
@@ -269,6 +274,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ),
           ],
         ),
+      ),
+          // Index 1 — Verify (placeholder)
+          const Center(child: Text('Verify')),
+          // Index 2 — Payout (placeholder)
+          const Center(child: Text('Payout')),
+          // Index 3 — Alerts (placeholder)
+          const Center(child: Text('Alerts')),
+          // Index 4 — Profile
+          const AdminProfileScreen(),
+        ],
       ),
 
       // ── Bottom Nav ──
