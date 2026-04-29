@@ -23,6 +23,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final textTheme = Theme.of(context).textTheme;
     final displayName = user?.displayName ?? user?.email ?? 'Admin';
 
+    final List<Widget> _tabs = [
+      // Index 0 — Home / Dashboard
+      _DashboardTab(
+        displayName: displayName,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
+      ),
+      // Index 1 — Verify
+      const _VerifyTab(),
+      // Index 2 — Payout (placeholder)
+      const Center(child: Text('Payout')),
+      // Index 3 — Alerts (placeholder)
+      const Center(child: Text('Alerts')),
+      // Index 4 — Profile
+      const AdminProfileScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: IndexedStack(
@@ -322,36 +339,210 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       ),
     );
   }
+}
 
-  void _showProfileMenu(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading:
-                  Icon(Icons.manage_accounts_rounded, color: colorScheme.primary),
-              title: const Text('Admin Settings'),
-              onTap: () => Navigator.pop(context),
+// ── Dashboard Tab ─────────────────────────────────────────────────────────────
+class _DashboardTab extends StatelessWidget {
+  const _DashboardTab({
+    required this.displayName,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  final String displayName;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: CustomScrollView(
+        slivers: [
+          // ── App Bar ──
+          SliverAppBar(
+            backgroundColor: colorScheme.surfaceContainerLowest,
+            floating: true,
+            elevation: 0,
+            title: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.sync_rounded,
+                      color: colorScheme.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'EcoTrade',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colorScheme.error,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'ADMIN',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onError,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            ListTile(
-              leading: Icon(Icons.logout_rounded, color: colorScheme.error),
-              title: Text('Sign Out',
-                  style: TextStyle(color: colorScheme.error)),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(authRepositoryProvider).signOut();
-              },
+            actions: const [],
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+
+                  // ── Greeting ──
+                  Text(
+                    'Welcome back,',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  Text(
+                    displayName.split(' ').first,
+                    style: textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'The Global Waste Market is active today',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Stats Grid ──
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 1.45,
+                    children: [
+                      _AdminStatCard(
+                        label: 'Pending Counter',
+                        value: '0',
+                        icon: Icons.pending_actions_rounded,
+                        color: colorScheme.primary,
+                        onTap: () {},
+                        actionLabel: 'Verify Now',
+                      ),
+                      _AdminStatCard(
+                        label: 'New Products',
+                        value: '0',
+                        icon: Icons.inventory_2_outlined,
+                        color: colorScheme.secondary,
+                        onTap: () {},
+                        actionLabel: 'Review Queue',
+                      ),
+                      _AdminStatCard(
+                        label: 'Total Pending',
+                        value: 'Rp 0,-',
+                        icon: Icons.payments_outlined,
+                        color: colorScheme.tertiary,
+                        onTap: () {},
+                        actionLabel: 'Approve All',
+                      ),
+                      _AdminStatCard(
+                        label: 'Refund Claims',
+                        value: '0',
+                        icon: Icons.assignment_return_outlined,
+                        color: colorScheme.error,
+                        onTap: () {},
+                        actionLabel: 'Auth Claims',
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Recent Activity ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Recent Activity',
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {},
+                        child: const Text('Export Logs'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+
+          // ── Activity List (Empty State) ──
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.assignment_outlined,
+                    size: 80,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Belum ada aktivitas tercatat.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Log akan muncul saat ada transaksi,\nverifikasi, atau perubahan sistem.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -387,7 +578,7 @@ class _AdminStatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: color.withOpacity(0.10),
           borderRadius: BorderRadius.circular(16),
@@ -395,6 +586,7 @@ class _AdminStatCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -419,10 +611,10 @@ class _AdminStatCard extends StatelessWidget {
                   ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 8),
             Text(
               value,
-              style: textTheme.titleLarge?.copyWith(
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
               ),
@@ -432,15 +624,19 @@ class _AdminStatCard extends StatelessWidget {
               style: textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurface.withOpacity(0.6),
               ),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               children: [
-                Text(
-                  actionLabel,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
+                Flexible(
+                  child: Text(
+                    actionLabel,
+                    style: textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -549,6 +745,137 @@ class _ActivityItem extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Verify Tab ───────────────────────────────────────────────────────────────
+class _VerifyTab extends StatefulWidget {
+  const _VerifyTab();
+
+  @override
+  State<_VerifyTab> createState() => _VerifyTabState();
+}
+
+class _VerifyTabState extends State<_VerifyTab> {
+  int _filterIndex = 0;
+  final List<String> _filters = ['Product', 'Courier', 'Payment', 'Refund'];
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MARKET INTEGRITY',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Pending Approvals',
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Review incoming material batches for sustainability\ncompliance and trade readiness.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.55),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Filter chips ──
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(_filters.length, (i) {
+                      final selected = i == _filterIndex;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _filterIndex = i),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? colorScheme.primary
+                                  : colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _filters[i],
+                              style: textTheme.labelMedium?.copyWith(
+                                color: selected
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurface.withOpacity(0.65),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+
+          // ── Empty State ──
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.fact_check_outlined,
+                    size: 80,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Tidak ada item menunggu verifikasi.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Semua ${_filters[_filterIndex].toLowerCase()} telah diproses\natau belum ada yang masuk.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
