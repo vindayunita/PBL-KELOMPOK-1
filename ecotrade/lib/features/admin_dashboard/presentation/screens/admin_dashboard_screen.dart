@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
 import 'admin_profile_screen.dart';
+import 'admin_verify_screen.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -76,45 +77,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   ),
                 ],
               ),
-              actions: [
-                IconButton(
-                  icon: Stack(
-                    children: [
-                      const Icon(Icons.notifications_outlined),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: colorScheme.errorContainer,
-                    child: Text(
-                      displayName.isNotEmpty
-                          ? displayName[0].toUpperCase()
-                          : 'A',
-                      style: textTheme.labelMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  onPressed: () => _showProfileMenu(context, ref),
-                ),
-                const SizedBox(width: 8),
-              ],
+              actions: const [],
             ),
 
             SliverToBoxAdapter(
@@ -160,7 +123,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       children: [
                         _AdminStatCard(
                           label: 'Pending Counter',
-                          value: '12',
+                          value: '0',
                           icon: Icons.pending_actions_rounded,
                           color: colorScheme.primary,
                           onTap: () {},
@@ -168,17 +131,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         ),
                         _AdminStatCard(
                           label: 'New Products',
-                          value: '45',
+                          value: '0',
                           icon: Icons.inventory_2_outlined,
                           color: colorScheme.secondary,
-                          badge: 'HIGH PRIO',
-                          badgeColor: colorScheme.error,
                           onTap: () {},
                           actionLabel: 'Review Queue',
                         ),
                         _AdminStatCard(
                           label: 'Total Pending',
-                          value: 'Rp 12,4k',
+                          value: 'Rp 0',
                           icon: Icons.payments_outlined,
                           color: colorScheme.tertiary,
                           onTap: () {},
@@ -186,7 +147,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                         ),
                         _AdminStatCard(
                           label: 'Refund Claims',
-                          value: '08',
+                          value: '0',
                           icon: Icons.assignment_return_outlined,
                           color: colorScheme.error,
                           onTap: () {},
@@ -219,64 +180,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
 
-            // ── Activity List ──
+            // ── Activity List (Empty State) ──
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _ActivityItem(
-                    icon: Icons.add_box_outlined,
-                    iconColor: colorScheme.primary,
-                    iconBg: colorScheme.primaryContainer,
-                    title: 'Batch #1 PB5530-\nAU Port',
-                    subtitle: 'New listing approved · Ecotrade AU',
-                    time: '10:23 AM',
-                    isNew: true,
-                  ),
-                  _ActivityItem(
-                    icon: Icons.person_add_outlined,
-                    iconColor: colorScheme.secondary,
-                    iconBg: colorScheme.secondaryContainer,
-                    title: 'New Curator Application',
-                    subtitle: 'Documents for review — sign off',
-                    time: '09:41 AM',
-                    isNew: true,
-                  ),
-                  _ActivityItem(
-                    icon: Icons.warning_amber_rounded,
-                    iconColor: colorScheme.error,
-                    iconBg: colorScheme.errorContainer,
-                    title: 'Payment Dispute Flagged',
-                    subtitle: 'Order #7821 — a mismatch in categories',
-                    time: '08:55 AM',
-                    isNew: false,
-                  ),
-                  _ActivityItem(
-                    icon: Icons.trending_up_rounded,
-                    iconColor: colorScheme.tertiary,
-                    iconBg: colorScheme.tertiaryContainer,
-                    title: 'Market Trend Alert',
-                    subtitle: 'Copper +8.3% this week — update pricing',
-                    time: 'Yesterday',
-                    isNew: false,
-                  ),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.history_rounded),
-                      label: const Text('Load More History'),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ]),
+              sliver: SliverToBoxAdapter(
+                child: _EmptyActivityState(),
               ),
             ),
           ],
         ),
       ),
-          // Index 1 — Verify (placeholder)
-          const Center(child: Text('Verify')),
+          // Index 1 — Verify
+          const AdminVerifyScreen(),
           // Index 2 — Payout (placeholder)
           const Center(child: Text('Payout')),
           // Index 3 — Alerts (placeholder)
@@ -352,6 +267,62 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Empty Activity State ──────────────────────────────────────────────────────
+class _EmptyActivityState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withOpacity(0.4),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.inbox_outlined,
+              size: 32,
+              color: colorScheme.primary.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Activity Yet',
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Activity logs will appear here once\ntransactions or verifications begin.',
+            textAlign: TextAlign.center,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withOpacity(0.5),
+              height: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }
