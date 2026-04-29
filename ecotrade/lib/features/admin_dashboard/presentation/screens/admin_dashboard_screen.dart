@@ -119,7 +119,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
-                      childAspectRatio: 1.5,
+                      childAspectRatio: 1.3,
                       children: [
                         _AdminStatCard(
                           label: 'Pending Counter',
@@ -358,7 +358,7 @@ class _AdminStatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: color.withOpacity(0.10),
           borderRadius: BorderRadius.circular(16),
@@ -404,7 +404,7 @@ class _AdminStatCard extends StatelessWidget {
                 color: colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Text(
