@@ -44,8 +44,265 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: IndexedStack(
         index: _selectedIndex,
-        children: _tabs,
+        children: [
+          // Index 0 — Home Dashboard
+          SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            // ── App Bar ──
+            SliverAppBar(
+              backgroundColor: colorScheme.surfaceContainerLowest,
+              floating: true,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.sync_rounded,
+                        color: colorScheme.primary, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'EcoTrade',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: colorScheme.error,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'ADMIN',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onError,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: Stack(
+                    children: [
+                      const Icon(Icons.notifications_outlined),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: colorScheme.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: colorScheme.errorContainer,
+                    child: Text(
+                      displayName.isNotEmpty
+                          ? displayName[0].toUpperCase()
+                          : 'A',
+                      style: textTheme.labelMedium?.copyWith(
+                        color: colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  onPressed: () => _showProfileMenu(context, ref),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+
+                    // ── Greeting ──
+                    Text(
+                      'Welcome back,',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                    Text(
+                      displayName.split(' ').first,
+                      style: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'The Global Waste Market is active today',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    
+                    // ── Stats Grid ──
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 1.5,
+                      children: [
+                        _AdminStatCard(
+                          label: 'Pending Counter',
+                          value: '12',
+                          icon: Icons.pending_actions_rounded,
+                          color: colorScheme.primary,
+                          onTap: () {},
+                          actionLabel: 'Verify Now',
+                        ),
+                        _AdminStatCard(
+                          label: 'New Products',
+                          value: '45',
+                          icon: Icons.inventory_2_outlined,
+                          color: colorScheme.secondary,
+                          badge: 'HIGH PRIO',
+                          badgeColor: colorScheme.error,
+                          onTap: () {},
+                          actionLabel: 'Review Queue',
+                        ),
+                        _AdminStatCard(
+                          label: 'Total Pending',
+                          value: 'Rp 12,4k',
+                          icon: Icons.payments_outlined,
+                          color: colorScheme.tertiary,
+                          onTap: () {},
+                          actionLabel: 'Approve All',
+                        ),
+                        _AdminStatCard(
+                          label: 'Refund Claims',
+                          value: '08',
+                          icon: Icons.assignment_return_outlined,
+                          color: colorScheme.error,
+                          onTap: () {},
+                          actionLabel: 'Auth Claims',
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // ── Recent Activity ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Activity',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {},
+                          child: const Text('Export Logs'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Activity List ──
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _ActivityItem(
+                    icon: Icons.add_box_outlined,
+                    iconColor: colorScheme.primary,
+                    iconBg: colorScheme.primaryContainer,
+                    title: 'Batch #1 PB5530-\nAU Port',
+                    subtitle: 'New listing approved · Ecotrade AU',
+                    time: '10:23 AM',
+                    isNew: true,
+                  ),
+                  _ActivityItem(
+                    icon: Icons.person_add_outlined,
+                    iconColor: colorScheme.secondary,
+                    iconBg: colorScheme.secondaryContainer,
+                    title: 'New Curator Application',
+                    subtitle: 'Documents for review — sign off',
+                    time: '09:41 AM',
+                    isNew: true,
+                  ),
+                  _ActivityItem(
+                    icon: Icons.warning_amber_rounded,
+                    iconColor: colorScheme.error,
+                    iconBg: colorScheme.errorContainer,
+                    title: 'Payment Dispute Flagged',
+                    subtitle: 'Order #7821 — a mismatch in categories',
+                    time: '08:55 AM',
+                    isNew: false,
+                  ),
+                  _ActivityItem(
+                    icon: Icons.trending_up_rounded,
+                    iconColor: colorScheme.tertiary,
+                    iconBg: colorScheme.tertiaryContainer,
+                    title: 'Market Trend Alert',
+                    subtitle: 'Copper +8.3% this week — update pricing',
+                    time: 'Yesterday',
+                    isNew: false,
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.history_rounded),
+                      label: const Text('Load More History'),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
+          // Index 1 — Verify (placeholder)
+          const Center(child: Text('Verify')),
+          // Index 2 — Payout (placeholder)
+          const Center(child: Text('Payout')),
+          // Index 3 — Alerts (placeholder)
+          const Center(child: Text('Alerts')),
+          // Index 4 — Profile
+          const AdminProfileScreen(),
+        ],
+      ),
+
       // ── Bottom Nav ──
       bottomNavigationBar: NavigationBar(
         backgroundColor: colorScheme.surface,
