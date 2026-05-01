@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'login_controller.dart';
+part of 'seller_registration_controller.dart';
 
 // **************************************************************************
 // RiverpodGenerator
@@ -9,33 +9,35 @@ part of 'login_controller.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(LoginController)
-const loginControllerProvider = LoginControllerProvider._();
+@ProviderFor(SellerRegistrationController)
+const sellerRegistrationControllerProvider =
+    SellerRegistrationControllerProvider._();
 
-final class LoginControllerProvider
-    extends $AsyncNotifierProvider<LoginController, void> {
-  const LoginControllerProvider._()
+final class SellerRegistrationControllerProvider
+    extends $AsyncNotifierProvider<SellerRegistrationController, void> {
+  const SellerRegistrationControllerProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'loginControllerProvider',
+        name: r'sellerRegistrationControllerProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$loginControllerHash();
+  String debugGetCreateSourceHash() => _$sellerRegistrationControllerHash();
 
   @$internal
   @override
-  LoginController create() => LoginController();
+  SellerRegistrationController create() => SellerRegistrationController();
 }
 
-String _$loginControllerHash() => r'f373b519c9c3f3e38936619311d4c79983e210e3';
+String _$sellerRegistrationControllerHash() =>
+    r'01da4146e8bec193ff9fcfd90d906ecc39106c73';
 
-abstract class _$LoginController extends $AsyncNotifier<void> {
+abstract class _$SellerRegistrationController extends $AsyncNotifier<void> {
   FutureOr<void> build();
   @$mustCallSuper
   @override

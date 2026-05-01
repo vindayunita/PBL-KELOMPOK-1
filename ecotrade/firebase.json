@@ -1,1 +1,31 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"ecotrade-119cc","appId":"1:371585623396:android:9d878dba529044a4a70671","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"ecotrade-119cc","configurations":{"android":"1:371585623396:android:9d878dba529044a4a70671","ios":"1:371585623396:ios:6038ec598f51f672a70671","macos":"1:371585623396:ios:6038ec598f51f672a70671","web":"1:371585623396:web:bfad96df477a53fda70671","windows":"1:371585623396:web:5fab08f3bf3439d3a70671"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ecotrade-119cc",
+          "appId": "1:371585623396:android:9d878dba529044a4a70671",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ecotrade-119cc",
+          "configurations": {
+            "android": "1:371585623396:android:9d878dba529044a4a70671",
+            "ios": "1:371585623396:ios:6038ec598f51f672a70671",
+            "macos": "1:371585623396:ios:6038ec598f51f672a70671",
+            "web": "1:371585623396:web:bfad96df477a53fda70671",
+            "windows": "1:371585623396:web:5fab08f3bf3439d3a70671"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

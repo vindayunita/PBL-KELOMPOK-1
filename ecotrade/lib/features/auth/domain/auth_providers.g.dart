@@ -16,15 +16,15 @@ final class AuthStateChangesProvider
     extends $FunctionalProvider<AsyncValue<User?>, User?, Stream<User?>>
     with $FutureModifier<User?>, $StreamProvider<User?> {
   const AuthStateChangesProvider._()
-      : super(
-          from: null,
-          argument: null,
-          retry: null,
-          name: r'authStateChangesProvider',
-          isAutoDispose: true,
-          dependencies: null,
-          $allTransitiveDependencies: null,
-        );
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'authStateChangesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$authStateChangesHash();
@@ -48,15 +48,15 @@ const currentUserProvider = CurrentUserProvider._();
 final class CurrentUserProvider extends $FunctionalProvider<User?, User?, User?>
     with $Provider<User?> {
   const CurrentUserProvider._()
-      : super(
-          from: null,
-          argument: null,
-          retry: null,
-          name: r'currentUserProvider',
-          isAutoDispose: true,
-          dependencies: null,
-          $allTransitiveDependencies: null,
-        );
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'currentUserProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$currentUserHash();
@@ -89,15 +89,15 @@ final class UserRoleProvider
     extends $FunctionalProvider<AsyncValue<String>, String, FutureOr<String>>
     with $FutureModifier<String>, $FutureProvider<String> {
   const UserRoleProvider._()
-      : super(
-          from: null,
-          argument: null,
-          retry: null,
-          name: r'userRoleProvider',
-          isAutoDispose: true,
-          dependencies: null,
-          $allTransitiveDependencies: null,
-        );
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'userRoleProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$userRoleHash();

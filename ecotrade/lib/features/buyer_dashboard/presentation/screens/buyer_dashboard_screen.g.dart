@@ -12,23 +12,26 @@ part of 'buyer_dashboard_screen.dart';
 @ProviderFor(marketListings)
 const marketListingsProvider = MarketListingsProvider._();
 
-final class MarketListingsProvider extends $FunctionalProvider<
-        AsyncValue<List<ProductListing>>,
-        List<ProductListing>,
-        Stream<List<ProductListing>>>
+final class MarketListingsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ProductListing>>,
+          List<ProductListing>,
+          Stream<List<ProductListing>>
+        >
     with
         $FutureModifier<List<ProductListing>>,
         $StreamProvider<List<ProductListing>> {
   const MarketListingsProvider._()
-      : super(
-          from: null,
-          argument: null,
-          retry: null,
-          name: r'marketListingsProvider',
-          isAutoDispose: true,
-          dependencies: null,
-          $allTransitiveDependencies: null,
-        );
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'marketListingsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$marketListingsHash();
@@ -36,8 +39,8 @@ final class MarketListingsProvider extends $FunctionalProvider<
   @$internal
   @override
   $StreamProviderElement<List<ProductListing>> $createElement(
-          $ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<List<ProductListing>> create(Ref ref) {
