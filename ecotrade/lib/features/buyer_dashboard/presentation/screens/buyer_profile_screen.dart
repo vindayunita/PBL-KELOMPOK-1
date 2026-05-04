@@ -6,9 +6,12 @@ import '../../../../features/user/domain/user_providers.dart';
 import '../../../../features/seller_registration/domain/models/seller_application_model.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
 import '../../../../features/seller_registration/presentation/screens/seller_registration_screen.dart';
+import '../../../courier_dashboard/domain/courier_application_providers.dart';
+import '../../../courier_dashboard/domain/models/courier_application_model.dart';
+import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
+import '../../../courier_dashboard/presentation/screens/courier_status_verif.dart';
 import 'edit_profile_screen.dart';
 import 'manage_address_screen.dart';
-import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile Screen
@@ -162,7 +165,10 @@ class BuyerProfileScreen extends ConsumerWidget {
 
                   const SizedBox(height: 20),
 
-                  _ExpandImpactBanner(appAsync: ref.watch(mySellerApplicationProvider)),
+                  _ExpandImpactBanner(
+                    appAsync: ref.watch(mySellerApplicationProvider),
+                    courierAppAsync: ref.watch(myCourierApplicationProvider),
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -518,14 +524,20 @@ class _MenuItem extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Expand Your Impact Banner — reaktif berdasarkan status aplikasi seller
 // ─────────────────────────────────────────────────────────────────────────────
-class _ExpandImpactBanner extends StatelessWidget {
-  const _ExpandImpactBanner({required this.appAsync});
+class _ExpandImpactBanner extends ConsumerWidget {
+  const _ExpandImpactBanner({
+    required this.appAsync,
+    required this.courierAppAsync,
+  });
   final AsyncValue<SellerApplicationModel?> appAsync;
+  final AsyncValue<CourierApplicationModel?> courierAppAsync;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final app = appAsync.value;
-    final isSeller = app?.isApproved == true;
+    final courierApp = courierAppAsync.value;
+    final isSeller  = app?.isApproved == true;
+    final isCourier = courierApp?.isApproved == true;
 
     return Container(
       width: double.infinity,
@@ -586,31 +598,127 @@ class _ExpandImpactBanner extends StatelessWidget {
             // Rejected → bisa daftar ulang
             _RejectedButton(
               reason: app!.rejectionReason ?? '',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const SellerRegistrationScreen()),
-              ),
+              onTap: () {
+                // Blokir jika sudah menjadi Courier aktif
+                if (isCourier) {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      title: const Text('Tidak Dapat Mendaftar',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      content: const Text(
+                        'Akun Anda sudah terdaftar sebagai Kurir aktif. '
+                        'Satu akun tidak dapat menjadi Kurir dan Seller secara bersamaan.',
+                        style: TextStyle(height: 1.5),
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Mengerti'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const SellerRegistrationScreen()));
+              },
             )
           else
             // Null / belum apply → tombol register
             _BannerOutlineButton(
               label: 'REGISTER AS SELLER',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const SellerRegistrationScreen()),
-              ),
+              onTap: () {
+                // Blokir jika sudah menjadi Courier aktif
+                if (isCourier) {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      title: const Text('Tidak Dapat Mendaftar',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      content: const Text(
+                        'Akun Anda sudah terdaftar sebagai Kurir aktif. '
+                        'Satu akun tidak dapat menjadi Kurir dan Seller secara bersamaan.',
+                        style: TextStyle(height: 1.5),
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Mengerti'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const SellerRegistrationScreen()));
+              },
             ),
 
           const SizedBox(height: 10),
 
-          _BannerOutlineButton(
-            label: 'REGISTER AS COURIER',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const CourierPendaftaranScreen(),
+          // ── COURIER BUTTON — berubah sesuai status ──
+          if (isCourier)
+            // Approved → Pindah ke Dashboard Kurir
+            _CourierDoneButton(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CourierStatusVerifScreen(),
+                ),
               ),
+            )
+          else if (courierApp?.isPending == true)
+            // Pending → tombol disabled
+            const _CourierPendingButton()
+          else if (courierApp?.isRejected == true)
+            // Rejected → lihat status & alasan penolakan
+            _CourierRejectedButton(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CourierStatusVerifScreen(),
+                ),
+              ),
+            )
+          else
+            // Null / belum apply → tombol register
+            _BannerOutlineButton(
+              label: 'REGISTER AS COURIER',
+              onTap: () {
+                // Blokir jika sudah menjadi Seller aktif
+                if (isSeller) {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      title: const Text('Tidak Dapat Mendaftar',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                      content: const Text(
+                        'Akun Anda sudah terdaftar sebagai Seller aktif. '
+                        'Satu akun tidak dapat menjadi Kurir dan Seller secara bersamaan.',
+                        style: TextStyle(height: 1.5),
+                      ),
+                      actions: [
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Mengerti'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const CourierPendaftaranScreen(),
+                ));
+              },
             ),
-          ),
 
           const SizedBox(height: 14),
 
@@ -786,6 +894,98 @@ class _BannerOutlineButton extends StatelessWidget {
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Courier-specific Status Buttons
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CourierDoneButton extends StatelessWidget {
+  const _CourierDoneButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.local_shipping_rounded, size: 18),
+        label: const Text(
+          'PINDAH KE DASHBOARD KURIR',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF10B981),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _CourierPendingButton extends StatelessWidget {
+  const _CourierPendingButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.6)),
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 14, height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+          ),
+          SizedBox(width: 10),
+          Text(
+            'KURIR: MENUNGGU PERSETUJUAN',
+            style: TextStyle(
+                color: Colors.orange,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CourierRejectedButton extends StatelessWidget {
+  const _CourierRejectedButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.refresh_rounded, size: 16),
+        label: const Text(
+          'DAFTAR ULANG SEBAGAI KURIR',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.4),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.redAccent,
+          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );

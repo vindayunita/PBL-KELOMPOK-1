@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../providers/seller_registration_controller.dart';
+import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 
 class SellerRegistrationScreen extends ConsumerStatefulWidget {
   const SellerRegistrationScreen({super.key});
@@ -72,6 +73,31 @@ class _SellerRegistrationScreenState
 
   void _submitForm() {
     if (!_formKey.currentState!.validate()) return;
+
+    // ── Blokir jika sudah menjadi Courier aktif ─────────────────────────────
+    final courierApp = ref.read(myCourierApplicationProvider).value;
+    if (courierApp != null && courierApp.isApproved) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Tidak Dapat Mendaftar',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text(
+            'Akun Anda sudah terdaftar sebagai Kurir aktif. '
+            'Satu akun tidak dapat menjadi Kurir dan Seller secara bersamaan.',
+            style: TextStyle(height: 1.5),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     if (_selectedCommodity == null) {
       ScaffoldMessenger.of(context).showSnackBar(

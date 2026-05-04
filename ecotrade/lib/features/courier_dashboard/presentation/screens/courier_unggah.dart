@@ -76,7 +76,13 @@ class _CourierUnggahScreenState extends ConsumerState<CourierUnggahScreen> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-    Navigator.of(context).pop();
+    // Navigasi ke halaman status verifikasi
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const CourierStatusVerifScreen(),
+      ),
+      (route) => route.isFirst,
+    );
   }
 
   @override

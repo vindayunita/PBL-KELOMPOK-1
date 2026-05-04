@@ -1,6 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../features/courier_dashboard/data/courier_application_repository.dart';
+import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
+import '../../../../features/courier_dashboard/domain/models/courier_application_model.dart';
+import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import 'courier_status_verif.dart';
 import 'courier_unggah.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,6 +92,17 @@ class _CourierPendaftaranScreenState
   String? _selectedKota; // Kota yang dipilih untuk "Area Lainnya"
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-fill dari Firebase Auth
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _namaCtrl.text  = user.displayName ?? '';
+      _emailCtrl.text = user.email ?? '';
+    }
+  }
+
+  @override
   void dispose() {
     _namaCtrl.dispose();
     _emailCtrl.dispose();
@@ -107,17 +124,153 @@ class _CourierPendaftaranScreenState
       return;
     }
 
-    setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() => _isSubmitting = false);
+    // ── Blokir jika sudah menjadi Seller aktif ─────────────────────────────
+    final sellerApp = ref.read(mySellerApplicationProvider).value;
+    if (sellerApp != null && sellerApp.isApproved) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Tidak Dapat Mendaftar',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text(
+            'Akun Anda sudah terdaftar sebagai Seller aktif. '
+            'Satu akun tidak dapat menjadi Kurir dan Seller secara bersamaan.',
+            style: TextStyle(height: 1.5),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
-    if (!mounted) return;
-    // Lanjut ke halaman unggah dokumen
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const CourierUnggahScreen(),
-      ),
-    );
+    // ── Cek apakah sudah pernah submit aplikasi kurir ──────────────────────
+    final existingApp = ref.read(myCourierApplicationProvider).value;
+    if (existingApp != null && !existingApp.isRejected) {
+      // Jika sudah approved → arahkan ke dashboard
+      if (existingApp.isApproved) {
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Sudah Terdaftar sebagai Kurir',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            content: const Text(
+              'Akun Anda sudah disetujui sebagai Kurir EcoTrade.',
+              style: TextStyle(height: 1.5),
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Mengerti'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      // Jika masih pending → tampilkan info dan arahkan ke halaman status
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Pendaftaran Sedang Diproses',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          content: const Text(
+            'Pendaftaran kurir Anda sedang menunggu review admin. '
+            'Silakan cek halaman status verifikasi.',
+            style: TextStyle(height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => const CourierStatusVerifScreen(),
+                  ),
+                );
+              },
+              child: const Text('Lihat Status'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    // Jika isRejected → lanjut proses daftar ulang (timpa data lama)
+
+    setState(() => _isSubmitting = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User belum login');
+
+      final area = _areaList[_selectedArea];
+
+      // Jika "Area Lainnya" dipilih, validasi kota
+      if (area.isOther && (_selectedKota == null || _selectedKota!.isEmpty)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Pilih kota terlebih dahulu.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final namaArea = area.isOther ? _selectedKota! : area.nama;
+      final app = CourierApplicationModel(
+        uid:         user.uid,
+        fullName:    _namaCtrl.text.trim(),
+        email:       _emailCtrl.text.trim(),
+        phone:       _teleponCtrl.text.trim(),
+        area:        namaArea,
+        ktpImageUrl: '',
+        simImageUrl: '',
+        agreedTerms: true,
+        status:      'pending',
+        submittedAt: DateTime.now().toIso8601String(),
+      );
+
+      final repo = ref.read(courierApplicationRepositoryProvider);
+      await repo.submitApplication(app);
+
+      if (!mounted) return;
+      // Lanjut ke halaman unggah dokumen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const CourierUnggahScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mendaftar: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -368,6 +521,16 @@ class _CourierPendaftaranScreenState
                             );
                           }),
 
+                          // Dropdown kota Jawa Timur — tampil saat Area Lainnya dipilih
+                          if (_areaList[_selectedArea].isOther) ...[
+                            const SizedBox(height: 4),
+                            _KotaDropdown(
+                              value: _selectedKota,
+                              onChanged: (kota) =>
+                                  setState(() => _selectedKota = kota),
+                            ),
+                          ],
+
                           const SizedBox(height: 20),
 
                           // Terms
@@ -599,8 +762,102 @@ class _InputField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Area Kerja Card
+// Kota Dropdown — pilihan kota/kab Jawa Timur saat "Area Lainnya" dipilih
 // ─────────────────────────────────────────────────────────────────────────────
+class _KotaDropdown extends StatelessWidget {
+  const _KotaDropdown({required this.value, required this.onChanged});
+  final String? value;
+  final void Function(String?) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: value != null
+            ? cs.primary.withValues(alpha: 0.06)
+            : cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value != null
+              ? cs.primary
+              : cs.outlineVariant.withValues(alpha: 0.5),
+          width: value != null ? 2 : 1.2,
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded,
+                    size: 20,
+                    color: cs.onSurface.withValues(alpha: 0.4)),
+                const SizedBox(width: 10),
+                Text(
+                  'Cari kota/kabupaten di Jawa Timur...',
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          selectedItemBuilder: (context) => _kotaJawaTimur.map((kota) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on_rounded,
+                      size: 20, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      kota,
+                      style: tt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.check_circle_rounded,
+                      size: 18, color: cs.primary),
+                ],
+              ),
+            );
+          }).toList(),
+          items: _kotaJawaTimur.map((kota) {
+            return DropdownMenuItem<String>(
+              value: kota,
+              child: Text(
+                kota,
+                style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          dropdownColor: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          menuMaxHeight: 300,
+          icon: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Icon(Icons.keyboard_arrow_down_rounded,
+                color: cs.onSurface.withValues(alpha: 0.5)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AreaCard extends StatelessWidget {
   const _AreaCard({
     required this.area,
