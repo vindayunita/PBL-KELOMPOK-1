@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
+import 'courier_pendaftaran.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enum status verifikasi
@@ -22,102 +26,162 @@ class _StatusHistory {
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
 // ─────────────────────────────────────────────────────────────────────────────
-class CourierStatusVerifScreen extends StatelessWidget {
-  const CourierStatusVerifScreen({
-    super.key,
-    this.statusSaatIni = VerifStatus.proses,
-    this.riwayat = const [],
-  });
-
-  /// Status verifikasi saat ini — ganti dari Firestore nantinya
-  final VerifStatus statusSaatIni;
-
-  /// Riwayat status — ganti dari Firestore nantinya
-  final List<_StatusHistory> riwayat;
-
+class CourierStatusVerifScreen extends ConsumerWidget {
+  const CourierStatusVerifScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    // Tampilkan riwayat dari parameter (kosong jika belum ada data)
-    final List<_StatusHistory> displayRiwayat = riwayat;
+    final appAsync = ref.watch(myCourierApplicationProvider);
 
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      appBar: AppBar(
+    return appAsync.when(
+      loading: () => Scaffold(
         backgroundColor: cs.surfaceContainerLowest,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 14),
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: cs.primaryContainer,
-            child: Icon(Icons.person_rounded,
-                color: cs.primary, size: 20),
-          ),
-        ),
-        title: Text(
-          'EcoTrade',
-          style: tt.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: cs.onSurface,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon:
-                Icon(Icons.notifications_outlined, color: cs.onSurface),
-            onPressed: () {},
-          ),
-        ],
+        body: const Center(child: CircularProgressIndicator()),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Status utama ────────────────────────────────────────────
-              _MainStatusCard(status: statusSaatIni),
+      error: (e, _) => Scaffold(
+        backgroundColor: cs.surfaceContainerLowest,
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (app) {
+        // Tentukan status dari Firestore
+        VerifStatus statusSaatIni;
+        String? rejectionReason;
+        String? reviewedAt;
+        String submittedAt = '';
 
-              const SizedBox(height: 24),
+        if (app == null) {
+          statusSaatIni = VerifStatus.proses;
+        } else {
+          submittedAt   = app.submittedAt;
+          rejectionReason = app.rejectionReason;
+          reviewedAt    = app.reviewedAt;
+          statusSaatIni = app.isApproved
+              ? VerifStatus.disetujui
+              : app.isRejected
+                  ? VerifStatus.ditolak
+                  : VerifStatus.proses;
+        }
 
-              // ── Riwayat ─────────────────────────────────────────────────
-              Text(
-                'RIWAYAT STATUS TERAKHIR',
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.45),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
+        // Bangun riwayat dari data Firestore
+        final List<_StatusHistory> riwayat = [];
+        if (app != null) {
+          riwayat.add(_StatusHistory(
+            tanggal: _formatDate(submittedAt),
+            status: VerifStatus.proses,
+            keterangan: 'Pendaftaran kurir berhasil diajukan dan sedang menunggu review admin.',
+          ));
+          if (app.isApproved && reviewedAt != null) {
+            riwayat.add(_StatusHistory(
+              tanggal: _formatDate(reviewedAt),
+              status: VerifStatus.disetujui,
+              keterangan: 'Selamat! Pendaftaran kurir Anda telah disetujui oleh admin.',
+            ));
+          } else if (app.isRejected && reviewedAt != null) {
+            riwayat.add(_StatusHistory(
+              tanggal: _formatDate(reviewedAt),
+              status: VerifStatus.ditolak,
+              keterangan: rejectionReason != null
+                  ? 'Alasan penolakan: $rejectionReason'
+                  : 'Pendaftaran ditolak. Silakan hubungi admin untuk informasi lebih lanjut.',
+            ));
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: cs.surfaceContainerLowest,
+          appBar: AppBar(
+            backgroundColor: cs.surfaceContainerLowest,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_rounded, color: cs.onSurface),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: cs.primaryContainer,
+                  child: Icon(Icons.sync_rounded,
+                      color: cs.primary, size: 16),
                 ),
+                const SizedBox(width: 8),
+                Text(
+                  'Status Verifikasi',
+                  style: tt.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.notifications_outlined, color: cs.onSurface),
+                onPressed: () {},
               ),
-
-              const SizedBox(height: 12),
-
-              displayRiwayat.isEmpty
-                  ? _EmptyHistory()
-                  : Column(
-                      children: displayRiwayat
-                          .map((h) => _HistoryCard(history: h))
-                          .toList(),
-                    ),
-
-              const SizedBox(height: 24),
-
-              // ── Apa Selanjutnya ──────────────────────────────────────────
-              _NextStepsCard(),
-
-              const SizedBox(height: 32),
             ],
           ),
-        ),
-      ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Status utama ─────────────────────────────────────────
+                  _MainStatusCard(status: statusSaatIni),
+
+                  const SizedBox(height: 24),
+
+                  // ── Riwayat ──────────────────────────────────────────────
+                  Text(
+                    'RIWAYAT STATUS TERAKHIR',
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.45),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  riwayat.isEmpty
+                      ? _EmptyHistory()
+                      : Column(
+                          children: riwayat
+                              .map((h) => _HistoryCard(history: h))
+                              .toList(),
+                        ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Apa Selanjutnya ───────────────────────────────────────
+                  _NextStepsCard(),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
+
+  String _formatDate(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.day}/${dt.month}/${dt.year} '
+          '${dt.hour.toString().padLeft(2, '0')}:'
+          '${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return iso;
+    }
+  }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Status Card
@@ -452,25 +516,29 @@ class _HistoryCard extends StatelessWidget {
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
+              child: OutlinedButton.icon(
                 onPressed: () {
-                  // TODO: navigate ke CourierUnggahScreen
+                  final ctx = context;
+                  Navigator.of(ctx).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const CourierPendaftaranScreen(),
+                    ),
+                  );
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'UNGGAH ULANG DOKUMEN',
+                icon: Icon(Icons.refresh_rounded, size: 16, color: cs.error),
+                label: Text(
+                  'DAFTAR ULANG',
                   style: tt.labelMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
-                    color: cs.onPrimary,
+                    color: cs.error,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
@@ -520,9 +588,7 @@ class _EmptyHistory extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Next Steps Card
-// ─────────────────────────────────────────────────────────────────────────────
+
 class _NextStepsCard extends StatelessWidget {
   static const List<String> _steps = [
     'Admin memeriksa kelengkapan file pendukung.',
