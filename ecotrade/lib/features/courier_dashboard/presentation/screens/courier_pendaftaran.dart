@@ -24,14 +24,22 @@ class _AreaKerja {
 }
 
 const _areaList = [
-  _AreaKerja(nama: 'Kota Malang',  provinsi: 'Jawa Timur'),
-  _AreaKerja(nama: 'Surabaya',     provinsi: 'Jawa Timur'),
-  _AreaKerja(nama: 'Jember',       provinsi: 'Jawa Timur'),
-  _AreaKerja(nama: 'Area Lainnya', provinsi: 'Kota/Kabupaten lain di Jawa Timur', isOther: true),
+  _AreaKerja(nama: 'Malang',  provinsi: 'Jawa Timur [Provinsi]'),
+  _AreaKerja(nama: 'Surabaya',     provinsi: 'Jawa Timur [Provinsi]'),
+  _AreaKerja(nama: 'Jember',       provinsi: 'Jawa Timur [Provinsi]'),
+  _AreaKerja(nama: 'Area Lainnya', provinsi: 'Pilih kota di Jawa Timur', isOther: true),
 ];
 
-/// 38 kota/kabupaten di Jawa Timur (selain yang sudah ada di pilihan utama)
+// Daftar kota/kabupaten di Jawa Timur
 const _kotaJawaTimur = [
+  'Bangkalan',
+  'Banyuwangi',
+  'Blitar',
+  'Bojonegoro',
+  'Bondowoso',
+  'Gresik',
+  'Jombang',
+  'Kediri',
   'Kota Batu',
   'Kota Blitar',
   'Kota Kediri',
@@ -39,35 +47,25 @@ const _kotaJawaTimur = [
   'Kota Mojokerto',
   'Kota Pasuruan',
   'Kota Probolinggo',
-  'Kab. Bangkalan',
-  'Kab. Banyuwangi',
-  'Kab. Blitar',
-  'Kab. Bojonegoro',
-  'Kab. Bondowoso',
-  'Kab. Gresik',
-  'Kab. Jember',
-  'Kab. Jombang',
-  'Kab. Kediri',
-  'Kab. Lamongan',
-  'Kab. Lumajang',
-  'Kab. Madiun',
-  'Kab. Magetan',
-  'Kab. Malang',
-  'Kab. Mojokerto',
-  'Kab. Nganjuk',
-  'Kab. Ngawi',
-  'Kab. Pacitan',
-  'Kab. Pamekasan',
-  'Kab. Pasuruan',
-  'Kab. Ponorogo',
-  'Kab. Probolinggo',
-  'Kab. Sampang',
-  'Kab. Sidoarjo',
-  'Kab. Situbondo',
-  'Kab. Sumenep',
-  'Kab. Trenggalek',
-  'Kab. Tuban',
-  'Kab. Tulungagung',
+  'Lamongan',
+  'Lumajang',
+  'Madiun',
+  'Magetan',
+  'Mojokerto',
+  'Nganjuk',
+  'Ngawi',
+  'Pacitan',
+  'Pamekasan',
+  'Pasuruan',
+  'Ponorogo',
+  'Probolinggo',
+  'Sampang',
+  'Sidoarjo',
+  'Situbondo',
+  'Sumenep',
+  'Trenggalek',
+  'Tuban',
+  'Tulungagung',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,10 +86,10 @@ class _CourierPendaftaranScreenState
   final _emailCtrl   = TextEditingController();
   final _teleponCtrl = TextEditingController();
 
-  int  _selectedArea  = 0;
-  String? _selectedKota;      // hanya digunakan saat isOther
-  bool _agreedToTerms = false;
-  bool _isSubmitting  = false;
+  int  _selectedArea    = 0;
+  bool _agreedToTerms   = false;
+  bool _isSubmitting    = false;
+  String? _selectedKota; // Kota yang dipilih untuk "Area Lainnya"
 
   @override
   void initState() {
@@ -501,14 +499,25 @@ class _CourierPendaftaranScreenState
                           ...List.generate(_areaList.length, (i) {
                             final area = _areaList[i];
                             final selected = _selectedArea == i;
-                            return _AreaCard(
-                              area: area,
-                              selected: selected,
-                              onTap: () => setState(() {
-                                _selectedArea = i;
-                                // Reset kota saat pindah ke opsi lain
-                                if (!area.isOther) _selectedKota = null;
-                              }),
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _AreaCard(
+                                  area: area,
+                                  selected: selected,
+                                  onTap: () => setState(() {
+                                    _selectedArea = i;
+                                    if (!area.isOther) _selectedKota = null;
+                                  }),
+                                ),
+                                // Dropdown kota Jawa Timur muncul saat "Area Lainnya" dipilih
+                                if (area.isOther && selected)
+                                  _KotaDropdown(
+                                    selectedKota: _selectedKota,
+                                    onChanged: (kota) =>
+                                        setState(() => _selectedKota = kota),
+                                  ),
+                              ],
                             );
                           }),
 
@@ -918,6 +927,77 @@ class _AreaCard extends StatelessWidget {
               Icon(Icons.check_circle_rounded,
                   color: cs.primary, size: 20),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dropdown Kota Jawa Timur (muncul saat "Area Lainnya" dipilih)
+// ─────────────────────────────────────────────────────────────────────────────
+class _KotaDropdown extends StatelessWidget {
+  const _KotaDropdown({
+    required this.selectedKota,
+    required this.onChanged,
+  });
+
+  final String? selectedKota;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.primary.withValues(alpha: 0.35),
+            width: 1.2,
+          ),
+        ),
+        child: DropdownButtonFormField<String>(
+          initialValue: selectedKota,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: cs.primary, size: 22),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.location_city_outlined,
+                size: 20, color: cs.primary.withValues(alpha: 0.7)),
+            hintText: 'Pilih kota / kabupaten',
+            hintStyle: tt.bodyMedium?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+          ),
+          style: tt.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: cs.primary,
+          ),
+          dropdownColor: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          menuMaxHeight: 300,
+          items: _kotaJawaTimur.map((kota) {
+            return DropdownMenuItem<String>(
+              value: kota,
+              child: Text(kota),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          validator: (v) =>
+              v == null ? 'Harap pilih kota / kabupaten' : null,
         ),
       ),
     );
