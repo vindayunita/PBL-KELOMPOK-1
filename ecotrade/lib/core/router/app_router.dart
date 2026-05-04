@@ -8,6 +8,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/buyer_dashboard/presentation/screens/buyer_dashboard_screen.dart';
 import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
+import '../../features/courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -17,6 +18,7 @@ abstract class AppRoutes {
   static const register       = '/register';
   static const buyerDashboard = '/dashboard';
   static const adminDashboard = '/admin';
+  static const courierDashboard = '/courier';
 }
 
 // ── Router provider ───────────────────────────────────────────────────────────
@@ -85,6 +87,17 @@ GoRouter appRouter(Ref ref) {
         name: 'adminDashboard',
         builder: (context, state) => const AdminDashboardScreen(),
       ),
+      GoRoute(
+      path: AppRoutes.courierDashboard,
+      name: 'courierDashboard',
+      builder: (context, state) {
+        // sementara hardcode dulu (nanti ambil dari user)
+        return const CourierDashboardScreen(
+          courierId: 'courier_1',
+          courierName: 'Kurir Test',
+        );
+      },
+    ),
     ],
 
     errorBuilder: (context, state) => Scaffold(

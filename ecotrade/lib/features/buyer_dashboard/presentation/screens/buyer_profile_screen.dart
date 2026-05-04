@@ -8,6 +8,7 @@ import '../../../../features/seller_registration/domain/seller_application_provi
 import '../../../../features/seller_registration/presentation/screens/seller_registration_screen.dart';
 import 'edit_profile_screen.dart';
 import 'manage_address_screen.dart';
+import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile Screen
@@ -602,7 +603,14 @@ class _ExpandImpactBanner extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          _BannerOutlineButton(label: 'REGISTER AS COURIER', onTap: () {}),
+          _BannerOutlineButton(
+            label: 'REGISTER AS COURIER',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CourierPendaftaranScreen(),
+              ),
+            ),
+          ),
 
           const SizedBox(height: 14),
 
