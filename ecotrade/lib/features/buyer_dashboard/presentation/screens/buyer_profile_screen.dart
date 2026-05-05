@@ -9,6 +9,7 @@ import '../../../../features/seller_registration/domain/seller_application_provi
 import '../../../../features/seller_registration/presentation/screens/seller_registration_screen.dart';
 import '../../../courier_dashboard/domain/courier_application_providers.dart';
 import '../../../courier_dashboard/domain/models/courier_application_model.dart';
+import '../../../courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
 import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
 import '../../../courier_dashboard/presentation/screens/courier_status_verif.dart';
 import 'edit_profile_screen.dart';
@@ -533,12 +534,17 @@ class _ExpandImpactBanner extends ConsumerWidget {
   final AsyncValue<SellerApplicationModel?> appAsync;
   final AsyncValue<CourierApplicationModel?> courierAppAsync;
 
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final app = appAsync.value;
     final courierApp = courierAppAsync.value;
     final isSeller  = app?.isApproved == true;
     final isCourier = courierApp?.isApproved == true;
+
+    // Ambil data user untuk navigasi ke CourierDashboard
+    final userAsync = ref.watch(currentUserDocProvider);
+    final user = userAsync.value;
 
     return Container(
       width: double.infinity,
@@ -659,11 +665,14 @@ class _ExpandImpactBanner extends ConsumerWidget {
 
           // ── COURIER BUTTON — berubah sesuai status ──
           if (isCourier)
-            // Approved → Pindah ke Dashboard Kurir
+            // Approved → Pindah langsung ke Dashboard Kurir
             _CourierDoneButton(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const CourierStatusVerifScreen(),
+                  builder: (_) => CourierDashboardScreen(
+                    courierId:   user?.uid  ?? '',
+                    courierName: user?.name ?? 'Kurir',
+                  ),
                 ),
               ),
             )

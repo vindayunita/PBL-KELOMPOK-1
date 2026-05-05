@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../auth/data/auth_repository.dart';
 import '../../../auth/domain/auth_providers.dart';
-import '../../../auth/presentation/screens/login_screen.dart';
 import 'courier_status_verif.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,19 +92,6 @@ class CourierProfilScreen extends ConsumerWidget {
 
                   const SizedBox(height: 14),
 
-                  // ── Status Verifikasi Akun ────────────────────────────────
-                  _VerifStatusCard(
-                    // Ganti dengan nilai dari Firestore nantinya
-                    status: VerifStatus.proses,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CourierStatusVerifScreen(),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
                   // ── Tugas Selesai Card ────────────────────────────────────
                   _TasksDoneCard(count: 0),
 
@@ -161,17 +147,6 @@ class CourierProfilScreen extends ConsumerWidget {
                   _SettingsCard(
                     children: [
                       _SettingsTile(
-                        icon: Icons.verified_user_outlined,
-                        iconColor: const Color(0xFF10B981),
-                        title: 'Status Verifikasi Akun',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CourierStatusVerifScreen(),
-                          ),
-                        ),
-                      ),
-                      _SettingsDivider(),
-                      _SettingsTile(
                         icon: Icons.security_outlined,
                         iconColor: cs.primary,
                         title: 'Keamanan Akun',
@@ -196,19 +171,20 @@ class CourierProfilScreen extends ConsumerWidget {
 
                   const SizedBox(height: 16),
 
-                  // ── Logout ────────────────────────────────────────────────
-                  _LogoutButton(
-                    onTap: () async {
-                      await ref.read(authRepositoryProvider).signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    },
+                  // ── Cek Status Verifikasi ─────────────────────────────────
+                  _CekStatusButton(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CourierStatusVerifScreen(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── Kembali ke Akun Buyer ─────────────────────────────────
+                  _KembaliButton(
+                    onTap: () => context.go('/dashboard'),
                   ),
 
                   const SizedBox(height: 32),
@@ -217,139 +193,6 @@ class CourierProfilScreen extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Verification Status Card
-// ─────────────────────────────────────────────────────────────────────────────
-class _VerifStatusCard extends StatelessWidget {
-  const _VerifStatusCard({
-    required this.status,
-    required this.onTap,
-  });
-  final VerifStatus status;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    // Determine colours / icons / labels per status
-    final Color accent;
-    final Color accentBg;
-    final IconData statusIcon;
-    final String statusLabel;
-    final String statusDesc;
-
-    switch (status) {
-      case VerifStatus.proses:
-        accent = const Color(0xFFF59E0B);
-        accentBg = const Color(0xFFFEF3C7);
-        statusIcon = Icons.hourglass_top_rounded;
-        statusLabel = 'Menunggu Verifikasi';
-        statusDesc = 'Dokumen sedang ditinjau oleh admin.';
-      case VerifStatus.ditolak:
-        accent = cs.error;
-        accentBg = cs.errorContainer.withValues(alpha: 0.45);
-        statusIcon = Icons.cancel_rounded;
-        statusLabel = 'Verifikasi Ditolak';
-        statusDesc = 'Unggah ulang dokumen yang lebih jelas.';
-      case VerifStatus.disetujui:
-        accent = const Color(0xFF10B981);
-        accentBg = const Color(0xFFD1FAE5);
-        statusIcon = Icons.verified_rounded;
-        statusLabel = 'Akun Terverifikasi';
-        statusDesc = 'Anda resmi menjadi mitra kurir EcoTrade.';
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: accentBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.35),
-          ),
-        ),
-        child: Row(
-          children: [
-            // Status icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(statusIcon, color: accent, size: 22),
-            ),
-
-            const SizedBox(width: 14),
-
-            // Text section
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Status Verifikasi',
-                        style: tt.labelSmall?.copyWith(
-                          color: accent.withValues(alpha: 0.75),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: accent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          statusLabel.toUpperCase(),
-                          style: tt.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 8,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    statusDesc,
-                    style: tt.bodySmall?.copyWith(
-                      color: accent.withValues(alpha: 0.85),
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 8),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 13,
-              color: accent.withValues(alpha: 0.6),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -804,55 +647,65 @@ class _SettingsDivider extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Logout Button
 // ─────────────────────────────────────────────────────────────────────────────
-class _LogoutButton extends StatelessWidget {
-  const _LogoutButton({required this.onTap});
+// ─────────────────────────────────────────────────────────────────────────────
+// Cek Status Verifikasi Button
+// ─────────────────────────────────────────────────────────────────────────────
+class _CekStatusButton extends StatelessWidget {
+  const _CekStatusButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: cs.errorContainer.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: cs.error.withValues(alpha: 0.15),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.verified_user_outlined, size: 20),
+        label: const Text(
+          'Cek Status Verifikasi',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: cs.errorContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child:
-                  Icon(Icons.logout_rounded, color: cs.error, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Text(
-              'Keluar',
-              style: tt.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: cs.error,
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: cs.error,
-            ),
-          ],
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF10B981),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Kembali ke Akun Buyer Button (sama persis dengan seller)
+// ─────────────────────────────────────────────────────────────────────────────
+class _KembaliButton extends StatelessWidget {
+  const _KembaliButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.person_outline,
+            size: 20, color: Color(0xFF3B6934)),
+        label: const Text(
+          'Kembali ke Akun Buyer',
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF3B6934)),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFF3B6934), width: 1.2),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          backgroundColor: Colors.white,
         ),
       ),
     );
