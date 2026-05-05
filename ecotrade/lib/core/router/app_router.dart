@@ -10,6 +10,7 @@ import '../../features/buyer_dashboard/presentation/screens/buyer_dashboard_scre
 import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
 import '../../features/seller_dashboard/presentation/screens/seller_shell.dart';
+import '../../features/user/domain/user_providers.dart';
 
 part 'app_router.g.dart';
 
@@ -93,10 +94,12 @@ GoRouter appRouter(Ref ref) {
         path: AppRoutes.courierDashboard,
         name: 'courierDashboard',
         builder: (context, state) {
-          // sementara hardcode dulu (nanti ambil dari user)
-          return const CourierDashboardScreen(
-            courierId: 'courier_1',
-            courierName: 'Kurir Test',
+          // Ambil data user dari Riverpod — pakai ProviderScope.containerOf
+          final container = ProviderScope.containerOf(context, listen: false);
+          final user = container.read(currentUserProvider);
+          return CourierDashboardScreen(
+            courierId:   user?.uid  ?? '',
+            courierName: user?.displayName ?? user?.email ?? 'Kurir',
           );
         },
       ),

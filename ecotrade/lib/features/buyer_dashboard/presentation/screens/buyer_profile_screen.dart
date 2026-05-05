@@ -9,7 +9,6 @@ import '../../../../features/seller_registration/domain/seller_application_provi
 import '../../../../features/seller_registration/presentation/screens/seller_registration_screen.dart';
 import '../../../courier_dashboard/domain/courier_application_providers.dart';
 import '../../../courier_dashboard/domain/models/courier_application_model.dart';
-import '../../../courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
 import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
 import '../../../courier_dashboard/presentation/screens/courier_status_verif.dart';
 import 'edit_profile_screen.dart';
@@ -665,16 +664,9 @@ class _ExpandImpactBanner extends ConsumerWidget {
 
           // ── COURIER BUTTON — berubah sesuai status ──
           if (isCourier)
-            // Approved → Pindah langsung ke Dashboard Kurir
+            // Approved → Pindah langsung ke Dashboard Kurir via GoRouter
             _CourierDoneButton(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => CourierDashboardScreen(
-                    courierId:   user?.uid  ?? '',
-                    courierName: user?.name ?? 'Kurir',
-                  ),
-                ),
-              ),
+              onTap: () => context.push('/courier'),
             )
           else if (courierApp?.isPending == true)
             // Pending → tombol disabled
