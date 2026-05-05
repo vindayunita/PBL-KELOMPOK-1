@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
@@ -582,14 +583,7 @@ class _ExpandImpactBanner extends ConsumerWidget {
           if (isSeller)
             // Approved → Pindah ke Dashboard Seller
             _SellerDoneButton(
-              onTap: () {
-                // TODO: switch activeRole to 'seller' lalu navigate
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Fitur switch dashboard dalam pengembangan'),
-                  ),
-                );
-              },
+              onTap: () => context.push('/seller'),
             )
           else if (app?.isPending == true)
             // Pending → tombol disabled

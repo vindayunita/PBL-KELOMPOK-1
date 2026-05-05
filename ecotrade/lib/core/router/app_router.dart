@@ -9,16 +9,18 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/buyer_dashboard/presentation/screens/buyer_dashboard_screen.dart';
 import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
+import '../../features/seller_dashboard/presentation/screens/seller_shell.dart';
 
 part 'app_router.g.dart';
 
 // ── Route name constants ──────────────────────────────────────────────────────
 abstract class AppRoutes {
-  static const login          = '/login';
-  static const register       = '/register';
-  static const buyerDashboard = '/dashboard';
-  static const adminDashboard = '/admin';
+  static const login            = '/login';
+  static const register         = '/register';
+  static const buyerDashboard   = '/dashboard';
+  static const adminDashboard   = '/admin';
   static const courierDashboard = '/courier';
+  static const sellerDashboard  = '/seller';
 }
 
 // ── Router provider ───────────────────────────────────────────────────────────
@@ -88,16 +90,21 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const AdminDashboardScreen(),
       ),
       GoRoute(
-      path: AppRoutes.courierDashboard,
-      name: 'courierDashboard',
-      builder: (context, state) {
-        // sementara hardcode dulu (nanti ambil dari user)
-        return const CourierDashboardScreen(
-          courierId: 'courier_1',
-          courierName: 'Kurir Test',
-        );
-      },
-    ),
+        path: AppRoutes.courierDashboard,
+        name: 'courierDashboard',
+        builder: (context, state) {
+          // sementara hardcode dulu (nanti ambil dari user)
+          return const CourierDashboardScreen(
+            courierId: 'courier_1',
+            courierName: 'Kurir Test',
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.sellerDashboard,
+        name: 'sellerDashboard',
+        builder: (context, state) => const SellerShell(),
+      ),
     ],
 
     errorBuilder: (context, state) => Scaffold(
