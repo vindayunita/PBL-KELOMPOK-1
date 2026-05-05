@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'seller_unggah_komoditi_screen.dart';
 
 class SellerProfilScreen extends StatefulWidget {
@@ -300,7 +301,11 @@ class _SellerProfilScreenState extends State<SellerProfilScreen> {
       width: double.infinity,
       height: 50,
       child: OutlinedButton.icon(
-        onPressed: () {},
+        onPressed: () {
+          // Kembali ke buyer dashboard
+          // Gunakan go() agar GoRouter me-replace stack ke /dashboard
+          context.go('/dashboard');
+        },
         icon: const Icon(Icons.person_outline, size: 20, color: Color(0xFF3B6934)),
         label: const Text(
           'Kembali ke Akun Buyer',

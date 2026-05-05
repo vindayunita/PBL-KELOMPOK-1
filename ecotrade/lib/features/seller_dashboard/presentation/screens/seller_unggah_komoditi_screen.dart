@@ -1,17 +1,20 @@
 import 'dart:ui' show PathMetrics;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SellerUnggahKomoditiScreen extends StatefulWidget {
+import '../../data/product_repository.dart';
+
+class SellerUnggahKomoditiScreen extends ConsumerStatefulWidget {
   const SellerUnggahKomoditiScreen({super.key});
 
   @override
-  State<SellerUnggahKomoditiScreen> createState() =>
+  ConsumerState<SellerUnggahKomoditiScreen> createState() =>
       _SellerUnggahKomoditiScreenState();
 }
 
 class _SellerUnggahKomoditiScreenState
-    extends State<SellerUnggahKomoditiScreen> {
+    extends ConsumerState<SellerUnggahKomoditiScreen> {
   static const Color primaryBlue   = Color(0xFF005DA7);
   static const Color greyText      = Color(0xFF888888);
   static const Color appBackground = Color(0xFFF5F5F5);
@@ -24,6 +27,7 @@ class _SellerUnggahKomoditiScreenState
 
   String? _jenisSelected;
   bool    _dropdownOpen = false;
+  bool    _isLoading    = false;
 
   static const List<String> _jenisOptions = [
     'Serat Alami',
@@ -42,28 +46,51 @@ class _SellerUnggahKomoditiScreenState
     super.dispose();
   }
 
-  void _onUnggah() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Simulasi Unggah',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text(
-            'Komoditi berhasil diunggah (simulasi — belum terhubung ke backend).'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Kembali ke Produk',
-                style: TextStyle(
-                    color: primaryBlue, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _onUnggah() async {
+    // Validasi minimal
+    if (_namaCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama komoditi wajib diisi')),
+      );
+      return;
+    }
+    if (_jenisSelected == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih jenis komoditi terlebih dahulu')),
+      );
+      return;
+    }
+    final harga = double.tryParse(_hargaCtrl.text.trim()) ?? 0.0;
+    final stok  = int.tryParse(_stokCtrl.text.trim()) ?? 0;
+
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(productRepositoryProvider).addProduct(
+        title:         _namaCtrl.text.trim(),
+        description:   _descCtrl.text.trim(),
+        commodityType: _jenisSelected!,
+        price:         harga,
+        stock:         stok,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Komoditi berhasil ditambahkan!'),
+          backgroundColor: Color(0xFF3B6934),
+        ),
+      );
+      Navigator.of(context).pop(); // kembali ke seller_produk_screen
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengunggah komoditi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -149,18 +176,26 @@ class _SellerUnggahKomoditiScreenState
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: _onUnggah,
+                onPressed: _isLoading ? null : _onUnggah,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: primaryBlue.withValues(alpha: 0.6),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text(
-                  'Unggah Komoditi Baru',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22, height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5, color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Unggah Komoditi Baru',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
               ),
             ),
             const SizedBox(height: 24),
