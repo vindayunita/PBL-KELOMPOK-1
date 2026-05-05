@@ -521,16 +521,6 @@ class _CourierPendaftaranScreenState
                             );
                           }),
 
-                          // Dropdown kota Jawa Timur — tampil saat Area Lainnya dipilih
-                          if (_areaList[_selectedArea].isOther) ...[
-                            const SizedBox(height: 4),
-                            _KotaDropdown(
-                              value: _selectedKota,
-                              onChanged: (kota) =>
-                                  setState(() => _selectedKota = kota),
-                            ),
-                          ],
-
                           const SizedBox(height: 20),
 
                           // Terms
@@ -761,102 +751,6 @@ class _InputField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Kota Dropdown — pilihan kota/kab Jawa Timur saat "Area Lainnya" dipilih
-// ─────────────────────────────────────────────────────────────────────────────
-class _KotaDropdown extends StatelessWidget {
-  const _KotaDropdown({required this.value, required this.onChanged});
-  final String? value;
-  final void Function(String?) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: value != null
-            ? cs.primary.withValues(alpha: 0.06)
-            : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value != null
-              ? cs.primary
-              : cs.outlineVariant.withValues(alpha: 0.5),
-          width: value != null ? 2 : 1.2,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded,
-                    size: 20,
-                    color: cs.onSurface.withValues(alpha: 0.4)),
-                const SizedBox(width: 10),
-                Text(
-                  'Cari kota/kabupaten di Jawa Timur...',
-                  style: tt.bodyMedium?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.35),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          selectedItemBuilder: (context) => _kotaJawaTimur.map((kota) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(Icons.location_on_rounded,
-                      size: 20, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      kota,
-                      style: tt.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: cs.primary,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.check_circle_rounded,
-                      size: 18, color: cs.primary),
-                ],
-              ),
-            );
-          }).toList(),
-          items: _kotaJawaTimur.map((kota) {
-            return DropdownMenuItem<String>(
-              value: kota,
-              child: Text(
-                kota,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurface),
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          dropdownColor: cs.surface,
-          borderRadius: BorderRadius.circular(12),
-          menuMaxHeight: 300,
-          icon: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(Icons.keyboard_arrow_down_rounded,
-                color: cs.onSurface.withValues(alpha: 0.5)),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _AreaCard extends StatelessWidget {
   const _AreaCard({
