@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/product_repository.dart';
 import '../../domain/product_model.dart';
+import 'seller_edit_komoditi_screen.dart';
 import 'seller_unggah_komoditi_screen.dart';
 
 class SellerProdukScreen extends ConsumerWidget {
@@ -19,8 +20,6 @@ class SellerProdukScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: appBackground,
-
-      // ── APP BAR ──
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -40,8 +39,6 @@ class SellerProdukScreen extends ConsumerWidget {
           ),
         ],
       ),
-
-      // ── BODY ──
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,7 +89,7 @@ class SellerProdukScreen extends ConsumerWidget {
             ),
           ),
 
-          // ── Daftar Produk atau State ──
+          // ── Daftar Produk dari Firebase ──
           Expanded(
             child: productsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -115,6 +112,7 @@ class SellerProdukScreen extends ConsumerWidget {
               ),
               data: (products) {
                 if (products.isEmpty) return _buildEmptyState();
+                // Sudah diurutkan terbaru di atas oleh repository
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: products.length,
@@ -208,7 +206,6 @@ class _ProductCard extends StatelessWidget {
           children: [
             // ── Header: image / icon + edit button
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Thumbnail or commodity icon
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: product.imageUrl.isNotEmpty
@@ -221,7 +218,17 @@ class _ProductCard extends StatelessWidget {
                     : _CommodityIcon(type: product.commodityType),
               ),
               const Spacer(),
-              const Icon(Icons.edit_outlined, size: 18, color: greyText),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SellerEditKomoditiScreen(product: product),
+                  ),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.edit_outlined, size: 20, color: greyText),
+                ),
+              ),
             ]),
 
             const SizedBox(height: 12),
@@ -326,7 +333,7 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-// ── Commodity Icon (fallback when no image) ──────────────────────────────────
+// ── Commodity Icon ────────────────────────────────────────────────────────────
 class _CommodityIcon extends StatelessWidget {
   const _CommodityIcon({required this.type});
   final String type;

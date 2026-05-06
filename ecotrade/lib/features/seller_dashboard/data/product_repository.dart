@@ -14,13 +14,15 @@ ProductRepository productRepository(Ref ref) {
   );
 }
 
-/// Stream produk milik seller yang sedang login
+/// Stream produk milik seller yang sedang login — reaktif terhadap auth state
 @riverpod
 Stream<List<ProductModel>> myProducts(Ref ref) {
   final repo = ref.watch(productRepositoryProvider);
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return const Stream.empty();
-  return repo.watchMyProducts(uid);
+  // Gunakan authStateChanges agar stream ikut hidup saat Firebase Auth siap
+  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
+    if (user == null) return const Stream.empty();
+    return repo.watchMyProducts(user.uid);
+  });
 }
 
 class ProductRepository {
