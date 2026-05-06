@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../data/product_repository.dart';
 import 'seller_unggah_komoditi_screen.dart';
 
-class SellerProfilScreen extends StatefulWidget {
+class SellerProfilScreen extends ConsumerStatefulWidget {
   const SellerProfilScreen({super.key});
 
   @override
-  State<SellerProfilScreen> createState() => _SellerProfilScreenState();
+  ConsumerState<SellerProfilScreen> createState() => _SellerProfilScreenState();
 }
 
-class _SellerProfilScreenState extends State<SellerProfilScreen> {
+class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
   static const Color primaryBlue   = Color(0xFF005DA7);
   static const Color primaryGreen  = Color(0xFFB9EEAB);
   static const Color darkGreen     = Color(0xFF3B6934);
@@ -18,7 +21,6 @@ class _SellerProfilScreenState extends State<SellerProfilScreen> {
 
   // Data diisi dari backend — kosong = tampil empty state
   final List<Map<String, dynamic>> _activities = [];
-  int    _totalProduk     = 0;
   String _totalPendapatan = 'Rp 0';
   bool   _hasPendapatan   = false;
 
@@ -82,8 +84,13 @@ class _SellerProfilScreenState extends State<SellerProfilScreen> {
     );
   }
 
-  // ── Card Total Produk ───────────────────────────────────────────────────────
+  // ── Card Total Produk ──────────────────────────────────────────────────────
   Widget _buildTotalProdukCard() {
+    final totalProduk = ref.watch(myProductsProvider).when(
+      data:    (list) => list.length,
+      loading: () => 0,
+      error:   (_, __) => 0,
+    );
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -103,7 +110,7 @@ class _SellerProfilScreenState extends State<SellerProfilScreen> {
                     style: TextStyle(fontSize: 12, color: Color(0xFF414751))),
                 const SizedBox(height: 8),
                 Text(
-                  '$_totalProduk',
+                  '$totalProduk',
                   style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
               ],
