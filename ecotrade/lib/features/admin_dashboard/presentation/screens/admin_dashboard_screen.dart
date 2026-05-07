@@ -130,14 +130,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           actionLabel: 'Verify Now',
                         ),
                         _AdminStatCard(
-                          label: 'New Products',
-                          value: '0',
-                          icon: Icons.inventory_2_outlined,
-                          color: colorScheme.secondary,
-                          onTap: () {},
-                          actionLabel: 'Review Queue',
-                        ),
-                        _AdminStatCard(
                           label: 'Total Pending',
                           value: 'Rp 0',
                           icon: Icons.payments_outlined,

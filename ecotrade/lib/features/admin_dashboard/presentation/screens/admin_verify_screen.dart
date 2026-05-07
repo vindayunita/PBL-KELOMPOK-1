@@ -18,23 +18,29 @@ class AdminVerifyScreen extends ConsumerStatefulWidget {
 
 class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedTab  = 0;
-  int _sellerFilter = 0; // 0=Pending, 1=Approved, 2=Rejected
+  int _selectedTab   = 0;
+  int _sellerFilter  = 0; // 0=Pending, 1=Approved, 2=Rejected
   int _courierFilter = 0; // 0=Pending, 1=Approved, 2=Rejected
+  int _paymentFilter = 0; // 0=Pending, 1=Processed, 2=Failed
+  int _refundFilter  = 0; // 0=Pending, 1=Approved, 2=Rejected
 
   final List<String> _tabs = [
-    'Product', 'Courier', 'Payment', 'Refund', 'Seller',
+    'Courier', 'Payment', 'Refund', 'Seller',
   ];
   final List<String> _sellerFilterLabels  = ['Pending', 'Approved', 'Rejected'];
   final List<String> _courierFilterLabels = ['Pending', 'Approved', 'Rejected'];
+  final List<String> _paymentFilterLabels = ['Pending', 'Processed', 'Failed'];
+  final List<String> _refundFilterLabels  = ['Pending', 'Approved', 'Rejected'];
   static const _statusKeys = ['pending', 'approved', 'rejected'];
 
   @override
   Widget build(BuildContext context) {
     final cs        = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final isSellerTab  = _selectedTab == 4;
-    final isCourierTab = _selectedTab == 1;
+    final isSellerTab  = _selectedTab == 3;
+    final isCourierTab = _selectedTab == 0;
+    final isPaymentTab = _selectedTab == 1;
+    final isRefundTab  = _selectedTab == 2;
 
     // ── Seller stream ──
     final sellerAsync = ref.watch(allSellerApplicationsProvider(null));
@@ -110,10 +116,10 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                     child: Row(
                       children: List.generate(_tabs.length, (i) {
                         final sel = _selectedTab == i;
-                        // Badge pada tab Seller (index 4) dan Courier (index 1) jika ada pending
-                        final isPendingBadge = (i == 4 && sellerCounts[0] > 0) ||
-                                              (i == 1 && courierCounts[0] > 0);
-                        final badgeCount = i == 4 ? sellerCounts[0] : courierCounts[0];
+                        // Badge pada tab Seller (index 3) dan Courier (index 0) jika ada pending
+                        final isPendingBadge = (i == 3 && sellerCounts[0] > 0) ||
+                                              (i == 0 && courierCounts[0] > 0);
+                        final badgeCount = i == 3 ? sellerCounts[0] : courierCounts[0];
                         return GestureDetector(
                           onTap: () => setState(() => _selectedTab = i),
                           child: AnimatedContainer(
@@ -169,7 +175,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                         ? 'SELLER MANAGEMENT'
                         : isCourierTab
                             ? 'COURIER MANAGEMENT'
-                            : 'MARKET INTEGRITY',
+                            : isPaymentTab
+                                ? 'PAYMENT MANAGEMENT'
+                                : isRefundTab
+                                    ? 'REFUND MANAGEMENT'
+                                    : 'VERIFICATION',
                     style: textTheme.labelSmall?.copyWith(
                         color: cs.primary, fontWeight: FontWeight.w800,
                         letterSpacing: 1.2),
@@ -180,7 +190,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                         ? 'Seller Account Verification'
                         : isCourierTab
                             ? 'Courier Account Verification'
-                            : 'Pending Approvals',
+                            : isPaymentTab
+                                ? 'Payment Verification'
+                                : isRefundTab
+                                    ? 'Refund Claims'
+                                    : 'Pending Approvals',
                     style: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800, color: cs.onSurface),
                   ),
@@ -190,7 +204,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                         ? 'Review and verify new seller account registrations before they go live.'
                         : isCourierTab
                             ? 'Review and verify new courier account registrations before they go live.'
-                            : 'Review incoming material batches for sustainability compliance.',
+                            : isPaymentTab
+                                ? 'Review and process incoming payment transactions.'
+                                : isRefundTab
+                                    ? 'Review and manage refund requests from buyers.'
+                                    : 'Review and manage pending verifications.',
                     style: textTheme.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.55), height: 1.5),
                   ),
@@ -202,6 +220,14 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                   if (isCourierTab) ...[
                     const SizedBox(height: 20),
                     _buildCourierFilterBar(cs, textTheme, courierCounts),
+                  ],
+                  if (isPaymentTab) ...[
+                    const SizedBox(height: 20),
+                    _buildPaymentFilterBar(cs, textTheme),
+                  ],
+                  if (isRefundTab) ...[
+                    const SizedBox(height: 20),
+                    _buildRefundFilterBar(cs, textTheme),
                   ],
 
                   const SizedBox(height: 28),
@@ -217,7 +243,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                 ? _buildSellerContent(context, isSellerLoading, filteredSellerApps)
                 : isCourierTab
                     ? _buildCourierContent(context, isCourierLoading, filteredCourierApps)
-                    : SliverToBoxAdapter(child: _buildEmptyState(context)),
+                    : isPaymentTab
+                        ? _buildPaymentContent(context)
+                        : isRefundTab
+                            ? _buildRefundContent(context)
+                            : SliverToBoxAdapter(child: _buildEmptyState(context)),
           ),
         ],
       ),
@@ -536,10 +566,187 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
     }
   }
 
+  // ── PAYMENT methods ──────────────────────────────────────────────────────
+
+  Widget _buildPaymentFilterBar(ColorScheme cs, TextTheme tt) {
+    final filterColors = [cs.primary, const Color(0xFF2E7D32), cs.error];
+    final counts = [0, 0, 0]; // placeholder until data model exists
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: List.generate(_paymentFilterLabels.length, (i) {
+          final sel = _paymentFilter == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentFilter = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: sel ? filterColors[i] : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                  boxShadow: sel
+                      ? [BoxShadow(
+                          color: filterColors[i].withValues(alpha: 0.25),
+                          blurRadius: 8, offset: const Offset(0, 2))]
+                      : [],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${counts[i]}',
+                        style: tt.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: sel ? Colors.white : cs.onSurface.withValues(alpha: 0.6),
+                        )),
+                    const SizedBox(height: 2),
+                    Text(_paymentFilterLabels[i],
+                        style: tt.labelSmall?.copyWith(
+                          color: sel
+                              ? Colors.white.withValues(alpha: 0.85)
+                              : cs.onSurface.withValues(alpha: 0.5),
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildPaymentContent(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: _buildGenericEmptyState(
+        context,
+        icon: Icons.payments_outlined,
+        iconColor: Theme.of(context).colorScheme.tertiary,
+        title: 'Tidak ada Payment ${_paymentFilterLabels[_paymentFilter]}',
+        subtitle: 'Transaksi payment dengan status "${_paymentFilterLabels[_paymentFilter]}"\nakan muncul di sini.',
+      ),
+    );
+  }
+
+  // ── REFUND methods ───────────────────────────────────────────────────────
+
+  Widget _buildRefundFilterBar(ColorScheme cs, TextTheme tt) {
+    final filterColors = [cs.primary, const Color(0xFF2E7D32), cs.error];
+    final counts = [0, 0, 0]; // placeholder until data model exists
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: List.generate(_refundFilterLabels.length, (i) {
+          final sel = _refundFilter == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _refundFilter = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: sel ? filterColors[i] : Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                  boxShadow: sel
+                      ? [BoxShadow(
+                          color: filterColors[i].withValues(alpha: 0.25),
+                          blurRadius: 8, offset: const Offset(0, 2))]
+                      : [],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${counts[i]}',
+                        style: tt.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: sel ? Colors.white : cs.onSurface.withValues(alpha: 0.6),
+                        )),
+                    const SizedBox(height: 2),
+                    Text(_refundFilterLabels[i],
+                        style: tt.labelSmall?.copyWith(
+                          color: sel
+                              ? Colors.white.withValues(alpha: 0.85)
+                              : cs.onSurface.withValues(alpha: 0.5),
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildRefundContent(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: _buildGenericEmptyState(
+        context,
+        icon: Icons.assignment_return_outlined,
+        iconColor: Theme.of(context).colorScheme.error,
+        title: 'Tidak ada Refund ${_refundFilterLabels[_refundFilter]}',
+        subtitle: 'Klaim refund dengan status "${_refundFilterLabels[_refundFilter]}"\nakan muncul di sini.',
+      ),
+    );
+  }
+
+  // ── GENERIC EMPTY STATE ──────────────────────────────────────────────────
+
+  Widget _buildGenericEmptyState(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 36, color: iconColor.withValues(alpha: 0.7)),
+          ),
+          const SizedBox(height: 20),
+          Text(title,
+              style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800, color: cs.onSurface)),
+          const SizedBox(height: 8),
+          Text(subtitle,
+              textAlign: TextAlign.center,
+              style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.5), height: 1.6)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final tabLabel = _selectedTab == 4
+    final tabLabel = _selectedTab == 3
         ? _sellerFilterLabels[_sellerFilter]
         : _tabs[_selectedTab];
     return Container(
@@ -559,19 +766,19 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _selectedTab == 4
+              _selectedTab == 3
                   ? Icons.person_add_outlined
                   : Icons.inbox_outlined,
               size: 36, color: cs.primary.withValues(alpha: 0.65)),
           ),
           const SizedBox(height: 20),
           Text(
-            'Tidak ada ${_selectedTab == 4 ? "Seller" : "Data"} $tabLabel',
+            'Tidak ada ${_selectedTab == 3 ? "Seller" : "Data"} $tabLabel',
             style: tt.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800, color: cs.onSurface)),
           const SizedBox(height: 8),
           Text(
-            _selectedTab == 4
+            _selectedTab == 3
                 ? 'Pendaftaran seller baru dengan status "$tabLabel"\nakan muncul di sini.'
                 : 'Semua data sudah diproses.',
             textAlign: TextAlign.center,
