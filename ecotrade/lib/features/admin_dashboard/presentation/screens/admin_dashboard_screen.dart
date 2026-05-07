@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
+import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
+import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import 'admin_alerts_screen.dart';
+import 'admin_payout_screen.dart';
 import 'admin_profile_screen.dart';
 import 'admin_verify_screen.dart';
 
@@ -17,12 +21,38 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   int _selectedIndex = 0;
 
+  // Notifiers let Alerts screen jump to a specific tab in Verify/Payout.
+  final _verifyTabNotifier = ValueNotifier<int>(0);
+  final _payoutTabNotifier = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _verifyTabNotifier.dispose();
+    _payoutTabNotifier.dispose();
+    super.dispose();
+  }
+
+  void _navigateFromAlert(int screenIndex, int tabIndex) {
+    if (screenIndex == 1) _verifyTabNotifier.value = tabIndex;
+    if (screenIndex == 2) _payoutTabNotifier.value = tabIndex;
+    setState(() => _selectedIndex = screenIndex);
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final displayName = user?.displayName ?? user?.email ?? 'Admin';
+
+    // ── Pending counts for red-dot badge ──
+    final sellerAsync  = ref.watch(allSellerApplicationsProvider(null));
+    final courierAsync = ref.watch(allCourierApplicationsProvider(null));
+    final pendingSellers  =
+        sellerAsync.value?.where((a) => a.isPending).length ?? 0;
+    final pendingCouriers =
+        courierAsync.value?.where((a) => a.isPending).length ?? 0;
+    final totalPending = pendingSellers + pendingCouriers;
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
@@ -183,11 +213,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         ),
       ),
           // Index 1 — Verify
-          const AdminVerifyScreen(),
-          // Index 2 — Payout (placeholder)
-          const Center(child: Text('Payout')),
-          // Index 3 — Alerts (placeholder)
-          const Center(child: Text('Alerts')),
+          AdminVerifyScreen(tabNotifier: _verifyTabNotifier),
+          // Index 2 — Payout
+          AdminPayoutScreen(tabNotifier: _payoutTabNotifier),
+          // Index 3 — Alerts
+          AdminAlertsScreen(onNavigateTo: _navigateFromAlert),
           // Index 4 — Profile
           const AdminProfileScreen(),
         ],
@@ -199,28 +229,38 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         indicatorColor: colorScheme.primaryContainer,
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
             label: 'Home',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.fact_check_outlined),
             selectedIcon: Icon(Icons.fact_check_rounded),
             label: 'Verify',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.payments_outlined),
             selectedIcon: Icon(Icons.payments_rounded),
             label: 'Payout',
           ),
           NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications_rounded),
+            icon: Badge(
+              isLabelVisible: totalPending > 0,
+              backgroundColor: colorScheme.error,
+              smallSize: 8,
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: totalPending > 0,
+              backgroundColor: colorScheme.error,
+              smallSize: 8,
+              child: const Icon(Icons.notifications_rounded),
+            ),
             label: 'Alerts',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
             selectedIcon: Icon(Icons.person_rounded),
             label: 'Profile',

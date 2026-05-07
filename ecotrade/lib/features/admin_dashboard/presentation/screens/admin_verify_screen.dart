@@ -10,7 +10,10 @@ import '../../../../features/seller_registration/domain/seller_application_provi
 
 // ── Main Widget (now ConsumerStatefulWidget) ─────────────────────────────────
 class AdminVerifyScreen extends ConsumerStatefulWidget {
-  const AdminVerifyScreen({super.key});
+  const AdminVerifyScreen({super.key, this.tabNotifier});
+
+  /// Optional notifier — set its value to jump to a specific tab from outside.
+  final ValueNotifier<int>? tabNotifier;
 
   @override
   ConsumerState<AdminVerifyScreen> createState() => _AdminVerifyScreenState();
@@ -32,6 +35,22 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   final List<String> _paymentFilterLabels = ['Pending', 'Processed', 'Failed'];
   final List<String> _refundFilterLabels  = ['Pending', 'Approved', 'Rejected'];
   static const _statusKeys = ['pending', 'approved', 'rejected'];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.tabNotifier?.addListener(_onExternalTabChange);
+  }
+
+  void _onExternalTabChange() {
+    if (mounted) setState(() => _selectedTab = widget.tabNotifier!.value);
+  }
+
+  @override
+  void dispose() {
+    widget.tabNotifier?.removeListener(_onExternalTabChange);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
