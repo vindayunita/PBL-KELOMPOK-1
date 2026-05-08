@@ -56,12 +56,12 @@ final class ProductRepositoryProvider
 
 String _$productRepositoryHash() => r'2c77d8a753d65f446b05004f8c4e2ae5eec01d35';
 
-/// Stream produk milik seller yang sedang login
+/// Stream produk milik seller yang sedang login — reaktif terhadap auth state
 
 @ProviderFor(myProducts)
 const myProductsProvider = MyProductsProvider._();
 
-/// Stream produk milik seller yang sedang login
+/// Stream produk milik seller yang sedang login — reaktif terhadap auth state
 
 final class MyProductsProvider
     extends
@@ -73,7 +73,7 @@ final class MyProductsProvider
     with
         $FutureModifier<List<ProductModel>>,
         $StreamProvider<List<ProductModel>> {
-  /// Stream produk milik seller yang sedang login
+  /// Stream produk milik seller yang sedang login — reaktif terhadap auth state
   const MyProductsProvider._()
     : super(
         from: null,
@@ -100,4 +100,4 @@ final class MyProductsProvider
   }
 }
 
-String _$myProductsHash() => r'708e1dc6056cb6b7f35634731eb5fa2a35107b34';
+String _$myProductsHash() => r'fc32356fc1d2d7b73ebd85beac768a45d1bc94d3';
