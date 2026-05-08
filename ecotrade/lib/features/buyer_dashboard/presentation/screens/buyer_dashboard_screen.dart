@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../../features/auth/data/auth_repository.dart';
-import '../../../../features/auth/domain/auth_providers.dart';
+import '../../../seller_dashboard/domain/product_model.dart';
 import 'buyer_profile_screen.dart';
+import 'cart_screen.dart';
+import 'product_detail_screen.dart';
 
 part 'buyer_dashboard_screen.g.dart';
 
@@ -22,6 +23,9 @@ class ProductListing {
     required this.imageUrl,
     required this.sellerId,
     required this.sellerName,
+    this.commodityType = '',
+    this.stock = 0,
+    this.description = '',
   });
 
   final String id;
@@ -32,6 +36,9 @@ class ProductListing {
   final String imageUrl;
   final String sellerId;
   final String sellerName;
+  final String commodityType;
+  final int stock;
+  final String description;
 
   factory ProductListing.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -44,8 +51,27 @@ class ProductListing {
       imageUrl: data['imageUrl'] as String? ?? '',
       sellerId: data['sellerId'] as String? ?? '',
       sellerName: data['sellerName'] as String? ?? '',
+      commodityType: data['commodityType'] as String? ?? '',
+      stock: (data['stock'] as num?)?.toInt() ?? 0,
+      description: data['description'] as String? ?? '',
     );
   }
+
+  /// Convert to full ProductModel for the detail screen.
+  ProductModel toProductModel() => ProductModel(
+        id: id,
+        title: title,
+        description: description,
+        commodityType: commodityType,
+        price: price,
+        unit: unit,
+        stock: stock,
+        badge: badge,
+        imageUrl: imageUrl,
+        sellerId: sellerId,
+        sellerName: sellerName,
+        status: 'active',
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,6 +111,8 @@ class _BuyerDashboardScreenState
   // Pages indexed by bottom nav
   Widget _buildBody() {
     switch (_selectedNavIndex) {
+      case 2:
+        return const CartScreen();
       case 3:
         return const BuyerProfileScreen();
       default:
@@ -478,101 +506,111 @@ class _ProductCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.07),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                ProductDetailScreen(product: listing.toProductModel()),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image
-          Expanded(
-            child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-              child: listing.imageUrl.isNotEmpty
-                  ? Image.network(
-                      listing.imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return _ImagePlaceholder();
-                      },
-                      errorBuilder: (_, __, ___) => _ImagePlaceholder(),
-                    )
-                  : _ImagePlaceholder(),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withOpacity(0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Expanded(
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(16)),
+                child: listing.imageUrl.isNotEmpty
+                    ? Image.network(
+                        listing.imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return _ImagePlaceholder();
+                        },
+                        errorBuilder: (_, __, ___) => _ImagePlaceholder(),
+                      )
+                    : _ImagePlaceholder(),
+              ),
+            ),
 
-          // Info
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  listing.title,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                    height: 1.3,
+            // Info
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    listing.title,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: _formattedPrice,
-                        style: textTheme.titleSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' / ${listing.unit}',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (listing.badge.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(Icons.verified_rounded,
-                          size: 13, color: Colors.green.shade600),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          listing.badge,
-                          style: textTheme.labelSmall?.copyWith(
-                            color: Colors.green.shade700,
-                            fontWeight: FontWeight.w600,
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: _formattedPrice,
+                          style: textTheme.titleSmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w800,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
+                        TextSpan(
+                          text: ' / ${listing.unit}',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  if (listing.badge.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.verified_rounded,
+                            size: 13, color: Colors.green.shade600),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            listing.badge,
+                            style: textTheme.labelSmall?.copyWith(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
