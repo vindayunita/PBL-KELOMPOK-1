@@ -335,7 +335,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Pembelian sample hanya tersedia 500 gram dengan biaya 30% dari harga normal.',
+                    'Pembelian sample hanya tersedia 1 Kg dengan biaya 30% dari harga normal dan hanya bisa satu kali pembelian di setiap toko.',
                     style: tt.bodySmall?.copyWith(
                         color: cs.onTertiaryContainer, height: 1.5),
                   ),
