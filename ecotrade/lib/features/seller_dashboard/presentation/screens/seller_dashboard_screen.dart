@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/product_repository.dart';
+import '../../data/seller_order_repository.dart';
 import '../../domain/product_model.dart';
+import '../../../buyer_dashboard/data/order_model.dart';
 import 'seller_order_screen.dart';
 import 'seller_produk_screen.dart';
 
@@ -18,7 +21,11 @@ class SellerDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(myProductsProvider);
+    final productsAsync     = ref.watch(myProductsProvider);
+    final incomingAsync     = ref.watch(sellerIncomingOrdersProvider);
+    final incomingOrders    = incomingAsync.value ?? [];
+    final pendingCount      = incomingOrders
+        .where((o) => o.status == OrderStatus.verified).length;
 
     return Scaffold(
       backgroundColor: appBackground,
@@ -48,7 +55,7 @@ class SellerDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _buildKatalogCard(context, productsAsync, onSelectTab),
             const SizedBox(height: 16),
-            _buildTransaksiCard(context, onSelectTab),
+            _buildTransaksiCard(context, onSelectTab, incomingOrders, pendingCount),
             const SizedBox(height: 16),
           ],
         ),
@@ -182,49 +189,169 @@ class SellerDashboardScreen extends ConsumerWidget {
   }
 
   // ── Widget: Kartu Transaksi ─────────────────────────────────────────────────
-  Widget _buildTransaksiCard(BuildContext context, ValueChanged<int>? onSelectTab) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F8E3),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TRANSAKSI',
-                      style: TextStyle(fontSize: 10, color: greyText, fontWeight: FontWeight.w600, letterSpacing: 1.0)),
-                  SizedBox(height: 2),
-                  Text('Order Masuk',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                ],
+  Widget _buildTransaksiCard(
+    BuildContext context,
+    ValueChanged<int>? onSelectTab,
+    List<OrderModel> incomingOrders,
+    int pendingCount,
+  ) {
+    final rupiah = NumberFormat.currency(
+        locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final newest = incomingOrders.isNotEmpty ? incomingOrders.first : null;
+
+    void goToOrders() {
+      if (onSelectTab != null) {
+        onSelectTab(2);
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SellerOrderScreen()),
+      );
+    }
+
+    return GestureDetector(
+      onTap: goToOrders,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F8E3),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('TRANSAKSI',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: greyText,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.0)),
+                        SizedBox(height: 2),
+                        Text('Order Masuk',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87)),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    if (pendingCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$pendingCount baru',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                  ],
+                ),
+                _buildDetailButton(onPressed: goToOrders),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (newest == null)
+              _buildEmptyState('Belum ada order masuk')
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            newest.firstItem?.productTitle ?? 'Produk',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: newest.status == OrderStatus.verified
+                                ? const Color(0xFF1565C0)
+                                : const Color(0xFF2E7D32),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            newest.status == OrderStatus.verified
+                                ? 'Baru'
+                                : 'Diproses',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Dari: ${newest.displayBuyerName}',
+                          style: const TextStyle(
+                              fontSize: 11, color: greyText),
+                        ),
+                        Text(
+                          rupiah.format(newest.total),
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: primaryBlue),
+                        ),
+                      ],
+                    ),
+                    if (incomingOrders.length > 1) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '+${incomingOrders.length - 1} order lainnya',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: greyText,
+                            fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              _buildDetailButton(
-                onPressed: () {
-                  if (onSelectTab != null) {
-                    onSelectTab(2);
-                    return;
-                  }
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SellerOrderScreen()),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildEmptyState('Orderan belum tersedia'),
-        ],
+          ],
+        ),
       ),
     );
   }

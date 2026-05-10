@@ -89,9 +89,13 @@ class OrderModel {
     required this.paymentProofUrl,
     required this.paymentMethod,
     required this.createdAt,
+    this.buyerName = '',
+    this.buyerEmail = '',
+    this.sellerIds = const [],
     this.reviewText,
     this.rating,
     this.returnReason,
+    this.rejectionReason,
   });
 
   final String              id;
@@ -102,14 +106,23 @@ class OrderModel {
   final String              paymentProofUrl;
   final String              paymentMethod;
   final DateTime            createdAt;
+  final String              buyerName;
+  final String              buyerEmail;
+  /// UIDs of all sellers involved — used for Firestore arrayContains queries.
+  final List<String>        sellerIds;
   final String?             reviewText;
   final int?                rating;
   final String?             returnReason;
+  final String?             rejectionReason;
 
   /// First item convenience
   OrderItemSnapshot? get firstItem => items.isNotEmpty ? items.first : null;
   String get batchCode =>
-      'ETC-${id.substring(0, 5).toUpperCase()}';
+      'INV-${id.substring(0, 8).toUpperCase()}';
+
+  /// Display name for buyer: prefer buyerName, fallback to email prefix.
+  String get displayBuyerName =>
+      buyerName.isNotEmpty ? buyerName : buyerEmail.split('@').first;
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -123,6 +136,8 @@ class OrderModel {
     DateTime createdAt = DateTime.now();
     if (ts is Timestamp) createdAt = ts.toDate();
 
+    final rawSellerIds = data['sellerIds'] as List<dynamic>? ?? [];
+
     return OrderModel(
       id:              doc.id,
       items:           items,
@@ -132,9 +147,13 @@ class OrderModel {
       paymentProofUrl: data['paymentProofUrl'] as String? ?? '',
       paymentMethod:   data['paymentMethod']   as String? ?? '',
       createdAt:       createdAt,
-      reviewText:      data['reviewText']  as String?,
+      buyerName:       data['buyerName']       as String? ?? '',
+      buyerEmail:      data['buyerEmail']      as String? ?? '',
+      sellerIds:       rawSellerIds.map((e) => e as String).toList(),
+      reviewText:      data['reviewText']      as String?,
       rating:          (data['rating'] as num?)?.toInt(),
-      returnReason:    data['returnReason'] as String?,
+      returnReason:    data['returnReason']    as String?,
+      rejectionReason: data['rejectionReason'] as String?,
     );
   }
 }

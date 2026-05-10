@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
+import '../../../../features/buyer_dashboard/data/order_model.dart';
 import '../../../../features/courier_dashboard/data/courier_application_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/courier_dashboard/domain/models/courier_application_model.dart';
@@ -24,15 +27,17 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   int _selectedTab   = 0;
   int _sellerFilter  = 0; // 0=Pending, 1=Approved, 2=Rejected
   int _courierFilter = 0; // 0=Pending, 1=Approved, 2=Rejected
-  int _paymentFilter = 0; // 0=Pending, 1=Processed, 2=Failed
+  int _paymentFilter = 0; // 0=Pending, 1=Verified, 2=Rejected
   int _refundFilter  = 0; // 0=Pending, 1=Approved, 2=Rejected
+  String? _selectedOrderId; // order yang sedang ditampilkan detailnya
 
   final List<String> _tabs = [
     'Courier', 'Payment', 'Refund', 'Seller',
   ];
   final List<String> _sellerFilterLabels  = ['Pending', 'Approved', 'Rejected'];
   final List<String> _courierFilterLabels = ['Pending', 'Approved', 'Rejected'];
-  final List<String> _paymentFilterLabels = ['Pending', 'Processed', 'Failed'];
+  final List<String> _paymentFilterLabels = ['Pending', 'Verified', 'Rejected'];
+  final List<String> _paymentStatusKeys   = ['pending_verification', 'verified', 'rejected'];
   final List<String> _refundFilterLabels  = ['Pending', 'Approved', 'Rejected'];
   static const _statusKeys = ['pending', 'approved', 'rejected'];
 
@@ -589,7 +594,17 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
 
   Widget _buildPaymentFilterBar(ColorScheme cs, TextTheme tt) {
     final filterColors = [cs.primary, const Color(0xFF2E7D32), cs.error];
-    final counts = [0, 0, 0]; // placeholder until data model exists
+
+    // Ambil count real dari tiap status stream
+    final pendingAsync   = ref.watch(allOrdersStreamProvider(status: 'pending_verification'));
+    final verifiedAsync  = ref.watch(verifiedGroupOrdersStreamProvider);
+    final rejectedAsync  = ref.watch(allOrdersStreamProvider(status: 'rejected'));
+    final counts = [
+      pendingAsync.value?.length  ?? 0,
+      verifiedAsync.value?.length ?? 0,
+      rejectedAsync.value?.length ?? 0,
+    ];
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -601,7 +616,10 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
           final sel = _paymentFilter == i;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _paymentFilter = i),
+              onTap: () => setState(() {
+                _paymentFilter = i;
+                _selectedOrderId = null; // reset pilihan detail saat ganti tab
+              }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -641,15 +659,157 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   }
 
   Widget _buildPaymentContent(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: _buildGenericEmptyState(
-        context,
-        icon: Icons.payments_outlined,
-        iconColor: Theme.of(context).colorScheme.tertiary,
-        title: 'Tidak ada Payment ${_paymentFilterLabels[_paymentFilter]}',
-        subtitle: 'Transaksi payment dengan status "${_paymentFilterLabels[_paymentFilter]}"\nakan muncul di sini.',
+    // Tab Verified (index 1): gunakan dedicated provider tanpa List param
+    final ordersAsync = _paymentFilter == 1
+        ? ref.watch(verifiedGroupOrdersStreamProvider)
+        : ref.watch(allOrdersStreamProvider(
+            status: _paymentStatusKeys[_paymentFilter]));
+
+    return ordersAsync.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator())),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Center(child: Text('Error: $e')),
+      ),
+      data: (orders) {
+        if (orders.isEmpty) {
+          return SliverToBoxAdapter(
+            child: _buildGenericEmptyState(
+              context,
+              icon: Icons.payments_outlined,
+              iconColor: Theme.of(context).colorScheme.tertiary,
+              title: 'Tidak ada Payment ${_paymentFilterLabels[_paymentFilter]}',
+              subtitle: 'Transaksi payment dengan status "${_paymentFilterLabels[_paymentFilter]}"\nakan muncul di sini.',
+            ),
+          );
+        }
+
+        // Auto-select order pertama jika belum ada pilihan
+        final selectedId = _selectedOrderId ?? orders.first.id;
+        final selectedOrder = orders.firstWhere(
+          (o) => o.id == selectedId,
+          orElse: () => orders.first,
+        );
+
+        // Tampilkan maks 3 pending cards + "View more"
+        const maxVisible = 3;
+        final visibleOrders = orders.take(maxVisible).toList();
+        final remaining    = orders.length - maxVisible;
+
+        return SliverList(
+          delegate: SliverChildListDelegate([
+            // ── Header ──
+            _PaymentHeader(count: orders.length, filterLabel: _paymentFilterLabels[_paymentFilter]),
+            const SizedBox(height: 16),
+
+            // ── Pending list ──
+            ...visibleOrders.map((o) => _PaymentMiniCard(
+              order: o,
+              isSelected: o.id == selectedId,
+              onTap: () => setState(() => _selectedOrderId = o.id),
+            )),
+
+            if (remaining > 0) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: TextButton(
+                  onPressed: null, // ekspansi bisa dikembangkan nanti
+                  child: Text(
+                    'View $remaining more ${_paymentFilterLabels[_paymentFilter].toLowerCase()}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            // ── Detail panel ──
+            _PaymentDetailPanel(
+              order: selectedOrder,
+              isPending: _paymentFilter == 0,
+              onConfirm: _paymentFilter == 0
+                  ? () => _handlePaymentVerify(selectedOrder)
+                  : null,
+              onReject: _paymentFilter == 0
+                  ? () => _handlePaymentReject(selectedOrder)
+                  : null,
+            ),
+
+            const SizedBox(height: 32),
+          ]),
+        );
+      },
+    );
+  }
+
+  // ── Payment actions ─────────────────────────────────────────────────────────
+
+  Future<void> _handlePaymentVerify(OrderModel order) async {
+    final repo = ref.read(adminOrderRepositoryProvider);
+    try {
+      await repo.verifyPayment(order.id);
+      if (mounted) {
+        setState(() => _selectedOrderId = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Pembayaran ${order.displayBuyerName} dikonfirmasi'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _handlePaymentReject(OrderModel order) async {
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Alasan Penolakan', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: reasonCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Jelaskan alasan penolakan pembayaran...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Tolak'),
+          ),
+        ],
       ),
     );
+    if (reason == null || reason.isEmpty) return;
+    final repo = ref.read(adminOrderRepositoryProvider);
+    try {
+      await repo.rejectPayment(order.id, reason);
+      if (mounted) {
+        setState(() => _selectedOrderId = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Pembayaran ${order.displayBuyerName} ditolak'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   // ── REFUND methods ───────────────────────────────────────────────────────
@@ -1377,15 +1537,22 @@ class _AdminImageSection extends StatelessWidget {
   const _AdminImageSection({
     required this.title,
     required this.imageUrl,
+    this.padding,
   });
 
   final String title;
   final String imageUrl;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final content = _buildContent(context, cs, tt);
+    return padding != null ? Padding(padding: padding!, child: content) : content;
+  }
+
+  Widget _buildContent(BuildContext context, ColorScheme cs, TextTheme tt) {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1515,6 +1682,528 @@ class _AdminImageSection extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Payment Header ─────────────────────────────────────────────────────────────
+class _PaymentHeader extends StatelessWidget {
+  const _PaymentHeader({required this.count, required this.filterLabel});
+  final int count;
+  final String filterLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final isPending = filterLabel == 'Pending';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isPending
+              ? [cs.primary, cs.primary.withValues(alpha: 0.8)]
+              : [const Color(0xFF2E7D32), const Color(0xFF43A047)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isPending ? 'Waiting for Confirmation' : 'Payment $filterLabel',
+                  style: tt.titleSmall?.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isPending
+                      ? 'You have $count pending transaction${count == 1 ? '' : 's'} requiring manual bank transfer verification.'
+                      : '$count transaction${count == 1 ? '' : 's'} with status "$filterLabel".',
+                  style: tt.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85), height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Payment Mini Card ──────────────────────────────────────────────────────────
+class _PaymentMiniCard extends StatelessWidget {
+  const _PaymentMiniCard({
+    required this.order,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final OrderModel order;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final now = DateTime.now();
+    final diff = now.difference(order.createdAt);
+    String timeAgo;
+    if (diff.inMinutes < 60) {
+      timeAgo = '${diff.inMinutes} MINS AGO';
+    } else if (diff.inHours < 24) {
+      timeAgo = '${diff.inHours} HOUR${diff.inHours > 1 ? 'S' : ''} AGO';
+    } else {
+      timeAgo = '${diff.inDays} DAY${diff.inDays > 1 ? 'S' : ''} AGO';
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? cs.primaryContainer.withValues(alpha: 0.5) : cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? cs.primary : cs.outlineVariant.withValues(alpha: 0.35),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.04),
+              blurRadius: 8, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: cs.primaryContainer,
+              child: Text(
+                order.displayBuyerName.isNotEmpty
+                    ? order.displayBuyerName[0].toUpperCase()
+                    : '?',
+                style: tt.titleSmall?.copyWith(
+                    color: cs.primary, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    order.displayBuyerName,
+                    style: tt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700, color: cs.onSurface),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'ID: #${order.id.substring(0, 8).toUpperCase()}',
+                    style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.5)),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  fmt.format(order.total),
+                  style: tt.titleSmall?.copyWith(
+                      color: cs.primary, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeAgo,
+                  style: tt.labelSmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.4),
+                      fontSize: 9),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Payment Detail Panel ───────────────────────────────────────────────────────
+class _PaymentDetailPanel extends StatefulWidget {
+  const _PaymentDetailPanel({
+    required this.order,
+    required this.isPending,
+    this.onConfirm,
+    this.onReject,
+  });
+  final OrderModel  order;
+  final bool        isPending;
+  final Future<void> Function()? onConfirm;
+  final Future<void> Function()? onReject;
+
+  @override
+  State<_PaymentDetailPanel> createState() => _PaymentDetailPanelState();
+}
+
+class _PaymentDetailPanelState extends State<_PaymentDetailPanel> {
+  bool _acting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final order = widget.order;
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final dateFmt = DateFormat('dd MMM yyyy • HH:mm');
+
+    final methodLabel = order.paymentMethod == 'bank_transfer'
+        ? 'Manual Bank Transfer'
+        : order.paymentMethod;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.05),
+              blurRadius: 16, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Payment Proof section ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+            child: Row(
+              children: [
+                Icon(Icons.image_outlined, size: 14, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'PAYMENT PROOF',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.primary, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (order.paymentProofUrl.isNotEmpty)
+            _AdminImageSection(
+              title: '',
+              imageUrl: order.paymentProofUrl,
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+            )
+          else
+            Container(
+              margin: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+              height: 140,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.image_not_supported_outlined,
+                        size: 32, color: cs.onSurface.withValues(alpha: 0.3)),
+                    const SizedBox(height: 6),
+                    Text('Bukti transfer tidak tersedia',
+                        style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.4))),
+                  ],
+                ),
+              ),
+            ),
+
+          // ── Transaction Details ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
+            child: Row(
+              children: [
+                Icon(Icons.receipt_outlined, size: 14, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'TRANSACTION DETAILS',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.primary, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Nominal besar
+                Text(
+                  fmt.format(order.total),
+                  style: tt.headlineSmall?.copyWith(
+                    color: cs.primary, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Invoice: ${order.batchCode}',
+                  style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.5)),
+                ),
+                const SizedBox(height: 16),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.3), height: 1),
+                const SizedBox(height: 14),
+                _detailRow(context, 'Buyer', order.displayBuyerName),
+                const SizedBox(height: 10),
+                _detailRow(context, 'Payment Method', methodLabel),
+                const SizedBox(height: 10),
+                _detailRow(context, 'Bank Name', 'EcoTrust Bank'),
+                const SizedBox(height: 10),
+                _detailRow(context, 'Date Submitted',
+                    dateFmt.format(order.createdAt.toLocal())),
+
+                // ── Rincian item pesanan ──────────────────────────────────
+                const SizedBox(height: 16),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.3), height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.shopping_basket_outlined, size: 13, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'RINCIAN PESANAN',
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.primary, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...order.items.map((item) {
+                  final itemFmt = NumberFormat.currency(
+                      locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nama toko
+                          Row(
+                            children: [
+                              Icon(Icons.storefront_outlined,
+                                  size: 13,
+                                  color: cs.onSurface.withValues(alpha: 0.5)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  item.sellerName,
+                                  style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurface.withValues(alpha: 0.55),
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          // Nama produk
+                          Text(
+                            item.productTitle,
+                            style: tt.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface),
+                          ),
+                          const SizedBox(height: 8),
+                          // Harga satuan, qty, subtotal
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${itemFmt.format(item.unitPrice)} × ${item.quantity} ${item.unit}',
+                                style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurface.withValues(alpha: 0.6)),
+                              ),
+                              Text(
+                                itemFmt.format(item.subtotal),
+                                style: tt.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: cs.primary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+
+                if (order.rejectionReason != null && !widget.isPending) ...[
+                  const SizedBox(height: 10),
+                  _detailRow(context, 'Rejection Reason',
+                      order.rejectionReason ?? '-',
+                      valueColor: cs.error),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Action buttons ─────────────────────────────────────────────────
+          if (widget.isPending)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: _acting
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // Confirm
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              setState(() => _acting = true);
+                              try { await widget.onConfirm?.call(); }
+                              finally { if (mounted) setState(() => _acting = false); }
+                            },
+                            icon: const Icon(Icons.check_circle_outline_rounded),
+                            label: const Text('Confirm Payment',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Reject
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              setState(() => _acting = true);
+                              try { await widget.onReject?.call(); }
+                              finally { if (mounted) setState(() => _acting = false); }
+                            },
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Reject Payment',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: widget.order.status == OrderStatus.verified
+                      ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
+                      : Colors.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: widget.order.status == OrderStatus.verified
+                        ? const Color(0xFF2E7D32).withValues(alpha: 0.3)
+                        : Colors.red.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.order.status == OrderStatus.verified
+                          ? Icons.check_circle_rounded
+                          : Icons.cancel_rounded,
+                      color: widget.order.status == OrderStatus.verified
+                          ? const Color(0xFF2E7D32)
+                          : Colors.red,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.order.status == OrderStatus.verified
+                          ? 'Pembayaran telah dikonfirmasi'
+                          : 'Pembayaran ditolak',
+                      style: tt.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: widget.order.status == OrderStatus.verified
+                            ? const Color(0xFF2E7D32)
+                            : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(BuildContext context, String label, String value, {Color? valueColor}) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.5))),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: tt.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? cs.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
+import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
 import 'admin_alerts_screen.dart';
@@ -46,13 +47,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final displayName = user?.displayName ?? user?.email ?? 'Admin';
 
     // ── Pending counts for red-dot badge ──
-    final sellerAsync  = ref.watch(allSellerApplicationsProvider(null));
-    final courierAsync = ref.watch(allCourierApplicationsProvider(null));
+    final sellerAsync   = ref.watch(allSellerApplicationsProvider(null));
+    final courierAsync  = ref.watch(allCourierApplicationsProvider(null));
+    final paymentAsync  = ref.watch(allOrdersStreamProvider(status: 'pending_verification'));
     final pendingSellers  =
         sellerAsync.value?.where((a) => a.isPending).length ?? 0;
     final pendingCouriers =
         courierAsync.value?.where((a) => a.isPending).length ?? 0;
-    final totalPending = pendingSellers + pendingCouriers;
+    final pendingPayments = paymentAsync.value?.length ?? 0;
+    final totalPending = pendingSellers + pendingCouriers + pendingPayments;
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
