@@ -957,6 +957,15 @@ class _SellerCardState extends State<_SellerCard> {
               ),
             ),
 
+            // ── Foto Produk (jika ada) ──
+            if (app.commodityImageUrl.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _AdminImageSection(
+                title: 'Foto Produk / Komoditi',
+                imageUrl: app.commodityImageUrl,
+              ),
+            ],
+
             // Rejection reason (if rejected)
             if (app.isRejected && app.rejectionReason != null) ...[
               const SizedBox(height: 10),
@@ -1194,6 +1203,48 @@ class _CourierCardState extends State<_CourierCard> {
               ],
             ),
 
+            // ── Foto Identitas (KTP & SIM) ──
+            if (app.ktpImageUrl.isNotEmpty || app.simImageUrl.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              if (app.ktpImageUrl.isNotEmpty)
+                _AdminImageSection(
+                  title: 'Foto KTP',
+                  imageUrl: app.ktpImageUrl,
+                ),
+              if (app.simImageUrl.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _AdminImageSection(
+                  title: 'Foto SIM C',
+                  imageUrl: app.simImageUrl,
+                ),
+              ],
+            ] else ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3CD),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        size: 16, color: Color(0xFF856404)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Dokumen identitas belum diunggah',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF856404),
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Rejection reason (if rejected)
             if (app.isRejected && app.rejectionReason != null) ...[
               const SizedBox(height: 10),
@@ -1318,5 +1369,152 @@ class _CourierCardState extends State<_CourierCard> {
     } catch (_) {
       return iso;
     }
+  }
+}
+
+// ── Reusable image preview section ───────────────────────────────────────────
+class _AdminImageSection extends StatelessWidget {
+  const _AdminImageSection({
+    required this.title,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        Row(
+          children: [
+            Icon(Icons.image_outlined, size: 14, color: cs.primary),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: tt.labelSmall?.copyWith(
+                color: cs.primary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Image
+        GestureDetector(
+          onTap: () => _showFullImage(context),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      width: double.infinity,
+                      height: 200,
+                      color: cs.surfaceContainerHigh,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: progress.expectedTotalBytes != null
+                              ? progress.cumulativeBytesLoaded /
+                                  progress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (ctx, _, __) => Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: cs.surfaceContainerHigh,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image_rounded,
+                            size: 40,
+                            color: cs.onSurface.withValues(alpha: 0.3)),
+                        const SizedBox(height: 8),
+                        Text('Gagal memuat gambar',
+                            style: tt.bodySmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.4))),
+                      ],
+                    ),
+                  ),
+                ),
+                // Tap to zoom hint
+                Positioned(
+                  bottom: 8, right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.zoom_in_rounded,
+                            size: 13, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text('Perbesar',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFullImage(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(ctx),
+          child: InteractiveViewer(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 300,
+                    color: Colors.black,
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

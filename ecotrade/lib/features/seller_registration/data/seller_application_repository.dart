@@ -40,25 +40,31 @@ class SellerApplicationRepository {
 
   // ── Admin: watch semua aplikasi (real-time) ───────────────────────────────
   Stream<List<SellerApplicationModel>> watchAllApplications({String? status}) {
-    Query<Map<String, dynamic>> q = _apps.orderBy('createdAt', descending: true);
-    if (status != null) q = q.where('status', isEqualTo: status);
-    return q.snapshots().map((snap) => snap.docs.map((doc) {
-          final data = {...doc.data()}
-            ..remove('createdAt')
-            ..remove('updatedAt');
-          return SellerApplicationModel.fromJson(data, doc.id);
-        }).toList());
+    // Ambil semua dokumen tanpa orderBy agar tidak butuh composite index.
+    // Sorting & filtering dilakukan di sisi client.
+    return _apps.snapshots().map((snap) {
+      final list = snap.docs.map((doc) {
+        final data = {...doc.data()}
+          ..remove('createdAt')
+          ..remove('updatedAt');
+        return SellerApplicationModel.fromJson(data, doc.id);
+      }).toList();
+
+      // Filter berdasarkan status (jika ada)
+      final filtered =
+          status != null ? list.where((a) => a.status == status).toList() : list;
+
+      // Sort berdasarkan createdAt descending (via reviewedAt sebagai fallback)
+      filtered.sort((a, b) => b.uid.compareTo(a.uid)); // fallback: uid desc
+      return filtered;
+    });
   }
 
   // ── Admin: approve ────────────────────────────────────────────────────────
   Future<void> approveApplication(String uid) async {
-    // 1. Baca data registrasi seller untuk produk awal
-    //    (seller_registrations/{uid} berisi stock, pricePerKg, commodityType, dll.)
-    final regSnap = await _db.collection('seller_registrations')
-        .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
+    // 1. Baca data aplikasi seller (sudah termasuk stock, price, imageUrl)
+    final appSnap = await _apps.doc(uid).get();
+    final appData = appSnap.data() ?? {};
 
     // 2. Baca data user (nama)
     final userSnap = await _db.collection('users').doc(uid).get();
@@ -81,32 +87,30 @@ class SellerApplicationRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // 5. Buat produk pertama dari data registrasi (jika ada)
-    if (regSnap.docs.isNotEmpty) {
-      final regData = regSnap.docs.first.data();
-      final businessName = regData['businessName'] as String? ?? 'Produk Seller';
-      final commodityType = regData['commodityType'] as String? ?? '';
-      final commodityDescription = regData['commodityDescription'] as String? ?? '';
-      final stock = (regData['stock'] as num?)?.toInt() ?? 0;
-      final price = (regData['pricePerKg'] as num?)?.toDouble() ?? 0.0;
-      final imageUrl = regData['commodityImageUrl'] as String? ?? '';
+    // 5. Buat produk pertama dari data registrasi seller
+    final productName         = appData['productName']         as String? ?? '';
+    final businessName        = appData['businessName']        as String? ?? 'Produk Seller';
+    final commodityType       = appData['commodityType']       as String? ?? '';
+    final businessDescription = appData['businessDescription'] as String? ?? '';
+    final stock               = (appData['stock']      as num?)?.toInt()    ?? 0;
+    final price               = (appData['pricePerKg'] as num?)?.toDouble() ?? 0.0;
+    final imageUrl            = appData['commodityImageUrl']   as String? ?? '';
 
-      final productRef = _db.collection('products').doc();
-      batch.set(productRef, {
-        'title':         businessName,
-        'description':   commodityDescription,
-        'commodityType': commodityType,
-        'price':         price,
-        'unit':          'kg',
-        'stock':         stock,
-        'badge':         commodityType,
-        'imageUrl':      imageUrl,
-        'sellerId':      uid,
-        'sellerName':    userName,
-        'status':        'active',
-        'createdAt':     FieldValue.serverTimestamp(),
-      });
-    }
+    final productRef = _db.collection('products').doc();
+    batch.set(productRef, {
+      'title':         productName.isNotEmpty ? productName : businessName,
+      'description':   businessDescription,
+      'commodityType': commodityType,
+      'price':         price,
+      'unit':          'kg',
+      'stock':         stock,
+      'badge':         commodityType,
+      'imageUrl':      imageUrl,
+      'sellerId':      uid,
+      'sellerName':    userName,
+      'status':        'active',
+      'createdAt':     FieldValue.serverTimestamp(),
+    });
 
     await batch.commit();
   }

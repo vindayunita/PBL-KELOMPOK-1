@@ -1,7 +1,11 @@
 import 'dart:ui' show PathMetrics;
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/product_repository.dart';
 
@@ -19,15 +23,23 @@ class _SellerUnggahKomoditiScreenState
   static const Color greyText      = Color(0xFF888888);
   static const Color appBackground = Color(0xFFF5F5F5);
 
-  // ── State ──
-  final TextEditingController _namaCtrl  = TextEditingController();
-  final TextEditingController _descCtrl  = TextEditingController();
-  final TextEditingController _hargaCtrl = TextEditingController();
-  final TextEditingController _stokCtrl  = TextEditingController();
+  // ── Form controllers ──
+  final _namaCtrl  = TextEditingController();
+  final _descCtrl  = TextEditingController();
+  final _hargaCtrl = TextEditingController();
+  final _stokCtrl  = TextEditingController();
 
+  // ── Image state ──
+  XFile?     _imageFile;
+  Uint8List? _imageBytes;
+  bool       _isUploadingImage = false;
+
+  // ── Other state ──
   String? _jenisSelected;
   bool    _dropdownOpen = false;
   bool    _isLoading    = false;
+
+  final _picker = ImagePicker();
 
   static const List<String> _jenisOptions = [
     'Serat Alami',
@@ -46,32 +58,83 @@ class _SellerUnggahKomoditiScreenState
     super.dispose();
   }
 
-  Future<void> _onUnggah() async {
-    // Validasi minimal
-    if (_namaCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama komoditi wajib diisi')),
+  // ── Pick image ────────────────────────────────────────────────────────────
+  Future<void> _pickImage() async {
+    XFile? picked;
+    try {
+      picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memilih gambar: $e')),
+        );
+      }
+      return;
+    }
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _imageFile  = picked;
+      _imageBytes = bytes;
+    });
+  }
+
+  // ── Upload image to Firebase Storage ─────────────────────────────────────
+  Future<String> _uploadImage() async {
+    if (_imageFile == null || _imageBytes == null) return '';
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return '';
+
+    final ext  = _imageFile!.name.split('.').last.toLowerCase();
+    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+    final path =
+        'product_images/$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+    final ref = FirebaseStorage.instance.ref().child(path);
+    await ref.putData(_imageBytes!, SettableMetadata(contentType: mime));
+    return ref.getDownloadURL();
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  Future<void> _onUnggah() async {
+    if (_namaCtrl.text.trim().isEmpty) {
+      _showSnack('Nama komoditi wajib diisi');
       return;
     }
     if (_jenisSelected == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih jenis komoditi terlebih dahulu')),
-      );
+      _showSnack('Pilih jenis komoditi terlebih dahulu');
       return;
     }
+
     final harga = double.tryParse(_hargaCtrl.text.trim()) ?? 0.0;
     final stok  = int.tryParse(_stokCtrl.text.trim()) ?? 0;
 
     setState(() => _isLoading = true);
     try {
+      // Upload foto jika ada
+      String imageUrl = '';
+      if (_imageFile != null) {
+        setState(() => _isUploadingImage = true);
+        imageUrl = await _uploadImage();
+        if (mounted) setState(() => _isUploadingImage = false);
+      }
+
       await ref.read(productRepositoryProvider).addProduct(
         title:         _namaCtrl.text.trim(),
         description:   _descCtrl.text.trim(),
         commodityType: _jenisSelected!,
         price:         harga,
         stock:         stok,
+        imageUrl:      imageUrl,
       );
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -79,7 +142,7 @@ class _SellerUnggahKomoditiScreenState
           backgroundColor: Color(0xFF3B6934),
         ),
       );
-      Navigator.of(context).pop(); // kembali ke seller_produk_screen
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,6 +154,11 @@ class _SellerUnggahKomoditiScreenState
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -139,7 +207,12 @@ class _SellerUnggahKomoditiScreenState
 
             // Foto Komoditi
             _buildFieldLabel('FOTO KOMODITI'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            Text(
+              'Opsional — foto mempermudah pembeli mengenali produk Anda',
+              style: const TextStyle(fontSize: 11, color: greyText),
+            ),
+            const SizedBox(height: 10),
             _buildFotoArea(),
             const SizedBox(height: 28),
 
@@ -186,15 +259,29 @@ class _SellerUnggahKomoditiScreenState
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
-                        width: 22, height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5, color: Colors.white,
-                        ),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _isUploadingImage
+                                ? 'Mengunggah foto...'
+                                : 'Menyimpan...',
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       )
                     : const Text(
                         'Unggah Komoditi Baru',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
                       ),
               ),
             ),
@@ -205,7 +292,7 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Section Header ─────────────────────────────────────────────────
+  // ── Widget: Section Header ──────────────────────────────────────────────
   Widget _buildSectionHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +324,7 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Field Label ────────────────────────────────────────────────────
+  // ── Widget: Field Label ────────────────────────────────────────────────
   Widget _buildFieldLabel(String label) {
     return Text(
       label,
@@ -250,14 +337,13 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Underline TextField ────────────────────────────────────────────
+  // ── Widget: Underline TextField ────────────────────────────────────────
   Widget _buildUnderlineTextField({
     required TextEditingController controller,
     required String hint,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
-    Widget? prefixWidget,
   }) {
     return TextField(
       controller: controller,
@@ -268,7 +354,6 @@ class _SellerUnggahKomoditiScreenState
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFBBBBBB), fontSize: 14),
-        prefix: prefixWidget,
         enabledBorder: const UnderlineInputBorder(
           borderSide: BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
         ),
@@ -280,7 +365,7 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Stok Field (input teks angka) ──────────────────────────────────
+  // ── Widget: Stok Field ─────────────────────────────────────────────────
   Widget _buildStokField() {
     return TextField(
       controller: _stokCtrl,
@@ -303,7 +388,7 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Harga Field (input teks angka) ─────────────────────────────────
+  // ── Widget: Harga Field ────────────────────────────────────────────────
   Widget _buildHargaField() {
     return TextField(
       controller: _hargaCtrl,
@@ -329,43 +414,134 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Area Foto ──────────────────────────────────────────────────────
+  // ── Widget: Area Foto (nyata) ──────────────────────────────────────────
   Widget _buildFotoArea() {
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Pilih foto (simulasi — belum terhubung ke backend)'),
-            behavior: SnackBarBehavior.floating,
+    // Sudah ada gambar yang dipilih → tampilkan preview
+    if (_imageBytes != null) {
+      return Column(
+        children: [
+          // Preview card
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              children: [
+                Image.memory(
+                  _imageBytes!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
+                // Overlay atas: badge "Foto dipilih"
+                Positioned(
+                  top: 10, left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B6934),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded,
+                            size: 13, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text('Foto dipilih',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          // Tombol ganti / hapus
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickImage,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryBlue,
+                    side: const BorderSide(color: primaryBlue, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Ganti Foto',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() {
+                    _imageFile  = null;
+                    _imageBytes = null;
+                  }),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                  label: const Text('Hapus Foto',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // Belum ada gambar → tampilkan tombol pilih dengan dashed border
+    return GestureDetector(
+      onTap: _pickImage,
       child: _DashedBorderBox(
         child: Container(
           width: double.infinity,
-          height: 140,
+          height: 155,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.camera_alt_outlined,
-                  size: 34, color: Color(0xFFBBBBBB)),
-              SizedBox(height: 10),
-              Text(
-                'Ketuk untuk unggah foto',
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: primaryBlue.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add_photo_alternate_rounded,
+                    size: 26, color: primaryBlue),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Ketuk untuk pilih foto',
                 style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF888888)),
+                    fontWeight: FontWeight.w700,
+                    color: primaryBlue),
               ),
-              SizedBox(height: 4),
-              Text(
+              const SizedBox(height: 4),
+              const Text(
                 'Format JPG atau PNG, Maks 5MB',
-                style: TextStyle(fontSize: 12, color: Color(0xFFBBBBBB)),
+                style: TextStyle(fontSize: 12, color: greyText),
               ),
             ],
           ),
@@ -374,7 +550,7 @@ class _SellerUnggahKomoditiScreenState
     );
   }
 
-  // ── Widget: Dropdown Jenis Komoditi ───────────────────────────────────────
+  // ── Widget: Dropdown Jenis Komoditi ───────────────────────────────────
   Widget _buildDropdown() {
     return Column(
       children: [
@@ -487,7 +663,7 @@ class _SellerUnggahKomoditiScreenState
   }
 }
 
-// ── Helper: Dashed Border Box ──────────────────────────────────────────────────
+// ── Helper: Dashed Border Box ─────────────────────────────────────────────────
 class _DashedBorderBox extends StatelessWidget {
   final Widget child;
   const _DashedBorderBox({required this.child});
@@ -508,7 +684,7 @@ class _DashedBorderPainter extends CustomPainter {
     const dashSpace = 4.0;
     const radius    = 14.0;
     final paint = Paint()
-      ..color       = const Color(0xFFCCCCCC)
+      ..color       = const Color(0xFF005DA7)
       ..strokeWidth = 1.5
       ..style       = PaintingStyle.stroke;
 

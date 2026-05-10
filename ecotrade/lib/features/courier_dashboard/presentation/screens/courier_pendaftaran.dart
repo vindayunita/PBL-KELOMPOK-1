@@ -6,6 +6,8 @@ import '../../../../features/courier_dashboard/data/courier_application_reposito
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/courier_dashboard/domain/models/courier_application_model.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import '../../../../features/user/data/user_repository.dart';
+import '../../../../features/user/domain/user_providers.dart';
 import 'courier_status_verif.dart';
 import 'courier_unggah.dart';
 
@@ -91,14 +93,31 @@ class _CourierPendaftaranScreenState
   bool _isSubmitting    = false;
   String? _selectedKota; // Kota yang dipilih untuk "Area Lainnya"
 
+  bool _isPhoneFromFirestore = false; // true jika nomor berasal dari Firestore
+
   @override
   void initState() {
     super.initState();
-    // Pre-fill dari Firebase Auth
+    // Pre-fill nama & email dari Firebase Auth
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _namaCtrl.text  = user.displayName ?? '';
       _emailCtrl.text = user.email ?? '';
+    }
+    // Phone akan diisi setelah widget pertama kali terbuild (via didChangeDependencies)
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Hanya isi sekali (saat _teleponCtrl masih kosong)
+    if (_teleponCtrl.text.isEmpty) {
+      final userDoc = ref.read(currentUserDocProvider).value;
+      final phone = userDoc?.phoneNumber ?? '';
+      if (phone.isNotEmpty) {
+        _teleponCtrl.text = phone;
+        _isPhoneFromFirestore = true;
+      }
     }
   }
 
@@ -216,6 +235,15 @@ class _CourierPendaftaranScreenState
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User belum login');
+
+      // Simpan phoneNumber ke collection users jika belum ada di Firestore
+      if (!_isPhoneFromFirestore) {
+        final phone = _teleponCtrl.text.trim();
+        if (phone.isNotEmpty) {
+          final userRepo = ref.read(userRepositoryProvider);
+          await userRepo.updateProfile(uid: user.uid, phoneNumber: phone);
+        }
+      }
 
       final area = _areaList[_selectedArea];
 
@@ -478,17 +506,69 @@ class _CourierPendaftaranScreenState
                           const SizedBox(height: 20),
 
                           // NOMOR HP
-                          _FieldLabel(label: 'NOMOR HP'),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              _FieldLabel(label: 'NOMOR HP'),
+                              if (_isPhoneFromFirestore) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: cs.primaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle_outline_rounded,
+                                          size: 12, color: cs.primary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Dari akun',
+                                        style: tt.labelSmall?.copyWith(
+                                          color: cs.primary,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           _InputField(
                             controller: _teleponCtrl,
                             hint: '+62 812 XXXX XXXX',
                             icon: Icons.phone_outlined,
                             keyboardType: TextInputType.phone,
+                            readOnly: _isPhoneFromFirestore,
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Nomor HP wajib diisi'
                                 : null,
                           ),
+                          if (_isPhoneFromFirestore)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline_rounded,
+                                      size: 13,
+                                      color: cs.onSurface.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Nomor diambil otomatis dari data akun Anda.',
+                                    style: tt.labelSmall?.copyWith(
+                                      color: cs.onSurface.withValues(alpha: 0.45),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                           const SizedBox(height: 24),
 
@@ -694,6 +774,7 @@ class _InputField extends StatelessWidget {
     required this.icon,
     this.keyboardType,
     this.validator,
+    this.readOnly = false,
   });
 
   final TextEditingController controller;
@@ -701,6 +782,7 @@ class _InputField extends StatelessWidget {
   final IconData icon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -711,7 +793,12 @@ class _InputField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      style: tt.bodyMedium,
+      readOnly: readOnly,
+      style: tt.bodyMedium?.copyWith(
+        color: readOnly
+            ? cs.onSurface.withValues(alpha: 0.6)
+            : cs.onSurface,
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: tt.bodyMedium?.copyWith(
@@ -719,24 +806,33 @@ class _InputField extends StatelessWidget {
         ),
         prefixIcon: Icon(icon,
             size: 20, color: cs.onSurface.withValues(alpha: 0.45)),
+        suffixIcon: readOnly
+            ? Icon(Icons.lock_outline_rounded,
+                size: 16, color: cs.primary.withValues(alpha: 0.6))
+            : null,
         filled: true,
-        fillColor: cs.surfaceContainerLowest,
+        fillColor: readOnly
+            ? cs.primaryContainer.withValues(alpha: 0.15)
+            : cs.surfaceContainerLowest,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              BorderSide(color: cs.outlineVariant, width: 1.2),
+          borderSide: BorderSide(color: cs.outlineVariant, width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-              color: cs.outlineVariant.withValues(alpha: 0.5),
+              color: readOnly
+                  ? cs.primary.withValues(alpha: 0.3)
+                  : cs.outlineVariant.withValues(alpha: 0.5),
               width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: cs.primary, width: 2),
+          borderSide: BorderSide(
+              color: readOnly ? cs.primary.withValues(alpha: 0.3) : cs.primary,
+              width: readOnly ? 1.2 : 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

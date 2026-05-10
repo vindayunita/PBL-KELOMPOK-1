@@ -44,9 +44,13 @@ class CartRepository {
   // ── Watch all cart items ─────────────────────────────────────────────────
   Stream<List<CartItemModel>> watchCartItems(String uid) {
     return _itemsCol(uid)
-        .orderBy('addedAt', descending: true)
         .snapshots()
-        .map((s) => s.docs.map(CartItemModel.fromFirestore).toList());
+        .map((s) {
+      final list = s.docs.map(CartItemModel.fromFirestore).toList();
+      // Sort addedAt descending di client agar tidak butuh Firestore index
+      list.sort((a, b) => b.id.compareTo(a.id));
+      return list;
+    });
   }
 
   // ── Add or merge item into cart ──────────────────────────────────────────
