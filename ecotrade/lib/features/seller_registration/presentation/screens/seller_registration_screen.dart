@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,33 @@ import 'package:image_picker/image_picker.dart';
 
 import '../providers/seller_registration_controller.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daftar kota pilihan (preset) untuk seller
+// ─────────────────────────────────────────────────────────────────────────────
+class _KotaPreset {
+  const _KotaPreset({required this.nama, required this.provinsi, this.isOther = false});
+  final String nama;
+  final String provinsi;
+  final bool isOther;
+}
+
+const _kotaPresetList = [
+  _KotaPreset(nama: 'Malang',       provinsi: 'Jawa Timur'),
+  _KotaPreset(nama: 'Surabaya',     provinsi: 'Jawa Timur'),
+  _KotaPreset(nama: 'Jember',       provinsi: 'Jawa Timur'),
+  _KotaPreset(nama: 'Kota Lainnya', provinsi: 'Pilih kota di Jawa Timur', isOther: true),
+];
+
+const _kotaJawaTimurSeller = [
+  'Bangkalan', 'Banyuwangi', 'Blitar', 'Bojonegoro', 'Bondowoso',
+  'Gresik', 'Jombang', 'Kediri', 'Kota Batu', 'Kota Blitar',
+  'Kota Kediri', 'Kota Madiun', 'Kota Mojokerto', 'Kota Pasuruan',
+  'Kota Probolinggo', 'Lamongan', 'Lumajang', 'Madiun', 'Magetan',
+  'Mojokerto', 'Nganjuk', 'Ngawi', 'Pacitan', 'Pamekasan', 'Pasuruan',
+  'Ponorogo', 'Probolinggo', 'Sampang', 'Sidoarjo', 'Situbondo',
+  'Sumenep', 'Trenggalek', 'Tuban', 'Tulungagung',
+];
 
 class SellerRegistrationScreen extends ConsumerStatefulWidget {
   const SellerRegistrationScreen({super.key});
@@ -21,13 +47,19 @@ class _SellerRegistrationScreenState
   final _formKey = GlobalKey<FormState>();
   final _businessNameController = TextEditingController();
   final _addressController = TextEditingController();
+  final _productNameController = TextEditingController();
   final _commodityDescController = TextEditingController();
   final _stockController = TextEditingController();
   final _priceController = TextEditingController();
 
   String? _selectedCommodity;
-  File? _commodityImage;
+  XFile? _commodityImage;
+  Uint8List? _commodityImageBytes;
   final _imagePicker = ImagePicker();
+
+  // Pilih kota
+  int _selectedKotaPreset = 0;
+  String? _selectedKotaLain;
 
   // Commodity options
   final List<String> _commodityOptions = [
@@ -42,10 +74,17 @@ class _SellerRegistrationScreenState
   void dispose() {
     _businessNameController.dispose();
     _addressController.dispose();
+    _productNameController.dispose();
     _commodityDescController.dispose();
     _stockController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+  String? get _resolvedCity {
+    final preset = _kotaPresetList[_selectedKotaPreset];
+    if (preset.isOther) return _selectedKotaLain;
+    return preset.nama;
   }
 
   Future<void> _pickImage() async {
@@ -58,8 +97,10 @@ class _SellerRegistrationScreenState
       );
 
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
-          _commodityImage = File(pickedFile.path);
+          _commodityImage = pickedFile;
+          _commodityImageBytes = bytes;
         });
       }
     } catch (e) {
@@ -106,22 +147,30 @@ class _SellerRegistrationScreenState
       return;
     }
 
-    // Photo is now optional - will use placeholder if not provided
-    // if (_commodityImage == null) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text('Upload foto komoditi terlebih dahulu')),
-    //   );
-    //   return;
-    // }
+    // Validasi kota
+    final preset = _kotaPresetList[_selectedKotaPreset];
+    if (preset.isOther && (_selectedKotaLain == null || _selectedKotaLain!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Pilih kota terlebih dahulu'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
 
     // Submit to controller
     ref.read(sellerRegistrationControllerProvider.notifier).submitRegistration(
           businessName: _businessNameController.text.trim(),
+          productName: _productNameController.text.trim(),
           address: _addressController.text.trim(),
           commodityType: _selectedCommodity!,
           commodityDescription: _commodityDescController.text.trim(),
           stock: int.parse(_stockController.text.trim()),
           pricePerKg: double.parse(_priceController.text.trim()),
+          city: _resolvedCity,
           commodityImage: _commodityImage,
         );
   }
@@ -237,6 +286,36 @@ class _SellerRegistrationScreenState
 
             const SizedBox(height: 24),
 
+            // ── Pilih Kota ───────────────────────────────────────────────
+            _FormLabel(label: 'Kota / Lokasi Bisnis'),
+            const SizedBox(height: 10),
+            ...List.generate(_kotaPresetList.length, (i) {
+              final kota = _kotaPresetList[i];
+              final selected = _selectedKotaPreset == i;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SellerKotaCard(
+                    nama: kota.nama,
+                    provinsi: kota.provinsi,
+                    isOther: kota.isOther,
+                    selected: selected,
+                    onTap: () => setState(() {
+                      _selectedKotaPreset = i;
+                      if (!kota.isOther) _selectedKotaLain = null;
+                    }),
+                  ),
+                  if (kota.isOther && selected)
+                    _SellerKotaDropdown(
+                      selectedKota: _selectedKotaLain,
+                      onChanged: (v) => setState(() => _selectedKotaLain = v),
+                    ),
+                ],
+              );
+            }),
+
+            const SizedBox(height: 24),
+
             // ── Address ──────────────────────────────────────────────────
             _FormLabel(label: 'Deskripsi Bisnis'),
             const SizedBox(height: 8),
@@ -279,8 +358,24 @@ class _SellerRegistrationScreenState
             ),
             const SizedBox(height: 12),
             _ImageUploadBox(
-              image: _commodityImage,
+              imageBytes: _commodityImageBytes,
               onTap: _pickImage,
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Nama Produk ─────────────────────────────────────────────
+            _FormLabel(label: 'NAMA PRODUK'),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: _productNameController,
+              hint: 'Contoh: Serat Eceng Gondok Kering Grade A',
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Nama produk wajib diisi';
+                }
+                return null;
+              },
             ),
 
             const SizedBox(height: 24),
@@ -531,7 +626,7 @@ class _CommodityDropdown extends StatelessWidget {
         ),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         hint: Text(
           'Pilih jenis komoditi',
           style: textTheme.bodyMedium?.copyWith(
@@ -563,11 +658,11 @@ class _CommodityDropdown extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _ImageUploadBox extends StatelessWidget {
   const _ImageUploadBox({
-    required this.image,
+    required this.imageBytes,
     required this.onTap,
   });
 
-  final File? image;
+  final Uint8List? imageBytes;
   final VoidCallback onTap;
 
   @override
@@ -583,12 +678,14 @@ class _ImageUploadBox extends StatelessWidget {
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.3),
-            width: 1.5,
+            color: imageBytes != null
+                ? colorScheme.primary.withValues(alpha: 0.5)
+                : colorScheme.outline.withValues(alpha: 0.3),
+            width: imageBytes != null ? 2 : 1.5,
             style: BorderStyle.solid,
           ),
         ),
-        child: image == null
+        child: imageBytes == null
             ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -600,14 +697,14 @@ class _ImageUploadBox extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.camera_alt_rounded,
+                      Icons.add_photo_alternate_rounded,
                       color: colorScheme.primary,
                       size: 28,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'UNGGAH FOTO',
+                    'UNGGAH FOTO PRODUK',
                     style: TextStyle(
                       color: colorScheme.primary,
                       fontSize: 13,
@@ -615,16 +712,53 @@ class _ImageUploadBox extends StatelessWidget {
                       letterSpacing: 0.8,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap untuk memilih gambar',
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               )
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  image!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                ),
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.memory(
+                      imageBytes!,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  // Overlay: ganti foto
+                  Positioned(
+                    bottom: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit_rounded,
+                              size: 13, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text('Ganti Foto',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
@@ -711,6 +845,150 @@ class _NumberInputField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seller Kota Card
+// ─────────────────────────────────────────────────────────────────────────────
+class _SellerKotaCard extends StatelessWidget {
+  const _SellerKotaCard({
+    required this.nama,
+    required this.provinsi,
+    required this.isOther,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String nama;
+  final String provinsi;
+  final bool isOther;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.06)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? cs.primary : cs.outline.withValues(alpha: 0.2),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isOther ? Icons.more_horiz_rounded : Icons.location_on_outlined,
+              color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nama,
+                    style: tt.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: selected ? cs.primary : cs.onSurface,
+                    ),
+                  ),
+                  Text(
+                    provinsi,
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seller Kota Dropdown (muncul saat "Kota Lainnya" dipilih)
+// ─────────────────────────────────────────────────────────────────────────────
+class _SellerKotaDropdown extends StatelessWidget {
+  const _SellerKotaDropdown({
+    required this.selectedKota,
+    required this.onChanged,
+  });
+
+  final String? selectedKota;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.primary.withValues(alpha: 0.35),
+            width: 1.2,
+          ),
+        ),
+        child: DropdownButtonFormField<String>(
+          initialValue: selectedKota,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: cs.primary, size: 22),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.location_city_outlined,
+                size: 20, color: cs.primary.withValues(alpha: 0.7)),
+            hintText: 'Pilih kota / kabupaten',
+            hintStyle: tt.bodyMedium?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+          ),
+          style: tt.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: cs.primary,
+          ),
+          dropdownColor: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          menuMaxHeight: 300,
+          items: _kotaJawaTimurSeller.map((kota) {
+            return DropdownMenuItem<String>(
+              value: kota,
+              child: Text(kota),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          validator: (v) => v == null ? 'Harap pilih kota / kabupaten' : null,
+        ),
+      ),
     );
   }
 }

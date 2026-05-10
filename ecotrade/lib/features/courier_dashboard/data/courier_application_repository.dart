@@ -40,15 +40,23 @@ class CourierApplicationRepository {
 
   // ── Admin: watch semua aplikasi (real-time) ───────────────────────────────
   Stream<List<CourierApplicationModel>> watchAllApplications({String? status}) {
-    Query<Map<String, dynamic>> q =
-        _apps.orderBy('createdAt', descending: true);
-    if (status != null) q = q.where('status', isEqualTo: status);
-    return q.snapshots().map((snap) => snap.docs.map((doc) {
-          final data = {...doc.data()}
-            ..remove('createdAt')
-            ..remove('updatedAt');
-          return CourierApplicationModel.fromJson(data, doc.id);
-        }).toList());
+    // Ambil semua dokumen tanpa orderBy agar tidak butuh composite index.
+    // Sorting & filtering dilakukan di sisi client.
+    return _apps.snapshots().map((snap) {
+      final list = snap.docs.map((doc) {
+        final data = {...doc.data()}
+          ..remove('createdAt')
+          ..remove('updatedAt');
+        return CourierApplicationModel.fromJson(data, doc.id);
+      }).toList();
+
+      final filtered =
+          status != null ? list.where((a) => a.status == status).toList() : list;
+
+      // Sort descending berdasarkan uid (sebagai proxy urutan dokumen)
+      filtered.sort((a, b) => b.uid.compareTo(a.uid));
+      return filtered;
+    });
   }
 
   // ── Admin: approve ─────────────────────────────────────────────────────────
@@ -66,6 +74,19 @@ class CourierApplicationRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
+  }
+
+  // ── User: simpan URL foto KTP & SIM setelah upload ke Storage ─────────────
+  Future<void> updateDocumentImages({
+    required String uid,
+    required String ktpImageUrl,
+    required String simImageUrl,
+  }) {
+    return _apps.doc(uid).update({
+      'ktpImageUrl': ktpImageUrl,
+      'simImageUrl': simImageUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // ── Admin: reject ──────────────────────────────────────────────────────────

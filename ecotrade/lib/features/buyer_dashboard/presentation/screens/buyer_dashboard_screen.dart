@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../seller_dashboard/domain/product_model.dart';
+import 'buyer_order_screen.dart';
 import 'buyer_profile_screen.dart';
 import 'cart_screen.dart';
 import 'product_detail_screen.dart';
@@ -81,9 +82,14 @@ class ProductListing {
 Stream<List<ProductListing>> marketListings(Ref ref) {
   return FirebaseFirestore.instance
       .collection('products')
-      .orderBy('createdAt', descending: true)
       .snapshots()
-      .map((snap) => snap.docs.map(ProductListing.fromFirestore).toList());
+      .map((snap) {
+    final list = snap.docs.map(ProductListing.fromFirestore).toList();
+    // Sort berdasarkan createdAt descending di sisi client
+    // agar tidak butuh Firestore composite index
+    list.sort((a, b) => b.id.compareTo(a.id)); // fallback: doc ID desc
+    return list;
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,6 +117,8 @@ class _BuyerDashboardScreenState
   // Pages indexed by bottom nav
   Widget _buildBody() {
     switch (_selectedNavIndex) {
+      case 1:
+        return const BuyerOrderScreen();
       case 2:
         return const CartScreen();
       case 3:

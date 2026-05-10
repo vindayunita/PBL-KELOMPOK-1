@@ -48,4 +48,4 @@ final class MarketListingsProvider
   }
 }
 
-String _$marketListingsHash() => r'b25c6c658a64a62e32c713854899590d379453e2';
+String _$marketListingsHash() => r'b32df5b6e4f572e3ba00713c28c50ad3777b7159';

@@ -1,4 +1,4 @@
-﻿class SellerApplicationModel {
+class SellerApplicationModel {
   const SellerApplicationModel({
     required this.uid,
     required this.name,
@@ -8,6 +8,11 @@
     required this.businessDescription,
     required this.status,
     required this.submittedAt,
+    this.productName = '',
+    this.city,
+    this.stock = 0,
+    this.pricePerKg = 0.0,
+    this.commodityImageUrl = '',
     this.rejectionReason,
     this.reviewedAt,
   });
@@ -20,6 +25,11 @@
   final String businessDescription;
   final String status;
   final String submittedAt;
+  final String productName;
+  final String? city;
+  final int    stock;
+  final double pricePerKg;
+  final String commodityImageUrl;
   final String? rejectionReason;
   final String? reviewedAt;
 
@@ -37,6 +47,11 @@
       businessDescription: json['businessDescription'] as String? ?? '',
       status:              json['status']              as String? ?? 'pending',
       submittedAt:         json['submittedAt']         as String? ?? '',
+      productName:         json['productName']         as String? ?? '',
+      city:                json['city']                as String?,
+      stock:               (json['stock']      as num?)?.toInt()    ?? 0,
+      pricePerKg:          (json['pricePerKg'] as num?)?.toDouble() ?? 0.0,
+      commodityImageUrl:   json['commodityImageUrl']   as String? ?? '',
       rejectionReason:     json['rejectionReason']     as String?,
       reviewedAt:          json['reviewedAt']          as String?,
     );
@@ -50,6 +65,11 @@
         'businessDescription': businessDescription,
         'status':              status,
         'submittedAt':         submittedAt,
+        'productName':         productName,
+        'stock':               stock,
+        'pricePerKg':          pricePerKg,
+        'commodityImageUrl':   commodityImageUrl,
+        if (city            != null) 'city':            city,
         if (rejectionReason != null) 'rejectionReason': rejectionReason,
         if (reviewedAt      != null) 'reviewedAt':      reviewedAt,
       };
