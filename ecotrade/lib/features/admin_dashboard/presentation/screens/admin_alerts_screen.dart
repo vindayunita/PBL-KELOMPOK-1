@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
 
@@ -27,8 +28,12 @@ class AdminAlertsScreen extends ConsumerWidget {
     final pendingCouriers =
         courierAsync.value?.where((a) => a.isPending).length ?? 0;
 
+    // Live payment pending count
+    final paymentAsync = ref.watch(
+        allOrdersStreamProvider(status: 'pending_verification'));
+    final pendingPayments = paymentAsync.value?.length ?? 0;
+
     // Placeholder counts — replace when real models are wired
-    const pendingPayments      = 0;
     const pendingRefunds       = 0;
     const pendingPayoutSellers = 0;
     const pendingRefundProcess = 0;

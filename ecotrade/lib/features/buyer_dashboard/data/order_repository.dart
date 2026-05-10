@@ -47,19 +47,24 @@ class OrderRepository {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
+    // Kumpulkan semua sellerId unik agar seller bisa query dgn arrayContains
+    final sellerIds = items.map((i) => i.sellerId).toSet().toList();
+
     final ref = _db.collection('orders').doc();
     await ref.set({
-      'orderId':        ref.id,
-      'buyerId':        user.uid,
-      'buyerEmail':     user.email ?? '',
-      'buyerAddress':   buyerAddress,
-      'items':          items.map((i) => i.toJson()).toList(),
-      'total':          total,
+      'orderId':         ref.id,
+      'buyerId':         user.uid,
+      'buyerEmail':      user.email ?? '',
+      'buyerName':       user.displayName ?? '',
+      'buyerAddress':    buyerAddress,
+      'items':           items.map((i) => i.toJson()).toList(),
+      'total':           total,
       'paymentProofUrl': paymentProofUrl,
-      'status':         'pending_verification',
-      'paymentMethod':  'bank_transfer',
-      'createdAt':      FieldValue.serverTimestamp(),
-      'updatedAt':      FieldValue.serverTimestamp(),
+      'status':          'pending_verification',
+      'paymentMethod':   'bank_transfer',
+      'sellerIds':       sellerIds,
+      'createdAt':       FieldValue.serverTimestamp(),
+      'updatedAt':       FieldValue.serverTimestamp(),
     });
     return ref.id;
   }
