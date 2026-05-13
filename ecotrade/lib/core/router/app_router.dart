@@ -30,6 +30,8 @@ GoRouter appRouter(Ref ref) {
   final authState  = ref.watch(authStateChangesProvider);
   // Watch role as AsyncValue — data available once token is fetched
   final roleAsync  = ref.watch(userRoleProvider);
+  // Watch activeRole dari Firestore (mendukung 'courier', 'seller')
+  final activeRole = ref.watch(activeRoleProvider);
 
   return GoRouter(
     initialLocation: AppRoutes.login,
@@ -47,9 +49,14 @@ GoRouter appRouter(Ref ref) {
       if (isLoggedIn && isAuthRoute) {
         // Wait until role is resolved before redirecting
         return roleAsync.when(
-          data: (role) =>
-              role == 'admin' ? AppRoutes.adminDashboard : AppRoutes.buyerDashboard,
-          loading: () => null, // stay until token resolves
+          data: (role) {
+            // activeRole dari Firestore menentukan dashboard yang tepat
+            if (activeRole == 'courier') return AppRoutes.courierDashboard;
+            if (activeRole == 'seller')  return AppRoutes.sellerDashboard;
+            if (role == 'admin')         return AppRoutes.adminDashboard;
+            return AppRoutes.buyerDashboard;
+          },
+          loading: () => null, // tunggu token selesai
           error: (_, __) => AppRoutes.buyerDashboard,
         );
       }
@@ -122,5 +129,7 @@ GoRouter appRouter(Ref ref) {
 class _AuthStateListenable extends ChangeNotifier {
   _AuthStateListenable(Ref ref) {
     ref.listen(authStateChangesProvider, (_, __) => notifyListeners());
+    // Juga listen perubahan role dari Firestore (untuk kurir/seller)
+    ref.listen(currentUserDocProvider, (_, __) => notifyListeners());
   }
 }

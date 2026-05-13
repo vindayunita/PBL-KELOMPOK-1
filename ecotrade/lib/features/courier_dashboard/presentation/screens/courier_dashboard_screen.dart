@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/domain/auth_providers.dart';
+import '../../data/courier_application_repository.dart';
+import '../../domain/models/courier_application_model.dart';
 import 'courier_profil.dart';
 import 'courier_riwayat.dart';
 import 'courier_tugas.dart';
@@ -48,6 +50,13 @@ class _CourierDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    final user      = ref.watch(currentUserProvider);
+    final uid       = user?.uid ?? '';
+    final appAsync  = uid.isNotEmpty
+        ? ref.watch(courierApplicationByUidProvider(uid))
+        : const AsyncData<CourierApplicationModel?>(null);
+    final isActive  = appAsync.asData?.value?.isActive ?? false;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: IndexedStack(
@@ -56,15 +65,28 @@ class _CourierDashboardScreenState
           _HomeTab(
             courierName: widget.courierName,
             tasks: _availableTasks,
+            isActive: isActive,
           ),
-          const CourierTugasScreen(),
+          // Gate: tampilkan layar terkunci jika kurir tidak aktif
+          isActive
+              ? const CourierTugasScreen()
+              : _LockedTugasScreen(
+                  onGoToProfile: () =>
+                      setState(() => _selectedIndex = 3),
+                ),
           const CourierRiwayatScreen(),
           const CourierProfilScreen(),
         ],
       ),
       bottomNavigationBar: _CourierBottomNav(
         selectedIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
+        isActive: isActive,
+        onTap: (i) {
+          if (i == 1 && !isActive) {
+            // Tetap navigate ke tab Tugas, tapi tampil layar terkunci
+          }
+          setState(() => _selectedIndex = i);
+        },
       ),
     );
   }
@@ -77,10 +99,12 @@ class _HomeTab extends StatelessWidget {
   const _HomeTab({
     required this.courierName,
     required this.tasks,
+    required this.isActive,
   });
 
   final String courierName;
   final List<_DeliveryTask> tasks;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -139,9 +163,44 @@ class _HomeTab extends StatelessWidget {
                   _HeroBanner(
                     courierName: firstName,
                     taskCount: tasks.length,
+                    isActive: isActive,
                   ),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
+
+                  // ── Status Banner ─────────────────────────────────────────
+                  if (!isActive)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              color: Colors.orange, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Status kamu tidak aktif. Aktifkan di tab Profil untuk mulai menerima tugas.',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                color: Colors.orange.shade800,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
 
                   // ── Section header ───────────────────────────────────────
                   Row(
@@ -221,10 +280,12 @@ class _HeroBanner extends StatelessWidget {
   const _HeroBanner({
     required this.courierName,
     required this.taskCount,
+    required this.isActive,
   });
 
   final String courierName;
   final int taskCount;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -258,13 +319,29 @@ class _HeroBanner extends StatelessWidget {
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              'EKSPLORASI TUGAS',
-              style: textTheme.labelSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.1,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF10B981)
+                        : Colors.white.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Text(
+                  isActive ? 'AKTIF' : 'TIDAK AKTIF',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -290,6 +367,81 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Locked Tugas Screen (when courier is inactive)
+// ─────────────────────────────────────────────────────────────────────────────
+class _LockedTugasScreen extends StatelessWidget {
+  const _LockedTugasScreen({required this.onGoToProfile});
+  final VoidCallback onGoToProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: cs.errorContainer.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  size: 38,
+                  color: cs.error,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Status Tidak Aktif',
+                style: tt.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Aktifkan status kurir kamu di halaman Profil untuk mulai menerima dan mengambil tugas pengantaran.',
+                textAlign: TextAlign.center,
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 28),
+              FilledButton.icon(
+                onPressed: onGoToProfile,
+                icon: const Icon(Icons.person_outline_rounded, size: 18),
+                label: const Text(
+                  'Ke Halaman Profil',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -543,137 +695,6 @@ class _RouteRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Profile Tab
-// ─────────────────────────────────────────────────────────────────────────────
-class _ProfileTab extends ConsumerWidget {
-  const _ProfileTab({required this.courierId});
-  final String courierId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final user = ref.watch(currentUserProvider);
-    final displayName = user?.displayName ?? user?.email ?? 'Kurir';
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Profil',
-              style: textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Avatar + name
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Icon(Icons.person_rounded,
-                      size: 32, color: colorScheme.primary),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Kurir',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.55),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Sign out
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colorScheme.errorContainer.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.logout_rounded,
-                    color: colorScheme.error, size: 20),
-              ),
-              title: Text(
-                'Keluar',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.error,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () async {
-                await ref.read(authRepositoryProvider).signOut();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Placeholder Tab
-// ─────────────────────────────────────────────────────────────────────────────
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_outlined,
-                size: 48, color: colorScheme.onSurface.withOpacity(0.3)),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.45),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Coming soon',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.3),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bottom Navigation Bar
@@ -681,10 +702,12 @@ class _PlaceholderTab extends StatelessWidget {
 class _CourierBottomNav extends StatelessWidget {
   const _CourierBottomNav({
     required this.selectedIndex,
+    required this.isActive,
     required this.onTap,
   });
 
   final int selectedIndex;
+  final bool isActive;
   final ValueChanged<int> onTap;
 
   @override
@@ -696,23 +719,63 @@ class _CourierBottomNav extends StatelessWidget {
       indicatorColor: colorScheme.primaryContainer,
       selectedIndex: selectedIndex,
       onDestinationSelected: onTap,
-      destinations: const [
-        NavigationDestination(
+      destinations: [
+        const NavigationDestination(
           icon: Icon(Icons.home_outlined),
           selectedIcon: Icon(Icons.home_rounded),
           label: 'Beranda',
         ),
         NavigationDestination(
-          icon: Icon(Icons.local_shipping_outlined),
-          selectedIcon: Icon(Icons.local_shipping_rounded),
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.local_shipping_outlined),
+              if (!isActive)
+                Positioned(
+                  top: -2,
+                  right: -4,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: colorScheme.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: colorScheme.surface, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          selectedIcon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.local_shipping_rounded),
+              if (!isActive)
+                Positioned(
+                  top: -2,
+                  right: -4,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: colorScheme.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: colorScheme.surface, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           label: 'Tugas',
         ),
-        NavigationDestination(
+        const NavigationDestination(
           icon: Icon(Icons.history_outlined),
           selectedIcon: Icon(Icons.history_rounded),
           label: 'Riwayat',
         ),
-        NavigationDestination(
+        const NavigationDestination(
           icon: Icon(Icons.person_outline_rounded),
           selectedIcon: Icon(Icons.person_rounded),
           label: 'Profil',

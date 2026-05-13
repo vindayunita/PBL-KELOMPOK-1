@@ -1,13 +1,17 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/domain/auth_providers.dart';
+import '../../data/courier_application_repository.dart';
 import 'courier_status_verif.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data model placeholder for activity history
 // ─────────────────────────────────────────────────────────────────────────────
+// ignore: unused_field
 enum _ActivityStatus { selesai, dibatalkan }
 
 class _ActivityItem {
@@ -26,19 +30,34 @@ class _ActivityItem {
 // ─────────────────────────────────────────────────────────────────────────────
 // Courier Profile Screen
 // ─────────────────────────────────────────────────────────────────────────────
-class CourierProfilScreen extends ConsumerWidget {
+class CourierProfilScreen extends ConsumerStatefulWidget {
   const CourierProfilScreen({super.key});
 
+  @override
+  ConsumerState<CourierProfilScreen> createState() =>
+      _CourierProfilScreenState();
+}
+
+class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
   // Empty list — ganti dengan data Firestore nantinya
   static const List<_ActivityItem> _activities = [];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user  = ref.watch(currentUserProvider);
-    final cs    = Theme.of(context).colorScheme;
-    final tt    = Theme.of(context).textTheme;
-    final name  = user?.displayName ?? user?.email ?? 'Kurir';
-    final initials = name.isNotEmpty ? name[0].toUpperCase() : 'K';
+  Widget build(BuildContext context) {
+    // Gunakan AsyncValue agar tidak null saat loading awal auth
+    final authAsync = ref.watch(authStateChangesProvider);
+    final user      = ref.watch(currentUserProvider);
+    final cs        = Theme.of(context).colorScheme;
+    final tt        = Theme.of(context).textTheme;
+    final name      = user?.displayName ?? user?.email ?? 'Kurir';
+    final initials  = name.isNotEmpty ? name[0].toUpperCase() : 'K';
+
+    // Ambil UID dari AsyncValue — null hanya jika benar-benar belum login
+    final uid = authAsync.when(
+      data:    (u) => u?.uid ?? '',
+      loading: () => null,   // null = masih loading
+      error:   (_, __) => '',
+    );
 
     return SafeArea(
       child: CustomScrollView(
@@ -89,6 +108,21 @@ class CourierProfilScreen extends ConsumerWidget {
 
                   // ── Hero Identity Card ────────────────────────────────────
                   _HeroCard(name: name),
+
+                  const SizedBox(height: 14),
+
+                  // ── Status Aktif Toggle ───────────────────────────────────
+                  // uid null  = auth masih loading
+                  // uid ''    = tidak login
+                  // uid valid = kurir sudah login
+                  uid == null
+                      ? const SizedBox(
+                          height: 80,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : _StatusAktifCard(uid: uid),
 
                   const SizedBox(height: 14),
 
@@ -191,6 +225,361 @@ class CourierProfilScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Aktif Toggle Card
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatusAktifCard extends ConsumerStatefulWidget {
+  const _StatusAktifCard({required this.uid});
+  final String uid;
+
+  @override
+  ConsumerState<_StatusAktifCard> createState() => _StatusAktifCardState();
+}
+
+class _StatusAktifCardState extends ConsumerState<_StatusAktifCard>
+    with SingleTickerProviderStateMixin {
+  bool _loading = false;
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle(bool newValue) async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await ref
+          .read(courierApplicationRepositoryProvider)
+          .toggleActiveStatus(widget.uid, newValue);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Jika UID kosong, tampilkan pesan agar user login
+    if (widget.uid.isEmpty) {
+      return _StatusUidEmptyCard();
+    }
+
+    final appAsync =
+        ref.watch(courierApplicationByUidProvider(widget.uid));
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Debug log
+    dev.log('[StatusAktif] uid=${widget.uid} state=${appAsync.runtimeType}',
+        name: 'CourierProfil');
+    appAsync.whenOrNull(
+      error: (err, st) => dev.log('[StatusAktif] ERROR: $err', name: 'CourierProfil', error: err, stackTrace: st),
+      data: (app) => dev.log('[StatusAktif] data=${app?.isActive} status=${app?.status}', name: 'CourierProfil'),
+    );
+
+    return appAsync.when(
+      loading: () => const SizedBox(
+        height: 80,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (err, _) => _StatusErrorCard(uid: widget.uid, error: err.toString()),
+      data: (app) {
+        if (app == null) return _StatusNotFoundCard(uid: widget.uid);
+        final isActive = app.isActive;
+        final activeColor  = const Color(0xFF10B981);
+        final inactiveColor = cs.onSurface.withValues(alpha: 0.38);
+        final cardColor    = isActive
+            ? activeColor.withValues(alpha: 0.08)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5);
+        final borderColor  = isActive
+            ? activeColor.withValues(alpha: 0.35)
+            : cs.outlineVariant.withValues(alpha: 0.4);
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              // Animated dot
+              AnimatedBuilder(
+                animation: _pulseAnim,
+                builder: (context, _) {
+                  return Opacity(
+                    opacity: isActive ? _pulseAnim.value : 1.0,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: isActive ? activeColor : inactiveColor,
+                        shape: BoxShape.circle,
+                        boxShadow: isActive
+                            ? [
+                                BoxShadow(
+                                  color: activeColor.withValues(alpha: 0.45),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                )
+                              ]
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(width: 12),
+
+              // Label
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isActive ? 'Siap Menerima Pesanan' : 'Tidak Aktif',
+                      style: tt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isActive ? activeColor : cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isActive
+                          ? 'Kamu akan mendapat notifikasi tugas baru'
+                          : 'Aktifkan untuk mulai menerima tugas pengantaran',
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // Toggle switch
+              _loading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Transform.scale(
+                      scale: 0.9,
+                      child: Switch(
+                        value: isActive,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: activeColor,
+                        onChanged: _toggle,
+                      ),
+                    ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status UID Empty Card – shown when user is not logged in
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatusUidEmptyCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_circle_outlined,
+              color: cs.onSurface.withValues(alpha: 0.4), size: 20),
+          const SizedBox(width: 10),
+          Text(
+            'Silakan login untuk melihat status aktif',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Error Card – shown when Firestore fails to load
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatusErrorCard extends ConsumerWidget {
+  const _StatusErrorCard({required this.uid, required this.error});
+  final String uid;
+  final String error;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Gagal Memuat Status',
+                style: tt.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.error,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Periksa koneksi internet atau pastikan akun kurir sudah diverifikasi.\n\nDetail: $error',
+            style: tt.labelSmall?.copyWith(
+              color: cs.onSurface.withValues(alpha: 0.55),
+              height: 1.4,
+            ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => ref.invalidate(courierApplicationByUidProvider(uid)),
+              icon: Icon(Icons.refresh_rounded, size: 16, color: cs.error),
+              label: Text(
+                'Coba Lagi',
+                style: tt.labelMedium?.copyWith(
+                  color: cs.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status Not Found Card – shown when courier doc doesn't exist in Firestore
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatusNotFoundCard extends ConsumerWidget {
+  const _StatusNotFoundCard({required this.uid});
+  final String uid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final warnColor = const Color(0xFFF59E0B);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: warnColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: warnColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: warnColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Status Belum Tersedia',
+                  style: tt.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: warnColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Profil kurir tidak ditemukan. Pastikan pendaftaran sudah disetujui oleh admin.',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.55),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton(
+            onPressed: () => ref.invalidate(courierApplicationByUidProvider(uid)),
+            icon: Icon(Icons.refresh_rounded,
+                size: 20, color: warnColor.withValues(alpha: 0.7)),
+            tooltip: 'Refresh',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),

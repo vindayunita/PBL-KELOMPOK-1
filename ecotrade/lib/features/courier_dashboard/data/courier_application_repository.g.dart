@@ -57,3 +57,82 @@ final class CourierApplicationRepositoryProvider
 
 String _$courierApplicationRepositoryHash() =>
     r'b7f8ac4b9e02d255bf01584a6f8e879757ebf8a4';
+
+@ProviderFor(courierApplicationByUid)
+const courierApplicationByUidProvider = CourierApplicationByUidFamily._();
+
+final class CourierApplicationByUidProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<CourierApplicationModel?>,
+          CourierApplicationModel?,
+          Stream<CourierApplicationModel?>
+        >
+    with
+        $FutureModifier<CourierApplicationModel?>,
+        $StreamProvider<CourierApplicationModel?> {
+  const CourierApplicationByUidProvider._({
+    required CourierApplicationByUidFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'courierApplicationByUidProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$courierApplicationByUidHash();
+
+  @override
+  String toString() {
+    return r'courierApplicationByUidProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<CourierApplicationModel?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<CourierApplicationModel?> create(Ref ref) {
+    final argument = this.argument as String;
+    return courierApplicationByUid(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CourierApplicationByUidProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$courierApplicationByUidHash() =>
+    r'43ffd307a574e3b35dfb48cb6f56987efb8f25e1';
+
+final class CourierApplicationByUidFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<CourierApplicationModel?>, String> {
+  const CourierApplicationByUidFamily._()
+    : super(
+        retry: null,
+        name: r'courierApplicationByUidProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  CourierApplicationByUidProvider call(String uid) =>
+      CourierApplicationByUidProvider._(argument: uid, from: this);
+
+  @override
+  String toString() => r'courierApplicationByUidProvider';
+}

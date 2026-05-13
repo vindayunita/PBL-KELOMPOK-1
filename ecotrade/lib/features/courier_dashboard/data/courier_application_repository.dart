@@ -68,10 +68,11 @@ class CourierApplicationRepository {
       'reviewedAt': DateTime.now().toIso8601String(),
       'updatedAt':  FieldValue.serverTimestamp(),
     });
-    // 2. Tambah role 'courier' ke user document
+    // 2. Tambah role 'courier' & set activeRole ke user document
     batch.update(_db.collection('users').doc(uid), {
-      'roles':     FieldValue.arrayUnion(['courier']),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'roles':      FieldValue.arrayUnion(['courier']),
+      'activeRole': 'courier',
+      'updatedAt':  FieldValue.serverTimestamp(),
     });
     await batch.commit();
   }
@@ -98,4 +99,21 @@ class CourierApplicationRepository {
       'updatedAt':       FieldValue.serverTimestamp(),
     });
   }
+
+  // ── Kurir: toggle status aktif / tidak aktif ───────────────────────────────
+  Future<void> toggleActiveStatus(String uid, bool isActive) {
+    return _apps.doc(uid).update({
+      'isActive':  isActive,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+// ── Provider: stream data kurir berdasarkan UID ─────────────────────────────
+@riverpod
+Stream<CourierApplicationModel?> courierApplicationByUid(
+    Ref ref, String uid) {
+  return ref
+      .watch(courierApplicationRepositoryProvider)
+      .watchApplication(uid);
 }
