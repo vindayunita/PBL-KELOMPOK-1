@@ -12,6 +12,7 @@ class CourierApplicationModel {
     required this.submittedAt,
     this.rejectionReason,
     this.reviewedAt,
+    this.isActive = false,
   });
 
   final String uid;
@@ -26,6 +27,7 @@ class CourierApplicationModel {
   final String submittedAt;
   final String? rejectionReason;
   final String? reviewedAt;
+  final bool isActive;
 
   bool get isPending  => status == 'pending';
   bool get isApproved => status == 'approved';
@@ -45,6 +47,7 @@ class CourierApplicationModel {
       submittedAt:     json['submittedAt']     as String? ?? '',
       rejectionReason: json['rejectionReason'] as String?,
       reviewedAt:      json['reviewedAt']      as String?,
+      isActive:        json['isActive']        as bool?   ?? false,
     );
   }
 
@@ -58,6 +61,7 @@ class CourierApplicationModel {
     'agreedTerms': agreedTerms,
     'status':      status,
     'submittedAt': submittedAt,
+    'isActive':    isActive,
     if (rejectionReason != null) 'rejectionReason': rejectionReason,
     if (reviewedAt      != null) 'reviewedAt':      reviewedAt,
   };

@@ -12,6 +12,19 @@ service cloud.firestore {
                         || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
     }
 
+    // ── Courier Applications ──────────────────────────────────────────
+    match /courier_applications/{uid} {
+      // Kurir: bisa baca & update dokumen milik sendiri (untuk toggle isActive)
+      allow read:   if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null
+                    && (request.auth.uid == uid
+                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+      // Admin: bisa baca semua aplikasi kurir
+      allow read:   if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
+
     // ── Seller Applications ───────────────────────────────────────────
     match /seller_applications/{uid} {
       // Buyer: bisa buat & baca milik sendiri
