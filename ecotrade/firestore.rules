@@ -62,16 +62,24 @@ service cloud.firestore {
     }
 
     // ── Orders ─────────────────────────────────────────────────────────
-    // Buyers can create orders for themselves and read their own orders.
-    // Admins can read and update order status.
+    // Buyers  : buat order milik sendiri; baca milik sendiri
+    // Sellers : baca & update (confirm/assign) order milik tokonya
+    // Couriers: baca & update status (picked_up/delivered) tugas miliknya
+    // Admins  : baca & update semua
     match /orders/{orderId} {
       allow create: if request.auth != null
                     && request.resource.data.buyerId == request.auth.uid;
-      allow read:   if request.auth != null
-                    && (resource.data.buyerId == request.auth.uid
-                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+
+      allow read: if request.auth != null
+                  && (resource.data.buyerId   == request.auth.uid
+                      || resource.data.sellerId  == request.auth.uid
+                      || resource.data.courierId == request.auth.uid
+                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+
       allow update: if request.auth != null
-                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+                    && (resource.data.sellerId  == request.auth.uid
+                        || resource.data.courierId == request.auth.uid
+                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
     }
 
     // ── Fallback: authenticated users ─────────────────────────────────

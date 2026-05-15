@@ -86,6 +86,20 @@ class CourierApplicationRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  // ── Seller: stream kurir yang approved & aktif (untuk assign) ─────────────
+  Stream<List<CourierApplicationModel>> watchActiveCouriers() {
+    return _apps
+        .where('status',   isEqualTo: 'approved')
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = {...doc.data()}
+                ..remove('createdAt')
+                ..remove('updatedAt');
+              return CourierApplicationModel.fromJson(data, doc.id);
+            }).toList());
+  }
 }
 
 // ── Provider: stream data kurir berdasarkan UID ─────────────────────────────
