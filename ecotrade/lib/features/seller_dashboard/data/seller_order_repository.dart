@@ -56,14 +56,25 @@ class SellerOrderRepository {
   CollectionReference<Map<String, dynamic>> get _orders =>
       _db.collection('orders');
 
-  // ── Order masuk: verified (belum diproses seller) ─────────────────────────
+  // ── Order masuk: semua order seller yang masih aktif ──────────────────────
+  // Filter status dilakukan di sisi client agar tidak perlu composite index
+  // (Firestore tidak support arrayContains + whereIn tanpa index)
+  static const _incomingStatuses = {
+    OrderStatus.verified,
+    OrderStatus.processing,
+    OrderStatus.assigned,
+    OrderStatus.pickedUp,
+  };
+
   Stream<List<OrderModel>> watchIncomingOrders(String sellerId) {
     return _orders
         .where('sellerIds', arrayContains: sellerId)
-        .where('status', whereIn: ['verified', 'processing'])
         .snapshots()
         .map((snap) {
-          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          final list = snap.docs
+              .map(OrderModel.fromFirestore)
+              .where((o) => _incomingStatuses.contains(o.status))
+              .toList();
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
@@ -73,10 +84,12 @@ class SellerOrderRepository {
   Stream<List<OrderModel>> watchCompletedOrders(String sellerId) {
     return _orders
         .where('sellerIds', arrayContains: sellerId)
-        .where('status', isEqualTo: 'completed')
         .snapshots()
         .map((snap) {
-          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          final list = snap.docs
+              .map(OrderModel.fromFirestore)
+              .where((o) => o.status == OrderStatus.completed)
+              .toList();
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
@@ -86,10 +99,12 @@ class SellerOrderRepository {
   Stream<List<OrderModel>> watchReturnOrders(String sellerId) {
     return _orders
         .where('sellerIds', arrayContains: sellerId)
-        .where('status', isEqualTo: 'return_requested')
         .snapshots()
         .map((snap) {
-          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          final list = snap.docs
+              .map(OrderModel.fromFirestore)
+              .where((o) => o.status == OrderStatus.returnRequested)
+              .toList();
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
@@ -110,6 +125,55 @@ class SellerOrderRepository {
       'rejectionReason': reason,
       'updatedAt':       FieldValue.serverTimestamp(),
     });
+  }
+
+  // ── Seller assign kurir otomatis → assigned ──────────────────────────────
+  Future<void> assignCourier(String orderId, {String? excludeCourierId}) async {
+    // 1. Cari kurir yang AKTIF (isActive == true) terlebih dahulu
+    final activeSnap = await _db
+        .collection('courier_applications')
+        .where('status',   isEqualTo: 'approved')
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    // Kecualikan kurir yang sudah menolak
+    var activeDocs = excludeCourierId != null
+        ? activeSnap.docs.where((d) => d.id != excludeCourierId).toList()
+        : activeSnap.docs.toList();
+
+    // 2. Fallback: jika tidak ada kurir aktif, ambil semua kurir approved
+    if (activeDocs.isEmpty) {
+      final allSnap = await _db
+          .collection('courier_applications')
+          .where('status', isEqualTo: 'approved')
+          .get();
+      activeDocs = excludeCourierId != null
+          ? allSnap.docs.where((d) => d.id != excludeCourierId).toList()
+          : allSnap.docs.toList();
+    }
+
+    if (activeDocs.isEmpty) {
+      throw Exception('Tidak ada kurir tersedia saat ini.');
+    }
+
+    // 3. Pilih satu kurir secara acak
+    activeDocs.shuffle();
+    final courierDoc  = activeDocs.first;
+    final courierId   = courierDoc.id;
+    final courierName = courierDoc.data()['fullName'] as String? ?? 'Kurir';
+
+    // 4. Update order — status 'assigned'
+    await _orders.doc(orderId).update({
+      'status':      'assigned',
+      'courierId':   courierId,
+      'courierName': courierName,
+      'updatedAt':   FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Re-assign ke kurir lain (dipanggil saat kurir tolak tugas) ───────────
+  Future<void> reAssignCourier(String orderId, String rejectedCourierId) {
+    return assignCourier(orderId, excludeCourierId: rejectedCourierId);
   }
 
   // ── Seller mark selesai → completed ──────────────────────────────────────

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../features/orders/data/order_repository.dart';
 import '../../../../features/orders/domain/order_model.dart';
 import '../../../../features/orders/domain/order_providers.dart';
+import '../../../../features/seller_dashboard/data/seller_order_repository.dart';
 import 'courier_retur.dart';
 import 'courier_tolak.dart';
 
@@ -391,7 +393,7 @@ class _TaskCard extends ConsumerWidget {
               const SizedBox(height: 10),
               Center(
                 child: GestureDetector(
-                  onTap: () => _tolakTugas(context),
+                  onTap: () => _tolakTugas(context, ref),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text('Tolak Tugas',
@@ -560,15 +562,32 @@ class _TaskCard extends ConsumerWidget {
     }
   }
 
-  Future<void> _tolakTugas(BuildContext context) async {
+  Future<void> _tolakTugas(BuildContext context, WidgetRef ref) async {
     final reason = await showTolakTugasSheet(context);
-    if (reason != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tugas ditolak: $reason'),
+    if (reason == null || reason.isEmpty) return;
+
+    try {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      // Re-assign ke kurir lain (kecualikan diri sendiri)
+      await ref
+          .read(sellerOrderRepositoryProvider)
+          .reAssignCourier(task.orderId, currentUid);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Tugas ditolak. Mencari kurir lain...'),
+          backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
-        ),
-      );
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     }
   }
 }

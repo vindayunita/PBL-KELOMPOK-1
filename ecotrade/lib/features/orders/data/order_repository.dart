@@ -21,9 +21,12 @@ class OrderRepository {
   Stream<List<OrderModel>> watchOrdersBySeller(String sellerId) {
     return _orders
         .where('sellerId', isEqualTo: sellerId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(OrderModel.fromFirestore).toList());
+        .map((snap) {
+          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          return list;
+        });
   }
 
   // ── Kurir: stream orders yang di-assign ke kurir tertentu ─────────────────
@@ -31,18 +34,24 @@ class OrderRepository {
     return _orders
         .where('courierId', isEqualTo: courierId)
         .where('status', whereIn: ['assigned', 'picked_up'])
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(OrderModel.fromFirestore).toList());
+        .map((snap) {
+          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          return list;
+        });
   }
 
   // ── Admin: stream orders berdasarkan status ───────────────────────────────
   Stream<List<OrderModel>> watchOrdersByStatus(String status) {
     return _orders
         .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map(OrderModel.fromFirestore).toList());
+        .map((snap) {
+          final list = snap.docs.map(OrderModel.fromFirestore).toList();
+          list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          return list;
+        });
   }
 
   // ── Seller: konfirmasi order (pending → confirmed) ────────────────────────
