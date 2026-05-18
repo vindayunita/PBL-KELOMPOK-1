@@ -5,8 +5,11 @@ enum OrderStatus {
   pendingVerification, // menunggu verifikasi admin
   verified,            // admin terima → menunggu seller proses
   processing,          // seller terima → sedang diproses
+  assigned,            // kurir ditugaskan (menunggu kurir terima)
+  pickedUp,            // kurir sudah terima & ambil barang (dalam perjalanan)
   rejected,            // seller tolak
-  shipped,             // barang dalam pengiriman
+  shipped,             // barang dalam pengiriman (legacy)
+  returnRequested,     // buyer minta retur
   completed,           // pesanan selesai
   cancelled,           // dibatalkan
   unknown,
@@ -18,8 +21,11 @@ extension OrderStatusX on OrderStatus {
       case OrderStatus.pendingVerification: return 'Pending Admin';
       case OrderStatus.verified:           return 'Diverifikasi';
       case OrderStatus.processing:         return 'Diproses';
+      case OrderStatus.assigned:           return 'Kurir Ditugaskan';
+      case OrderStatus.pickedUp:           return 'Dalam Perjalanan';
       case OrderStatus.rejected:           return 'Ditolak Seller';
       case OrderStatus.shipped:            return 'Dalam Pengiriman';
+      case OrderStatus.returnRequested:    return 'Permintaan Retur';
       case OrderStatus.completed:          return 'Selesai';
       case OrderStatus.cancelled:          return 'Dibatalkan';
       case OrderStatus.unknown:            return 'Tidak Diketahui';
@@ -32,8 +38,11 @@ OrderStatus orderStatusFromString(String? s) {
     case 'pending_verification': return OrderStatus.pendingVerification;
     case 'verified':             return OrderStatus.verified;
     case 'processing':           return OrderStatus.processing;
+    case 'assigned':             return OrderStatus.assigned;
+    case 'picked_up':            return OrderStatus.pickedUp;
     case 'rejected':             return OrderStatus.rejected;
     case 'shipped':              return OrderStatus.shipped;
+    case 'return_requested':     return OrderStatus.returnRequested;
     case 'completed':            return OrderStatus.completed;
     case 'cancelled':            return OrderStatus.cancelled;
     default:                     return OrderStatus.unknown;
@@ -92,6 +101,8 @@ class OrderModel {
     this.buyerName = '',
     this.buyerEmail = '',
     this.sellerIds = const [],
+    this.courierId = '',
+    this.courierName = '',
     this.reviewText,
     this.rating,
     this.returnReason,
@@ -110,6 +121,8 @@ class OrderModel {
   final String              buyerEmail;
   /// UIDs of all sellers involved — used for Firestore arrayContains queries.
   final List<String>        sellerIds;
+  final String              courierId;
+  final String              courierName;
   final String?             reviewText;
   final int?                rating;
   final String?             returnReason;
@@ -150,6 +163,8 @@ class OrderModel {
       buyerName:       data['buyerName']       as String? ?? '',
       buyerEmail:      data['buyerEmail']      as String? ?? '',
       sellerIds:       rawSellerIds.map((e) => e as String).toList(),
+      courierId:       data['courierId']       as String? ?? '',
+      courierName:     data['courierName']     as String? ?? '',
       reviewText:      data['reviewText']      as String?,
       rating:          (data['rating'] as num?)?.toInt(),
       returnReason:    data['returnReason']    as String?,

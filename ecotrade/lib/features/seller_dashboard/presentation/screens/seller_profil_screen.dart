@@ -77,7 +77,7 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
         ),
         SizedBox(height: 2),
         Text(
-          'CuanBarengUcok',
+          'Ecotrade',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryBlue),
         ),
       ],

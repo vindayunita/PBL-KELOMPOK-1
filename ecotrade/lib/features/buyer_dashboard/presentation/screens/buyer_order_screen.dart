@@ -14,7 +14,7 @@ final _myOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
 const _tabs = [
   ('Semua',      null),
   ('Diproses',   OrderStatus.processing),
-  ('Pengiriman', OrderStatus.shipped),
+  ('Pengiriman', OrderStatus.assigned),
   ('Selesai',    OrderStatus.completed),
   ('Ditolak',    OrderStatus.rejected),
 ];
@@ -47,10 +47,18 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
     final status = _tabs[_tab.index].$2;
     if (status == null) return all;
     if (status == OrderStatus.processing) {
+      // Tab "Diproses": menunggu admin, sudah verified, atau sedang diproses seller
       return all.where((o) =>
         o.status == OrderStatus.pendingVerification ||
         o.status == OrderStatus.verified ||
         o.status == OrderStatus.processing).toList();
+    }
+    if (status == OrderStatus.assigned) {
+      // Tab "Pengiriman": kurir sudah ditugaskan, dalam perjalanan, atau shipped
+      return all.where((o) =>
+        o.status == OrderStatus.assigned ||
+        o.status == OrderStatus.pickedUp ||
+        o.status == OrderStatus.shipped).toList();
     }
     return all.where((o) => o.status == status).toList();
   }
@@ -423,11 +431,13 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final item       = order.firstItem;
-    final isComplete  = order.status == OrderStatus.completed;
-    final isShipped   = order.status == OrderStatus.shipped;
-    final isRejected  = order.status == OrderStatus.rejected ||
-                        order.status == OrderStatus.cancelled;
-    final isPending   = order.status == OrderStatus.pendingVerification;
+    final isComplete   = order.status == OrderStatus.completed;
+    final isShipped    = order.status == OrderStatus.shipped ||
+                         order.status == OrderStatus.assigned ||
+                         order.status == OrderStatus.pickedUp;
+    final isRejected   = order.status == OrderStatus.rejected ||
+                         order.status == OrderStatus.cancelled;
+    final isPending    = order.status == OrderStatus.pendingVerification;
     final isProcessing = order.status == OrderStatus.processing ||
                          order.status == OrderStatus.verified;
 
@@ -697,6 +707,12 @@ class _StatusBadge extends StatelessWidget {
       case OrderStatus.shipped:
         bg = cs.primaryContainer; fg = cs.onPrimaryContainer;
         label = 'IN\nDELIVERY'; break;
+      case OrderStatus.assigned:
+        bg = const Color(0xFFFFF3E0); fg = const Color(0xFFE65100);
+        label = 'KURIR\nDITUGAS'; break;
+      case OrderStatus.pickedUp:
+        bg = cs.primaryContainer; fg = cs.onPrimaryContainer;
+        label = 'DALAM\nPERJALANAN'; break;
       case OrderStatus.processing:
       case OrderStatus.verified:
         bg = cs.tertiaryContainer; fg = cs.onTertiaryContainer;
