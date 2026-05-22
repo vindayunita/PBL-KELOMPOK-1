@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/product_repository.dart';
+import '../../data/seller_order_repository.dart';
+import 'package:intl/intl.dart';
 import 'seller_unggah_komoditi_screen.dart';
 
 class SellerProfilScreen extends ConsumerStatefulWidget {
@@ -21,8 +23,6 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
 
   // Data diisi dari backend — kosong = tampil empty state
   final List<Map<String, dynamic>> _activities = [];
-  String _totalPendapatan = 'Rp 0';
-  bool   _hasPendapatan   = false;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +128,10 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
 
   // ── Card Total Pendapatan ──────────────────────────────────────────────────
   Widget _buildTotalPendapatanCard() {
+    final totalRevenue = ref.watch(sellerTotalRevenueProvider);
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final hasPendapatan = totalRevenue > 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -150,12 +154,12 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _totalPendapatan,
+                  rupiah.format(totalRevenue),
                   style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF3F6D38)),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: _hasPendapatan ? () {} : null,
+                  onPressed: hasPendapatan ? () {} : null,
                   icon: const Icon(Icons.account_balance_wallet_outlined, size: 14, color: Color(0xFF005DA7)),
                   label: const Text(
                     'CAIRKAN DANA',

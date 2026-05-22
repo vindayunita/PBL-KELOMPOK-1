@@ -5,23 +5,11 @@ import '../../../auth/data/auth_repository.dart';
 import '../../../auth/domain/auth_providers.dart';
 import '../../data/courier_application_repository.dart';
 import '../../domain/models/courier_application_model.dart';
+import '../../../../features/orders/domain/order_model.dart';
+import '../../../../features/orders/domain/order_providers.dart';
 import 'courier_profil.dart';
 import 'courier_riwayat.dart';
 import 'courier_tugas.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Data model (placeholder — swap with real Firestore model later)
-// ─────────────────────────────────────────────────────────────────────────────
-class _DeliveryTask {
-  const _DeliveryTask({
-    required this.orderId,
-    required this.sellerLocation,
-    required this.buyerLocation,
-  });
-  final String orderId;
-  final String sellerLocation;
-  final String buyerLocation;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
@@ -45,9 +33,6 @@ class _CourierDashboardScreenState
     extends ConsumerState<CourierDashboardScreen> {
   int _selectedIndex = 0;
 
-  // Empty list — akan diganti data Firestore nantinya
-  final List<_DeliveryTask> _availableTasks = [];
-
   @override
   Widget build(BuildContext context) {
     final user      = ref.watch(currentUserProvider);
@@ -57,6 +42,10 @@ class _CourierDashboardScreenState
         : const AsyncData<CourierApplicationModel?>(null);
     final isActive  = appAsync.asData?.value?.isActive ?? false;
 
+    final tasksAsync = ref.watch(myCourierTasksProvider);
+    final allTasks = tasksAsync.value ?? [];
+    final activeTasks = allTasks.where((t) => t.isAssigned || t.isPickedUp).toList();
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: IndexedStack(
@@ -64,8 +53,9 @@ class _CourierDashboardScreenState
         children: [
           _HomeTab(
             courierName: widget.courierName,
-            tasks: _availableTasks,
+            tasks: activeTasks,
             isActive: isActive,
+            onGoToTugas: () => setState(() => _selectedIndex = 1),
           ),
           // Gate: tampilkan layar terkunci jika kurir tidak aktif
           isActive
@@ -100,11 +90,13 @@ class _HomeTab extends StatelessWidget {
     required this.courierName,
     required this.tasks,
     required this.isActive,
+    required this.onGoToTugas,
   });
 
   final String courierName;
-  final List<_DeliveryTask> tasks;
+  final List<OrderModel> tasks;
   final bool isActive;
+  final VoidCallback onGoToTugas;
 
   @override
   Widget build(BuildContext context) {
@@ -253,9 +245,7 @@ class _HomeTab extends StatelessWidget {
                     final task = tasks[index];
                     return _TaskCard(
                       task: task,
-                      onAccept: () {
-                        // TODO: implementasi terima tugas
-                      },
+                      onAccept: onGoToTugas,
                       onReject: () {
                         // TODO: implementasi tolak tugas
                       },
@@ -359,8 +349,8 @@ class _HeroBanner extends StatelessWidget {
 
           Text(
             taskCount == 0
-                ? 'Belum ada tugas pengantaran\nbaru di sekitarmu.'
-                : 'Ada $taskCount tugas pengantaran baru di\nsekitarmu.',
+                ? 'Belum ada tugas pengantaran\naktif saat ini.'
+                : 'Ada $taskCount tugas pengantaran\nyang sedang kamu tangani.',
             style: textTheme.bodySmall?.copyWith(
               color: Colors.white.withOpacity(0.85),
               height: 1.5,
@@ -492,7 +482,7 @@ class _EmptyTaskState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Belum ada tugas pengantaran\nyang tersedia untukmu saat ini.',
+            'Belum ada tugas pengantaran\nyang aktif saat ini.',
             textAlign: TextAlign.center,
             style: textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.5),
@@ -515,7 +505,7 @@ class _TaskCard extends StatelessWidget {
     required this.onReject,
   });
 
-  final _DeliveryTask task;
+  final OrderModel task;
   final VoidCallback onAccept;
   final VoidCallback onReject;
 
@@ -569,7 +559,7 @@ class _TaskCard extends StatelessWidget {
             icon: Icons.store_outlined,
             iconColor: colorScheme.secondary,
             label: 'JEMPUT (SELLER)',
-            location: task.sellerLocation,
+            location: task.sellerCity,
           ),
 
           Padding(
@@ -585,7 +575,7 @@ class _TaskCard extends StatelessWidget {
             icon: Icons.location_on_outlined,
             iconColor: colorScheme.primary,
             label: 'TUJUAN (BUYER)',
-            location: task.buyerLocation,
+            location: task.buyerAddress,
           ),
 
           const SizedBox(height: 18),
@@ -593,28 +583,6 @@ class _TaskCard extends StatelessWidget {
           // Buttons
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onReject,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.onSurface,
-                    side: BorderSide(
-                        color: colorScheme.outlineVariant, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    'TOLAK',
-                    style: textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: FilledButton(
                   onPressed: onAccept,
@@ -627,7 +595,7 @@ class _TaskCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'TERIMA',
+                    'LIHAT DETAIL DI TAB TUGAS',
                     style: textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,

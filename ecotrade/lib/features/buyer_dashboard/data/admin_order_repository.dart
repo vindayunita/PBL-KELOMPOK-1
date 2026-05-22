@@ -97,18 +97,40 @@ class AdminOrderRepository {
       });
     }
 
+    // Update payment record
+    final paymentQuery = await _db.collection('payments').where('orderId', isEqualTo: orderId).get();
+    for (final doc in paymentQuery.docs) {
+      batch.update(doc.reference, {
+        'status': 'verified',
+        'verifiedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
     await batch.commit();
   }
 
   // ── Tolak pembayaran → status: 'rejected' ────────────────────────────────
   Future<void> rejectPayment(String orderId, String reason) async {
     final admin = _auth.currentUser;
-    await _orders.doc(orderId).update({
+    final batch = _db.batch();
+    
+    batch.update(_orders.doc(orderId), {
       'status':          'rejected',
       'rejectionReason': reason,
       'rejectedAt':      FieldValue.serverTimestamp(),
       'rejectedBy':      admin?.uid ?? '',
       'updatedAt':       FieldValue.serverTimestamp(),
     });
+
+    final paymentQuery = await _db.collection('payments').where('orderId', isEqualTo: orderId).get();
+    for (final doc in paymentQuery.docs) {
+      batch.update(doc.reference, {
+        'status': 'rejected',
+        'rejectionReason': reason,
+        'rejectedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 }

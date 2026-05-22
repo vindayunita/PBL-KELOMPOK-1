@@ -163,11 +163,14 @@ class _TugasAktifTab extends ConsumerWidget {
     return tasksAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
-      data: (tasks) => SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      data: (allTasks) {
+        final tasks = allTasks.where((t) => t.isAssigned || t.isPickedUp).toList();
+        
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             const SizedBox(height: 20),
 
             // ── Header ───────────────────────────────────────────────────
@@ -207,7 +210,8 @@ class _TugasAktifTab extends ConsumerWidget {
             const SizedBox(height: 32),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 

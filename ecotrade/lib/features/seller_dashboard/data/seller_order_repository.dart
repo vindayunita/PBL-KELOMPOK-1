@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../features/buyer_dashboard/data/order_model.dart';
@@ -47,6 +48,16 @@ Stream<List<OrderModel>> sellerReturnOrders(Ref ref) {
   });
 }
 
+/// Provider total pendapatan seller — hanya dari pesanan berstatus `completed`.
+/// Otomatis diperbarui setiap kali buyer mengonfirmasi penerimaan barang.
+final sellerTotalRevenueProvider = Provider<double>((ref) {
+  final completedAsync = ref.watch(sellerCompletedOrdersProvider);
+  final completed = completedAsync.value ?? [];
+  return completed
+      .where((o) => o.status == OrderStatus.completed)
+      .fold(0.0, (sum, o) => sum + o.total);
+});
+
 // ── Repository ────────────────────────────────────────────────────────────────
 class SellerOrderRepository {
   SellerOrderRepository(this._db);
@@ -80,7 +91,7 @@ class SellerOrderRepository {
         });
   }
 
-  // ── Order selesai ─────────────────────────────────────────────────────────
+  // ── Order selesai (delivered = kurir sudah antar, completed = buyer konfirmasi) ────
   Stream<List<OrderModel>> watchCompletedOrders(String sellerId) {
     return _orders
         .where('sellerIds', arrayContains: sellerId)
@@ -88,7 +99,9 @@ class SellerOrderRepository {
         .map((snap) {
           final list = snap.docs
               .map(OrderModel.fromFirestore)
-              .where((o) => o.status == OrderStatus.completed)
+              .where((o) =>
+                  o.status == OrderStatus.completed ||
+                  o.status == OrderStatus.delivered)
               .toList();
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
