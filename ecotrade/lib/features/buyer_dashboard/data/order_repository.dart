@@ -50,8 +50,9 @@ class OrderRepository {
     // Kumpulkan semua sellerId unik agar seller bisa query dgn arrayContains
     final sellerIds = items.map((i) => i.sellerId).toSet().toList();
 
+    final batch = _db.batch();
     final ref = _db.collection('orders').doc();
-    await ref.set({
+    batch.set(ref, {
       'orderId':         ref.id,
       'buyerId':         user.uid,
       'buyerEmail':      user.email ?? '',
@@ -66,6 +67,21 @@ class OrderRepository {
       'createdAt':       FieldValue.serverTimestamp(),
       'updatedAt':       FieldValue.serverTimestamp(),
     });
+
+    final paymentRef = _db.collection('payments').doc();
+    batch.set(paymentRef, {
+      'paymentId':       paymentRef.id,
+      'orderId':         ref.id,
+      'buyerId':         user.uid,
+      'buyerName':       user.displayName ?? '',
+      'total':           total,
+      'paymentProofUrl': paymentProofUrl,
+      'status':          'pending',
+      'paymentMethod':   'bank_transfer',
+      'createdAt':       FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
     return ref.id;
   }
 
@@ -107,6 +123,14 @@ class OrderRepository {
       'status':       'return_requested',
       'returnReason': reason,
       'updatedAt':    FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Confirm order received ───────────────────────────────────────────────
+  Future<void> confirmOrderReceived(String orderId) async {
+    await _db.collection('orders').doc(orderId).update({
+      'status':    'completed',
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 }

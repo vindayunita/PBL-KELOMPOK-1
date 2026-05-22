@@ -58,7 +58,8 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
       return all.where((o) =>
         o.status == OrderStatus.assigned ||
         o.status == OrderStatus.pickedUp ||
-        o.status == OrderStatus.shipped).toList();
+        o.status == OrderStatus.shipped ||
+        o.status == OrderStatus.delivered).toList();
     }
     return all.where((o) => o.status == status).toList();
   }
@@ -95,6 +96,17 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
                       order: filtered[i],
                       onReview: () => _showReviewDialog(filtered[i], cs),
                       onReturn: () => _showReturnDialog(filtered[i], cs),
+                      onConfirm: () async {
+                        await ref.read(orderRepositoryProvider).confirmOrderReceived(filtered[i].id);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Pesanan dikonfirmasi selesai!'),
+                              backgroundColor: cs.primary,
+                            ),
+                          );
+                        }
+                      },
                     ),
                   );
                 },
@@ -421,20 +433,24 @@ class _OrderCard extends StatelessWidget {
     required this.order,
     required this.onReview,
     required this.onReturn,
+    required this.onConfirm,
   });
 
   final OrderModel  order;
   final VoidCallback onReview;
   final VoidCallback onReturn;
+  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final item       = order.firstItem;
     final isComplete   = order.status == OrderStatus.completed;
+    final isDelivered  = order.status == OrderStatus.delivered;
     final isShipped    = order.status == OrderStatus.shipped ||
                          order.status == OrderStatus.assigned ||
-                         order.status == OrderStatus.pickedUp;
+                         order.status == OrderStatus.pickedUp ||
+                         order.status == OrderStatus.delivered;
     final isRejected   = order.status == OrderStatus.rejected ||
                          order.status == OrderStatus.cancelled;
     final isPending    = order.status == OrderStatus.pendingVerification;
@@ -518,7 +534,11 @@ class _OrderCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _MiniInfo(label: 'DEPARTED HUB', value: _fmt(order.createdAt), cs: cs),
-                  _MiniInfo(label: 'STATUS', value: 'In Delivery', cs: cs, alignRight: true),
+                  _MiniInfo(
+                    label: 'STATUS', 
+                    value: isDelivered ? 'Tiba di Tujuan' : 'In Delivery', 
+                    cs: cs, 
+                    alignRight: true),
                 ],
               )
             else if (isProcessing)
@@ -629,8 +649,8 @@ class _OrderCard extends StatelessWidget {
                 cs: cs,
               ),
 
-            // ── Tombol aksi (hanya status Selesai) ─────────────────────────
-            if (isComplete) ...[
+            // ── Tombol aksi ─────────────────────────
+            if (isDelivered) ...[
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -654,25 +674,46 @@ class _OrderCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: order.reviewText == null ? onReview : null,
+                      onPressed: onConfirm,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: cs.onSurface,
-                        foregroundColor: cs.surface,
-                        disabledBackgroundColor:
-                            cs.onSurface.withValues(alpha: 0.12),
+                        backgroundColor: cs.primary,
+                        foregroundColor: cs.onPrimary,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text(
-                        order.reviewText != null ? 'Reviewed ✓' : 'Add Review',
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700),
+                      child: const Text(
+                        'Konfirmasi Diterima',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
                 ],
+              ),
+            ] else if (isComplete) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: order.reviewText == null ? onReview : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: cs.onSurface,
+                    foregroundColor: cs.surface,
+                    disabledBackgroundColor:
+                        cs.onSurface.withValues(alpha: 0.12),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    order.reviewText != null ? 'Reviewed ✓' : 'Add Review',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
               ),
             ],
           ],

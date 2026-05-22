@@ -33,7 +33,6 @@ class OrderRepository {
   Stream<List<OrderModel>> watchOrdersByCourier(String courierId) {
     return _orders
         .where('courierId', isEqualTo: courierId)
-        .where('status', whereIn: ['assigned', 'picked_up'])
         .snapshots()
         .map((snap) {
           final list = snap.docs.map(OrderModel.fromFirestore).toList();

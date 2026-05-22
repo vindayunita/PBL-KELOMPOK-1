@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../auth/domain/auth_providers.dart';
 import '../../data/courier_application_repository.dart';
+import '../../../../features/orders/domain/order_providers.dart';
 import 'courier_status_verif.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +59,9 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
       loading: () => null,   // null = masih loading
       error:   (_, __) => '',
     );
+
+    final tasksAsync = ref.watch(myCourierTasksProvider);
+    final completedTasksCount = tasksAsync.value?.where((t) => t.isDelivered || t.isCompleted).length ?? 0;
 
     return SafeArea(
       child: CustomScrollView(
@@ -127,7 +131,7 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
                   const SizedBox(height: 14),
 
                   // ── Tugas Selesai Card ────────────────────────────────────
-                  _TasksDoneCard(count: 0),
+                  _TasksDoneCard(count: completedTasksCount),
 
                   const SizedBox(height: 24),
 

@@ -22,11 +22,15 @@ class SellerDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync  = ref.watch(myProductsProvider);
-    final incomingAsync  = ref.watch(sellerIncomingOrdersProvider);
-    final incomingOrders = incomingAsync.value ?? [];
-    final pendingCount   = incomingOrders
+    final productsAsync    = ref.watch(myProductsProvider);
+    final incomingAsync    = ref.watch(sellerIncomingOrdersProvider);
+    final completedAsync   = ref.watch(sellerCompletedOrdersProvider);
+    final totalRevenue     = ref.watch(sellerTotalRevenueProvider);
+    final incomingOrders   = incomingAsync.value ?? [];
+    final completedOrders  = completedAsync.value ?? [];
+    final pendingCount     = incomingOrders
         .where((o) => o.status == OrderStatus.verified).length;
+    final totalCompleted   = completedOrders.where((o) => o.status == OrderStatus.completed).length;
 
     return Scaffold(
       backgroundColor: appBackground,
@@ -54,12 +58,142 @@ class SellerDashboardScreen extends ConsumerWidget {
           children: [
             _buildWelcomeBanner(),
             const SizedBox(height: 16),
+            _buildRevenueCard(context, totalRevenue, totalCompleted),
+            const SizedBox(height: 16),
             _buildKatalogCard(context, productsAsync, onSelectTab),
             const SizedBox(height: 16),
             _buildTransaksiCard(context, onSelectTab, incomingOrders, pendingCount),
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Widget: Revenue Card ─────────────────────────────────────────────────────
+  Widget _buildRevenueCard(
+    BuildContext context,
+    double totalRevenue,
+    int totalCompleted,
+  ) {
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1B5E20), Color(0xFF388E3C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOTAL PENDAPATAN',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      Text(
+                        'Pesanan Terkonfirmasi',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Badge jumlah order selesai
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$totalCompleted order',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Angka pendapatan
+          Text(
+            rupiah.format(totalRevenue),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: Colors.white.withValues(alpha: 0.6),
+                size: 13,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Hanya mencakup pesanan yang dikonfirmasi buyer',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -12,6 +12,7 @@ enum OrderStatus {
   returnRequested,     // buyer minta retur
   completed,           // pesanan selesai
   cancelled,           // dibatalkan
+  delivered,           // kurir selesai mengantar barang, menunggu konfirmasi buyer
   unknown,
 }
 
@@ -28,6 +29,7 @@ extension OrderStatusX on OrderStatus {
       case OrderStatus.returnRequested:    return 'Permintaan Retur';
       case OrderStatus.completed:          return 'Selesai';
       case OrderStatus.cancelled:          return 'Dibatalkan';
+      case OrderStatus.delivered:          return 'Pesanan Tiba';
       case OrderStatus.unknown:            return 'Tidak Diketahui';
     }
   }
@@ -45,6 +47,7 @@ OrderStatus orderStatusFromString(String? s) {
     case 'return_requested':     return OrderStatus.returnRequested;
     case 'completed':            return OrderStatus.completed;
     case 'cancelled':            return OrderStatus.cancelled;
+    case 'delivered':            return OrderStatus.delivered;
     default:                     return OrderStatus.unknown;
   }
 }

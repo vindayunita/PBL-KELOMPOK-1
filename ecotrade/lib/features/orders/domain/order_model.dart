@@ -6,7 +6,9 @@ enum OrderStatus {
   confirmed,
   assigned,
   pickedUp,
-  delivered;
+  delivered,
+  completed,
+  returnRequested;
 
   static OrderStatus fromString(String s) {
     switch (s) {
@@ -14,6 +16,8 @@ enum OrderStatus {
       case 'assigned':   return OrderStatus.assigned;
       case 'picked_up':  return OrderStatus.pickedUp;
       case 'delivered':  return OrderStatus.delivered;
+      case 'completed':  return OrderStatus.completed;
+      case 'return_requested': return OrderStatus.returnRequested;
       default:           return OrderStatus.pending;
     }
   }
@@ -24,6 +28,8 @@ enum OrderStatus {
       case OrderStatus.assigned:   return 'assigned';
       case OrderStatus.pickedUp:   return 'picked_up';
       case OrderStatus.delivered:  return 'delivered';
+      case OrderStatus.completed:  return 'completed';
+      case OrderStatus.returnRequested: return 'return_requested';
       case OrderStatus.pending:    return 'pending';
     }
   }
@@ -35,6 +41,8 @@ enum OrderStatus {
       case OrderStatus.assigned:   return 'Kurir Ditugaskan';
       case OrderStatus.pickedUp:   return 'Dalam Pengiriman';
       case OrderStatus.delivered:  return 'Terkirim';
+      case OrderStatus.completed:  return 'Selesai';
+      case OrderStatus.returnRequested: return 'Permintaan Retur';
     }
   }
 }
@@ -87,9 +95,14 @@ class OrderModel {
   bool get isAssigned  => status == OrderStatus.assigned;
   bool get isPickedUp  => status == OrderStatus.pickedUp;
   bool get isDelivered => status == OrderStatus.delivered;
+  bool get isCompleted => status == OrderStatus.completed;
+  bool get isReturnRequested => status == OrderStatus.returnRequested;
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final rawItems = data['items'] as List<dynamic>? ?? [];
+    final firstItem = rawItems.isNotEmpty ? rawItems.first as Map<String, dynamic> : null;
+
     return OrderModel(
       orderId:         doc.id,
       buyerId:         data['buyerId']       as String? ?? '',
@@ -98,10 +111,10 @@ class OrderModel {
       sellerId:        data['sellerId']      as String? ?? '',
       sellerName:      data['sellerName']    as String? ?? 'Seller',
       sellerCity:      data['sellerCity']    as String? ?? '',
-      productId:       data['productId']     as String? ?? '',
-      productName:     data['productName']   as String? ?? '',
-      quantity:        (data['quantity']     as num?)?.toInt() ?? 1,
-      unit:            data['unit']          as String? ?? 'kg',
+      productId:       data['productId']     as String? ?? firstItem?['productId'] as String? ?? '',
+      productName:     data['productName']   as String? ?? firstItem?['productTitle'] as String? ?? 'Produk',
+      quantity:        (data['quantity']     as num?)?.toInt() ?? (firstItem?['quantity'] as num?)?.toInt() ?? 1,
+      unit:            data['unit']          as String? ?? firstItem?['unit'] as String? ?? 'kg',
       totalPrice:      (data['totalPrice']   as num?)?.toDouble() ?? 0,
       status:          OrderStatus.fromString(data['status'] as String? ?? 'pending'),
       courierId:       data['courierId']     as String?,

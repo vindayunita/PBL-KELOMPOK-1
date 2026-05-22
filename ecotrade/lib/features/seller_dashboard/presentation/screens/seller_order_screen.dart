@@ -185,6 +185,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     final isProcessing = order.status == OrderStatus.processing;
     final isAssigned   = order.status == OrderStatus.assigned;   // kurir ditugaskan, belum terima
     final isPickedUp   = order.status == OrderStatus.pickedUp;   // kurir sudah terima (dalam perjalanan)
+    final isDelivered  = order.status == OrderStatus.delivered;  // kurir sudah antar, menunggu konfirmasi buyer
     final isComplete   = order.status == OrderStatus.completed;  // pesanan selesai
 
     final badgeLabel = isVerified
@@ -195,17 +196,25 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 ? 'Kurir Ditugaskan'
                 : isPickedUp
                     ? 'Dalam Perjalanan'
-                    : order.status.label;
+                    : isDelivered
+                        ? 'Pesanan Tiba'
+                        : isComplete
+                            ? 'Selesai'
+                            : order.status.label;
     final badgeBg = isVerified || isProcessing || isPickedUp
         ? const Color(0xFFDCEEFF)
         : isAssigned
             ? const Color(0x1A2976C7)
-            : primaryGreen;
+            : isDelivered || isComplete
+                ? const Color(0xFFDCF5E4)
+                : primaryGreen;
     final badgeText = isVerified || isProcessing || isPickedUp
         ? primaryBlue
         : isAssigned
             ? const Color(0xFF005DA7)
-            : darkGreen;
+            : isDelivered || isComplete
+                ? darkGreen
+                : darkGreen;
 
     // Tipe pembelian
     final typeLabel = purchaseType.toLowerCase() == 'sample' ? 'Sample' : 'Standard';

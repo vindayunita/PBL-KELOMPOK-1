@@ -30,6 +30,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   int _paymentFilter = 0; // 0=Pending, 1=Verified, 2=Rejected
   int _refundFilter  = 0; // 0=Pending, 1=Approved, 2=Rejected
   String? _selectedOrderId; // order yang sedang ditampilkan detailnya
+  bool _isPaymentExpanded = false;
 
   final List<String> _tabs = [
     'Courier', 'Payment', 'Refund', 'Seller',
@@ -619,6 +620,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
               onTap: () => setState(() {
                 _paymentFilter = i;
                 _selectedOrderId = null; // reset pilihan detail saat ganti tab
+                _isPaymentExpanded = false;
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
@@ -693,9 +695,9 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
         );
 
         // Tampilkan maks 3 pending cards + "View more"
-        const maxVisible = 3;
+        final maxVisible = _isPaymentExpanded ? orders.length : 3;
         final visibleOrders = orders.take(maxVisible).toList();
-        final remaining    = orders.length - maxVisible;
+        final remaining    = orders.length - visibleOrders.length;
 
         return SliverList(
           delegate: SliverChildListDelegate([
@@ -714,9 +716,22 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
               const SizedBox(height: 4),
               Center(
                 child: TextButton(
-                  onPressed: null, // ekspansi bisa dikembangkan nanti
+                  onPressed: () => setState(() => _isPaymentExpanded = true),
                   child: Text(
                     'View $remaining more ${_paymentFilterLabels[_paymentFilter].toLowerCase()}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+            
+            if (_isPaymentExpanded && orders.length > 3) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() => _isPaymentExpanded = false),
+                  child: Text(
+                    'Show less',
                     style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -2141,36 +2156,36 @@ class _PaymentDetailPanelState extends State<_PaymentDetailPanel> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: widget.order.status == OrderStatus.verified
-                      ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
-                      : Colors.red.withValues(alpha: 0.08),
+                  color: widget.order.status == OrderStatus.rejected
+                      ? Colors.red.withValues(alpha: 0.08)
+                      : const Color(0xFF2E7D32).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: widget.order.status == OrderStatus.verified
-                        ? const Color(0xFF2E7D32).withValues(alpha: 0.3)
-                        : Colors.red.withValues(alpha: 0.3),
+                    color: widget.order.status == OrderStatus.rejected
+                        ? Colors.red.withValues(alpha: 0.3)
+                        : const Color(0xFF2E7D32).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      widget.order.status == OrderStatus.verified
-                          ? Icons.check_circle_rounded
-                          : Icons.cancel_rounded,
-                      color: widget.order.status == OrderStatus.verified
-                          ? const Color(0xFF2E7D32)
-                          : Colors.red,
+                      widget.order.status == OrderStatus.rejected
+                          ? Icons.cancel_rounded
+                          : Icons.check_circle_rounded,
+                      color: widget.order.status == OrderStatus.rejected
+                          ? Colors.red
+                          : const Color(0xFF2E7D32),
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      widget.order.status == OrderStatus.verified
-                          ? 'Pembayaran telah dikonfirmasi'
-                          : 'Pembayaran ditolak',
+                      widget.order.status == OrderStatus.rejected
+                          ? 'Pembayaran ditolak'
+                          : 'Pembayaran telah dikonfirmasi',
                       style: tt.bodySmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: widget.order.status == OrderStatus.verified
-                            ? const Color(0xFF2E7D32)
-                            : Colors.red,
+                        color: widget.order.status == OrderStatus.rejected
+                            ? Colors.red
+                            : const Color(0xFF2E7D32),
                       ),
                     ),
                   ],
