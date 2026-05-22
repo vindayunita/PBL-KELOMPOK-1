@@ -101,32 +101,9 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
             backgroundColor: cs.surfaceContainerLowest,
             floating: true,
             elevation: 0,
-            title: Row(
-              children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.sync_rounded, color: cs.primary, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Text('EcoTrade',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800, color: cs.onSurface)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: cs.error, borderRadius: BorderRadius.circular(6)),
-                  child: Text('ADMIN',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: cs.onError, fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0)),
-                ),
-              ],
-            ),
+            title: Text('Admin Dashboard',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800, color: cs.onSurface)),
           ),
 
           SliverToBoxAdapter(

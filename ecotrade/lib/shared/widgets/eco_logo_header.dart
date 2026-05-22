@@ -15,27 +15,35 @@ class EcoLogoHeader extends StatelessWidget {
 
     return Column(
       children: [
-        // Logo container
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(
-            Icons.sync_rounded,
-            color: colorScheme.primary,
-            size: 36,
-          ),
+        // Logo image
+        Image.asset(
+          'assets/images/ecotade_logo_final.png',
+          width: 90,
+          height: 90,
+          fit: BoxFit.contain,
         ),
-        const SizedBox(height: 20),
-        Text(
-          'EcoTrade',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: colorScheme.onSurface,
-            letterSpacing: -0.5,
+        const SizedBox(height: 16),
+        // App name
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: 'Eco',
+                style: textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF2D5A27),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              TextSpan(
+                text: 'Trade',
+                style: textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.onSurface,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -43,7 +51,7 @@ class EcoLogoHeader extends StatelessWidget {
           subtitle,
           textAlign: TextAlign.center,
           style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurface.withOpacity(0.6),
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
             height: 1.5,
           ),
         ),

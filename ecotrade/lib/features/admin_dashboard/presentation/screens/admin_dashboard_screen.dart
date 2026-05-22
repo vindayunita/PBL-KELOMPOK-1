@@ -71,44 +71,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               backgroundColor: colorScheme.surfaceContainerLowest,
               floating: true,
               elevation: 0,
-              title: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.sync_rounded,
-                        color: colorScheme.primary, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'EcoTrade',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colorScheme.error,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'ADMIN',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onError,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ],
+              title: Text(
+                'Admin Dashboard',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.onSurface,
+                ),
               ),
               actions: const [],
             ),

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_options.dart';
 import 'core/router/app_router.dart';
+import 'features/auth/domain/auth_providers.dart';
+import 'features/auth/presentation/screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +23,10 @@ class EcoTradeApp extends ConsumerWidget {
 
     // ── Custom Admin Dashboard Color Palette ──
     // primary: #4a90e2 | secondary: #2d5a27 | tertiary: #76c893 | neutral: #f8f9fa
-    const Color primary    = Color(0xFF4A90E2);
-    const Color secondary  = Color(0xFF2D5A27);
-    const Color tertiary   = Color(0xFF76C893);
-    const Color neutral    = Color(0xFFF8F9FA);
+    const Color primary   = Color(0xFF4A90E2);
+    const Color secondary = Color(0xFF2D5A27);
+    const Color tertiary  = Color(0xFF76C893);
+    const Color neutral   = Color(0xFFF8F9FA);
 
     return MaterialApp.router(
       title: 'EcoTrade',
@@ -78,6 +80,82 @@ class EcoTradeApp extends ConsumerWidget {
       ),
       themeMode: ThemeMode.system,
       routerConfig: router,
+
+      // ── Splash overlay — shown ONLY when user is NOT already logged in ──
+      builder: (context, child) {
+        return _SplashOverlay(child: child ?? const SizedBox.shrink());
+      },
+    );
+  }
+}
+
+// ── Splash overlay wrapper ────────────────────────────────────────────────────
+/// Shows the splash screen on top of the app for 3 seconds,
+/// but ONLY if the user is NOT already authenticated.
+class _SplashOverlay extends ConsumerStatefulWidget {
+  const _SplashOverlay({required this.child});
+  final Widget child;
+
+  @override
+  ConsumerState<_SplashOverlay> createState() => _SplashOverlayState();
+}
+
+class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
+  static bool _sessionSplashDone = false; // never repeat within same session
+
+  bool _visible = false;  // whether splash overlay is showing
+  bool _fading  = false;  // fading out
+
+  static const _kSplashDuration = Duration(milliseconds: 3200);
+  static const _kFadeDuration   = Duration(milliseconds: 500);
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Already shown this session → skip entirely
+    if (_sessionSplashDone) return;
+
+    // Check auth state AFTER first frame (Firebase is ready)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authState = ref.read(authStateChangesProvider);
+
+      // User already logged in → skip splash
+      if (authState.value != null) {
+        _sessionSplashDone = true;
+        return;
+      }
+
+      // Not logged in → show splash
+      setState(() => _visible = true);
+
+      // After splash duration, fade out
+      Future.delayed(_kSplashDuration, () {
+        if (!mounted) return;
+        setState(() => _fading = true);
+
+        // After fade, remove overlay
+        Future.delayed(_kFadeDuration, () {
+          if (!mounted) return;
+          setState(() => _visible = false);
+          _sessionSplashDone = true;
+        });
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        if (_visible)
+          AnimatedOpacity(
+            opacity: _fading ? 0.0 : 1.0,
+            duration: _kFadeDuration,
+            child: const SplashScreen(),
+          ),
+      ],
     );
   }
 }

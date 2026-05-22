@@ -112,27 +112,12 @@ class _HomeTab extends StatelessWidget {
             backgroundColor: colorScheme.surfaceContainerLowest,
             floating: true,
             elevation: 0,
-            title: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.sync_rounded,
-                      color: colorScheme.primary, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'EcoTrade',
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ],
+            title: Text(
+              'Courier Dashboard',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface,
+              ),
             ),
             actions: [
               IconButton(
@@ -752,3 +737,4 @@ class _CourierBottomNav extends StatelessWidget {
     );
   }
 }
+
