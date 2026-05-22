@@ -37,6 +37,9 @@ dependencies:
   image_picker: ^1.0.7
   intl: ^0.20.2
 
+  # Native Splash Screen
+  flutter_native_splash: ^2.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -48,9 +51,43 @@ dev_dependencies:
   json_serializable: ^6.8.0
   custom_lint: ^0.8.1
   riverpod_lint: ^3.0.0
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/
+
+# ── Native Splash Screen configuration ──────────────────────────────────────
+flutter_native_splash:
+  # Match the Flutter splash gradient start color
+  color: "#0D2B4E"
+
+  # Show the app logo on the native splash
+  image: assets/images/ecotade_logo_final.png
+
+  # Android 12+ themed splash (also dark blue)
+  color_dark: "#0D2B4E"
+  image_dark: assets/images/ecotade_logo_final.png
+
+  android_12:
+    color: "#0D2B4E"
+    image: assets/images/ecotade_logo_final.png
+    color_dark: "#0D2B4E"
+    image_dark: assets/images/ecotade_logo_final.png
+
+  web: false
+
+# ── App Launcher Icon configuration ─────────────────────────────────────────
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/ecotade_logo_final.png"
+  min_sdk_android: 21
+  web:
+    generate: false
+  # Background color for adaptive icon (Android 8+)
+  adaptive_icon_background: "#0D2B4E"
+  adaptive_icon_foreground: "assets/images/ecotade_logo_final.png"

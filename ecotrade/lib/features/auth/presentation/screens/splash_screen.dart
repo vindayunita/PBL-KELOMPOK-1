@@ -1,6 +1,12 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+// ── App color palette (mirrors main.dart) ─────────────────────────────────────
+const _kPrimary   = Color(0xFF4A90E2); // blue
+const _kPrimaryDk = Color(0xFF1A4A7A); // dark blue
+const _kTertiary  = Color(0xFF76C893); // light green
+const _kAccent    = Color(0xFFD0E6FA); // light blue container
+
 /// Pure UI splash screen — no routing logic, no callbacks.
 /// Shown as an overlay on top of the app via main.dart's builder.
 class SplashScreen extends StatefulWidget {
@@ -12,7 +18,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  // Content: fade + slide up
+  // Content: fade + slide up (starts immediately)
   late final AnimationController _contentCtrl;
   late final Animation<double>   _contentFade;
   late final Animation<Offset>   _contentSlide;
@@ -24,30 +30,32 @@ class _SplashScreenState extends State<SplashScreen>
   // Progress bar fills over 3 s
   late final AnimationController _progressCtrl;
 
-  // Leaf particles
-  late final AnimationController _leafCtrl;
+  // Particle dots
+  late final AnimationController _particleCtrl;
 
   @override
   void initState() {
     super.initState();
 
+    // Content fades in immediately — no delay
     _contentCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
+      duration: const Duration(milliseconds: 800),
+    )..forward();
+
     _contentFade = CurvedAnimation(
         parent: _contentCtrl, curve: Curves.easeOut);
     _contentSlide = Tween<Offset>(
-      begin: const Offset(0, 0.10),
+      begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(
         parent: _contentCtrl, curve: Curves.easeOutCubic));
 
     _glowCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _glowAnim = Tween<double>(begin: 0.3, end: 1.0).animate(
+    _glowAnim = Tween<double>(begin: 0.25, end: 1.0).animate(
       CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut),
     );
 
@@ -56,14 +64,10 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 3000),
     )..forward();
 
-    _leafCtrl = AnimationController(
+    _particleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 5000),
     )..repeat();
-
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _contentCtrl.forward();
-    });
   }
 
   @override
@@ -71,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
     _contentCtrl.dispose();
     _glowCtrl.dispose();
     _progressCtrl.dispose();
-    _leafCtrl.dispose();
+    _particleCtrl.dispose();
     super.dispose();
   }
 
@@ -80,12 +84,13 @@ class _SplashScreenState extends State<SplashScreen>
     return Material(
       child: SizedBox.expand(
         child: Container(
+          // ── Blue-toned gradient matching app primary ──────────────────────
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF0B2818),
-                Color(0xFF1A4D2E),
-                Color(0xFF266640),
+                Color(0xFF0D2B4E), // very dark blue
+                Color(0xFF1A4A7A), // dark blue (primaryContainer dark)
+                Color(0xFF2E6BAA), // mid blue → primary
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -93,21 +98,21 @@ class _SplashScreenState extends State<SplashScreen>
           ),
           child: Stack(
             children: [
-              // ── Leaf particles ──────────────────────────────────────────
+              // ── Floating particles ───────────────────────────────────────
               AnimatedBuilder(
-                animation: _leafCtrl,
+                animation: _particleCtrl,
                 builder: (_, __) => CustomPaint(
-                  painter: _LeafParticlePainter(_leafCtrl.value),
+                  painter: _DotParticlePainter(_particleCtrl.value),
                   size: Size.infinite,
                 ),
               ),
 
-              // ── Diagonal accent band ────────────────────────────────────
+              // ── Diagonal accent band ─────────────────────────────────────
               Positioned.fill(
                 child: CustomPaint(painter: _AccentBandPainter()),
               ),
 
-              // ── Centered content ────────────────────────────────────────
+              // ── Centered content ─────────────────────────────────────────
               Center(
                 child: FadeTransition(
                   opacity: _contentFade,
@@ -116,33 +121,39 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Glowing logo
+                        // ── Glowing logo ──────────────────────────────────
                         AnimatedBuilder(
                           animation: _glowAnim,
                           builder: (_, child) => Container(
-                            width: 160,
-                            height: 160,
+                            width: 156,
+                            height: 156,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF52B788).withValues(
-                                      alpha: _glowAnim.value * 0.55),
-                                  blurRadius: 42,
-                                  spreadRadius: 8,
+                                  color: _kPrimary.withValues(
+                                      alpha: _glowAnim.value * 0.6),
+                                  blurRadius: 48,
+                                  spreadRadius: 10,
+                                ),
+                                BoxShadow(
+                                  color: _kTertiary.withValues(
+                                      alpha: _glowAnim.value * 0.25),
+                                  blurRadius: 24,
+                                  spreadRadius: 4,
                                 ),
                               ],
                             ),
                             child: child,
                           ),
                           child: Container(
-                            width: 160,
-                            height: 160,
+                            width: 156,
+                            height: 156,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.10),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.22),
+                                color: _kAccent.withValues(alpha: 0.35),
                                 width: 1.5,
                               ),
                             ),
@@ -156,11 +167,12 @@ class _SplashScreenState extends State<SplashScreen>
 
                         const SizedBox(height: 36),
 
-                        // App name with gradient
+                        // ── App name shimmer (blue→green gradient) ────────
                         ShaderMask(
                           shaderCallback: (bounds) =>
                               const LinearGradient(
-                            colors: [Color(0xFF95D5B2), Colors.white],
+                            colors: [_kAccent, Colors.white, _kTertiary],
+                            stops: [0.0, 0.5, 1.0],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ).createShader(bounds),
@@ -178,16 +190,16 @@ class _SplashScreenState extends State<SplashScreen>
 
                         const SizedBox(height: 12),
 
-                        // Tagline pill
+                        // ── Tagline pill ──────────────────────────────────
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
+                              color: _kAccent.withValues(alpha: 0.30),
                             ),
-                            color: Colors.white.withValues(alpha: 0.07),
+                            color: Colors.white.withValues(alpha: 0.08),
                           ),
                           child: const Text(
                             'Smart Waste  ·  Smart Trade',
@@ -202,7 +214,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                         const SizedBox(height: 56),
 
-                        // Progress bar
+                        // ── Progress bar (blue accent) ────────────────────
                         SizedBox(
                           width: 160,
                           child: AnimatedBuilder(
@@ -216,7 +228,7 @@ class _SplashScreenState extends State<SplashScreen>
                                     Colors.white.withValues(alpha: 0.15),
                                 valueColor:
                                     const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF95D5B2)),
+                                        _kTertiary),
                               ),
                             ),
                           ),
@@ -234,19 +246,20 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// ── Leaf particles ────────────────────────────────────────────────────────────
-class _LeafParticlePainter extends CustomPainter {
-  _LeafParticlePainter(this.t);
+// ── Floating dot particles ────────────────────────────────────────────────────
+class _DotParticlePainter extends CustomPainter {
+  _DotParticlePainter(this.t);
   final double t;
 
-  static final _rng = math.Random(42);
-  static final _particles = List.generate(14, (i) => {
+  static final _rng = math.Random(7);
+  static final _particles = List.generate(18, (i) => {
         'x':     _rng.nextDouble(),
         'y':     _rng.nextDouble(),
-        'r':     6.0 + _rng.nextDouble() * 14,
-        'speed': 0.12 + _rng.nextDouble() * 0.18,
+        'r':     3.0 + _rng.nextDouble() * 8,
+        'speed': 0.08 + _rng.nextDouble() * 0.14,
         'phase': _rng.nextDouble(),
-        'drift': (_rng.nextDouble() - 0.5) * 0.06,
+        'drift': (_rng.nextDouble() - 0.5) * 0.05,
+        'blue':  _rng.nextBool(), // blue or green tinted
       });
 
   @override
@@ -258,26 +271,26 @@ class _LeafParticlePainter extends CustomPainter {
       final r     = p['r'] as double;
       final baseX = p['x'] as double;
       final baseY = p['y'] as double;
+      final isBlue = p['blue'] as bool;
 
       final yPos = (baseY - ((t * speed + phase) % 1.0)) * size.height;
       final xPos =
           (baseX + math.sin((t + phase) * math.pi * 2) * drift) * size.width;
       final opacity =
-          (math.sin((t + phase) * math.pi) * 0.5 + 0.5) * 0.22;
+          (math.sin((t + phase) * math.pi) * 0.5 + 0.5) * 0.18;
 
-      canvas.drawOval(
-        Rect.fromCenter(
-            center: Offset(xPos, yPos), width: r * 0.65, height: r),
+      canvas.drawCircle(
+        Offset(xPos, yPos),
+        r * 0.5,
         Paint()
-          ..color =
-              const Color(0xFF74C69D).withValues(alpha: opacity)
+          ..color = (isBlue ? _kAccent : _kTertiary).withValues(alpha: opacity)
           ..style = PaintingStyle.fill,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_LeafParticlePainter old) => old.t != t;
+  bool shouldRepaint(_DotParticlePainter old) => old.t != t;
 }
 
 // ── Diagonal accent band ──────────────────────────────────────────────────────
@@ -288,7 +301,7 @@ class _AccentBandPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.white.withValues(alpha: 0.0),
-          Colors.white.withValues(alpha: 0.04),
+          _kPrimary.withValues(alpha: 0.08),
           Colors.white.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.5, 1.0],
@@ -296,10 +309,10 @@ class _AccentBandPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path()
-      ..moveTo(size.width * 0.0, size.height * 0.35)
-      ..lineTo(size.width * 1.0, size.height * 0.15)
-      ..lineTo(size.width * 1.0, size.height * 0.42)
-      ..lineTo(size.width * 0.0, size.height * 0.62)
+      ..moveTo(size.width * 0.0, size.height * 0.30)
+      ..lineTo(size.width * 1.0, size.height * 0.12)
+      ..lineTo(size.width * 1.0, size.height * 0.40)
+      ..lineTo(size.width * 0.0, size.height * 0.58)
       ..close();
 
     canvas.drawPath(path, paint);

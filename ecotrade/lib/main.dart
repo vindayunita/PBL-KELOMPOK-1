@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_options.dart';
@@ -9,8 +10,12 @@ import 'features/auth/domain/auth_providers.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Keep native splash visible until we explicitly remove it
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Remove native splash — Flutter splash takes over immediately
+  FlutterNativeSplash.remove();
   runApp(const ProviderScope(child: EcoTradeApp()));
 }
 
@@ -90,8 +95,8 @@ class EcoTradeApp extends ConsumerWidget {
 }
 
 // ── Splash overlay wrapper ────────────────────────────────────────────────────
-/// Shows the splash screen on top of the app for 3 seconds,
-/// but ONLY if the user is NOT already authenticated.
+/// Shows the splash screen on top of the app for 3.2 seconds on every
+/// cold start, regardless of auth state.
 class _SplashOverlay extends ConsumerStatefulWidget {
   const _SplashOverlay({required this.child});
   final Widget child;
@@ -103,8 +108,8 @@ class _SplashOverlay extends ConsumerStatefulWidget {
 class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
   static bool _sessionSplashDone = false; // never repeat within same session
 
-  bool _visible = false;  // whether splash overlay is showing
-  bool _fading  = false;  // fading out
+  bool _visible = true;  // show immediately — no delay
+  bool _fading  = false; // fading out
 
   static const _kSplashDuration = Duration(milliseconds: 3200);
   static const _kFadeDuration   = Duration(milliseconds: 500);
@@ -114,32 +119,20 @@ class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
     super.initState();
 
     // Already shown this session → skip entirely
-    if (_sessionSplashDone) return;
+    if (_sessionSplashDone) {
+      _visible = false;
+      return;
+    }
 
-    // Check auth state AFTER first frame (Firebase is ready)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authState = ref.read(authStateChangesProvider);
+    // Show splash immediately, then fade out after duration
+    Future.delayed(_kSplashDuration, () {
+      if (!mounted) return;
+      setState(() => _fading = true);
 
-      // User already logged in → skip splash
-      if (authState.value != null) {
-        _sessionSplashDone = true;
-        return;
-      }
-
-      // Not logged in → show splash
-      setState(() => _visible = true);
-
-      // After splash duration, fade out
-      Future.delayed(_kSplashDuration, () {
+      Future.delayed(_kFadeDuration, () {
         if (!mounted) return;
-        setState(() => _fading = true);
-
-        // After fade, remove overlay
-        Future.delayed(_kFadeDuration, () {
-          if (!mounted) return;
-          setState(() => _visible = false);
-          _sessionSplashDone = true;
-        });
+        setState(() => _visible = false);
+        _sessionSplashDone = true;
       });
     });
   }
