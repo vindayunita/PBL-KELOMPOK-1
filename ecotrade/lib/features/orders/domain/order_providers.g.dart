@@ -96,6 +96,97 @@ final class MyCourierTasksProvider
 
 String _$myCourierTasksHash() => r'c5a650c201ad7bf8135f711f9eef6708be493674';
 
+/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+
+@ProviderFor(myCourierReturnTasks)
+const myCourierReturnTasksProvider = MyCourierReturnTasksProvider._();
+
+/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+
+final class MyCourierReturnTasksProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<OrderModel>>,
+          List<OrderModel>,
+          Stream<List<OrderModel>>
+        >
+    with $FutureModifier<List<OrderModel>>, $StreamProvider<List<OrderModel>> {
+  /// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+  const MyCourierReturnTasksProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'myCourierReturnTasksProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$myCourierReturnTasksHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<OrderModel>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<OrderModel>> create(Ref ref) {
+    return myCourierReturnTasks(ref);
+  }
+}
+
+String _$myCourierReturnTasksHash() =>
+    r'd1cc371dc3b9f19d148c96d72bdfcf068ccc53c1';
+
+/// Stream tugas retur SELESAI kurir yang sedang login
+
+@ProviderFor(myCourierHistoryReturnTasks)
+const myCourierHistoryReturnTasksProvider =
+    MyCourierHistoryReturnTasksProvider._();
+
+/// Stream tugas retur SELESAI kurir yang sedang login
+
+final class MyCourierHistoryReturnTasksProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<OrderModel>>,
+          List<OrderModel>,
+          Stream<List<OrderModel>>
+        >
+    with $FutureModifier<List<OrderModel>>, $StreamProvider<List<OrderModel>> {
+  /// Stream tugas retur SELESAI kurir yang sedang login
+  const MyCourierHistoryReturnTasksProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'myCourierHistoryReturnTasksProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$myCourierHistoryReturnTasksHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<OrderModel>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<OrderModel>> create(Ref ref) {
+    return myCourierHistoryReturnTasks(ref);
+  }
+}
+
+String _$myCourierHistoryReturnTasksHash() =>
+    r'c48b91540eb2ba8ab581beeacb7d838dea092e9d';
+
 /// Stream orders berdasarkan status (untuk admin)
 
 @ProviderFor(ordersByStatus)

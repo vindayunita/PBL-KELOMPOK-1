@@ -8,7 +8,10 @@ enum OrderStatus {
   pickedUp,
   delivered,
   completed,
-  returnRequested;
+  returnRequested,
+  returnApproved,
+  returnPickedUp,
+  returnCompleted;
 
   static OrderStatus fromString(String s) {
     switch (s) {
@@ -18,6 +21,9 @@ enum OrderStatus {
       case 'delivered':  return OrderStatus.delivered;
       case 'completed':  return OrderStatus.completed;
       case 'return_requested': return OrderStatus.returnRequested;
+      case 'return_approved':  return OrderStatus.returnApproved;
+      case 'return_picked_up': return OrderStatus.returnPickedUp;
+      case 'return_completed': return OrderStatus.returnCompleted;
       default:           return OrderStatus.pending;
     }
   }
@@ -30,6 +36,9 @@ enum OrderStatus {
       case OrderStatus.delivered:  return 'delivered';
       case OrderStatus.completed:  return 'completed';
       case OrderStatus.returnRequested: return 'return_requested';
+      case OrderStatus.returnApproved:  return 'return_approved';
+      case OrderStatus.returnPickedUp:  return 'return_picked_up';
+      case OrderStatus.returnCompleted: return 'return_completed';
       case OrderStatus.pending:    return 'pending';
     }
   }
@@ -43,6 +52,9 @@ enum OrderStatus {
       case OrderStatus.delivered:  return 'Terkirim';
       case OrderStatus.completed:  return 'Selesai';
       case OrderStatus.returnRequested: return 'Permintaan Retur';
+      case OrderStatus.returnApproved:  return 'Retur Disetujui';
+      case OrderStatus.returnPickedUp:  return 'Kurir Menjemput Retur';
+      case OrderStatus.returnCompleted: return 'Retur Selesai';
     }
   }
 }
@@ -97,6 +109,10 @@ class OrderModel {
   bool get isDelivered => status == OrderStatus.delivered;
   bool get isCompleted => status == OrderStatus.completed;
   bool get isReturnRequested => status == OrderStatus.returnRequested;
+  bool get isReturnApproved  => status == OrderStatus.returnApproved;
+  bool get isReturnPickedUp  => status == OrderStatus.returnPickedUp;
+  bool get isReturnCompleted => status == OrderStatus.returnCompleted;
+  bool get isReturnRelated   => isReturnRequested || isReturnApproved || isReturnPickedUp || isReturnCompleted;
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;

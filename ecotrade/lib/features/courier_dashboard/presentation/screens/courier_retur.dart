@@ -1,86 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../features/orders/data/order_repository.dart';
+import '../../../../features/orders/domain/order_model.dart';
+import '../../../../features/orders/domain/order_providers.dart';
 import 'courier_cek_barang.dart';
 import 'courier_konfir_retur.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Model data retur (placeholder — swap dengan Firestore nantinya)
+// Screen (standalone — dengan AppBar)
 // ─────────────────────────────────────────────────────────────────────────────
-class ReturTask {
-  const ReturTask({
-    required this.itemName,
-    required this.itemSku,
-    required this.itemPackaging,
-    required this.pickupAddress,
-    required this.pickupContact,
-    required this.destinationName,
-    required this.destinationAddress,
-    this.itemPhotoUrl,
-  });
-
-  final String itemName;
-  final String itemSku;
-  final String itemPackaging;
-  final String pickupAddress;   // Alamat penjemputan (customer)
-  final String pickupContact;
-  final String destinationName;    // Tujuan (seller / hub)
-  final String destinationAddress;
-  final String? itemPhotoUrl;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Status retur
-// ─────────────────────────────────────────────────────────────────────────────
-enum ReturStatus {
-  menungguPenjemputan,
-  sedangDiambil,
-  selesai,
-}
-
-extension ReturStatusExt on ReturStatus {
-  String get label {
-    switch (this) {
-      case ReturStatus.menungguPenjemputan:
-        return 'MENUNGGU PENJEMPUTAN';
-      case ReturStatus.sedangDiambil:
-        return 'SEDANG DIAMBIL';
-      case ReturStatus.selesai:
-        return 'SELESAI';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case ReturStatus.menungguPenjemputan:
-        return const Color(0xFF3B82F6); // biru
-      case ReturStatus.sedangDiambil:
-        return const Color(0xFFF59E0B); // kuning
-      case ReturStatus.selesai:
-        return const Color(0xFF22C55E); // hijau
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Screen
-// ─────────────────────────────────────────────────────────────────────────────
-class CourierReturScreen extends StatefulWidget {
-  const CourierReturScreen({
-    super.key,
-    this.returTask,
-    this.status = ReturStatus.menungguPenjemputan,
-  });
-
-  /// Pass null untuk tampilkan empty state
-  final ReturTask? returTask;
-  final ReturStatus status;
+class CourierReturScreen extends ConsumerStatefulWidget {
+  const CourierReturScreen({super.key});
 
   @override
-  State<CourierReturScreen> createState() => _CourierReturScreenState();
+  ConsumerState<CourierReturScreen> createState() => _CourierReturScreenState();
 }
 
-class _CourierReturScreenState extends State<CourierReturScreen> {
-  // Checklist items — expand sesuai kebutuhan backend
+class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
   final List<_ChecklistItem> _checklist = [
     _ChecklistItem(
       title: 'Cek Kondisi Barang',
@@ -94,7 +31,7 @@ class _CourierReturScreenState extends State<CourierReturScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final task = widget.returTask; // null → empty state
+    final tasksAsync = ref.watch(myCourierReturnTasksProvider);
 
     return SafeArea(
       child: CustomScrollView(
@@ -138,144 +75,215 @@ class _CourierReturScreenState extends State<CourierReturScreen> {
           ),
 
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-
-                  // ── Header row ──────────────────────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Manajemen\nRetur',
-                        style: tt.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: cs.onSurface,
-                          height: 1.2,
-                        ),
-                      ),
-                      // Status badge
-                      if (task != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color:
-                                widget.status.color.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: widget.status.color.withOpacity(0.35),
-                            ),
-                          ),
-                          child: Text(
-                            widget.status.label,
-                            style: tt.labelSmall?.copyWith(
-                              color: widget.status.color,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.7,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    'Harap selesaikan proses pengambilan barang sesuai\ninstruksi di bawah.',
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface.withOpacity(0.5),
-                      height: 1.5,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ── Item Card ────────────────────────────────────────────────
-                  task == null
-                      ? _SectionCard(
-                          label: 'DETAIL BARANG',
-                          child: _EmptyCardContent(
-                            icon: Icons.inventory_2_outlined,
-                            message: 'Belum ada barang retur',
-                          ),
-                        )
-                      : _ItemCard(task: task),
-
-                  const SizedBox(height: 16),
-
-                  // ── Rute Card (pickup → destination) ─────────────────────────
-                  task == null
-                      ? _SectionCard(
-                          label: 'RUTE PENJEMPUTAN',
-                          child: _EmptyCardContent(
-                            icon: Icons.route_rounded,
-                            message: 'Belum ada rute',
-                          ),
-                        )
-                      : _RouteCard(task: task),
-
-                  const SizedBox(height: 16),
-
-                  // ── Checklist Validasi ────────────────────────────────────────
-                  _SectionCard(
-                    label: 'CHECKLIST VALIDASI',
-                    child: Column(
-                      children: _checklist.asMap().entries.map((e) {
-                        final idx = e.key;
-                        final item = e.value;
-                        return _ChecklistTile(
-                          item: item,
-                          onTap: () async {
-                            final confirmed = await Navigator.of(context).push<bool>(
-                              MaterialPageRoute(
-                                builder: (_) => const CourierCekBarangScreen(),
-                              ),
-                            );
-                            if (confirmed == true) {
-                              setState(() => _checklist[idx].checked = true);
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // ── Ambil Barang Retur button ─────────────────────────────────
-                  _PrimaryButton(
-                    label: 'Ambil Barang Retur',
-                    icon: Icons.inventory_rounded,
-                    onPressed: () {
-                      // TODO: update status retur ke Firestore
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // ── Konfirmasi diserahkan button ──────────────────────────────
-                  _ConfirmButton(
-                    enabled: _allChecked,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const CourierKonfirReturScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
+            child: tasksAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(),
+                ),
               ),
+              error: (e, _) => Center(child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Text('Error: $e'),
+              )),
+              data: (tasks) {
+                if (tasks.isEmpty) {
+                  return _buildEmptyContent(cs, tt);
+                }
+                // Tampilkan tugas retur pertama (satu per satu)
+                final task = tasks.first;
+                return _buildTaskContent(context, cs, tt, task);
+              },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyContent(ColorScheme cs, TextTheme tt) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+          Text(
+            'Manajemen\nRetur',
+            style: tt.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: cs.onSurface,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Belum ada tugas retur yang ditugaskan.',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withOpacity(0.5),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _SectionCard(
+            label: 'DETAIL BARANG',
+            child: _EmptyCardContent(
+              icon: Icons.inventory_2_outlined,
+              message: 'Belum ada barang retur',
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            label: 'RUTE PENJEMPUTAN',
+            child: _EmptyCardContent(
+              icon: Icons.route_rounded,
+              message: 'Belum ada rute',
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskContent(BuildContext context, ColorScheme cs, TextTheme tt, OrderModel task) {
+    final isPickedUp = task.status == OrderStatus.returnPickedUp;
+    final statusLabel = isPickedUp ? 'SEDANG DIANTAR KE SELLER' : 'MENUNGGU PENJEMPUTAN';
+    final statusColor = isPickedUp ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+
+          // ── Header row ──────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Manajemen\nRetur',
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                  height: 1.2,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.35),
+                  ),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: tt.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            'Harap selesaikan proses pengambilan barang sesuai\ninstruksi di bawah.',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withOpacity(0.5),
+              height: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Item Card ────────────────────────────────────────────────
+          _ItemCard(task: task),
+
+          const SizedBox(height: 16),
+
+          // ── Rute Card ────────────────────────────────────────────────
+          _RouteCard(task: task),
+
+          const SizedBox(height: 16),
+
+          // ── Checklist Validasi ────────────────────────────────────────
+          _SectionCard(
+            label: 'CHECKLIST VALIDASI',
+            child: Column(
+              children: _checklist.asMap().entries.map((e) {
+                final idx = e.key;
+                final item = e.value;
+                return _ChecklistTile(
+                  item: item,
+                  onTap: () async {
+                    final confirmed = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const CourierCekBarangScreen(),
+                      ),
+                    );
+                    if (confirmed == true) {
+                      setState(() => _checklist[idx].checked = true);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── Ambil Barang Retur ─────────────────────────────────────────
+          if (!isPickedUp)
+            _PrimaryButton(
+              label: 'Ambil Barang Retur',
+              icon: Icons.inventory_rounded,
+              onPressed: () async {
+                try {
+                  await ref.read(orderRepositoryProvider).markReturnPickedUp(task.orderId);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ Barang retur berhasil diambil!'),
+                      backgroundColor: Color(0xFF2E7D32),
+                    ));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+            ),
+
+          if (isPickedUp) ...[
+            // ── Konfirmasi diserahkan ──────────────────────────────────
+            _ConfirmButton(
+              enabled: _allChecked,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CourierKonfirReturScreen(
+                      orderId: task.orderId,
+                      itemName: task.productName,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -285,21 +293,14 @@ class _CourierReturScreenState extends State<CourierReturScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 // CourierReturBody — konten retur tanpa AppBar, untuk di-embed di tab Tugas
 // ─────────────────────────────────────────────────────────────────────────────
-class CourierReturBody extends StatefulWidget {
-  const CourierReturBody({
-    super.key,
-    this.returTask,
-    this.status = ReturStatus.menungguPenjemputan,
-  });
-
-  final ReturTask? returTask;
-  final ReturStatus status;
+class CourierReturBody extends ConsumerStatefulWidget {
+  const CourierReturBody({super.key});
 
   @override
-  State<CourierReturBody> createState() => _CourierReturBodyState();
+  ConsumerState<CourierReturBody> createState() => _CourierReturBodyState();
 }
 
-class _CourierReturBodyState extends State<CourierReturBody> {
+class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
   final List<_ChecklistItem> _checklist = [
     _ChecklistItem(
       title: 'Cek Kondisi Barang',
@@ -313,7 +314,70 @@ class _CourierReturBodyState extends State<CourierReturBody> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final task = widget.returTask;
+    final tasksAsync = ref.watch(myCourierReturnTasksProvider);
+
+    return tasksAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (tasks) {
+        if (tasks.isEmpty) {
+          return _buildEmptyBody(cs, tt);
+        }
+        final task = tasks.first;
+        return _buildTaskBody(context, cs, tt, task);
+      },
+    );
+  }
+
+  Widget _buildEmptyBody(ColorScheme cs, TextTheme tt) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            'Manajemen\nRetur',
+            style: tt.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: cs.onSurface,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Belum ada tugas retur yang ditugaskan.',
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurface.withOpacity(0.5),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _SectionCard(
+            label: 'DETAIL BARANG',
+            child: _EmptyCardContent(
+              icon: Icons.inventory_2_outlined,
+              message: 'Belum ada barang retur',
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            label: 'RUTE PENJEMPUTAN',
+            child: _EmptyCardContent(
+              icon: Icons.route_rounded,
+              message: 'Belum ada rute',
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskBody(BuildContext context, ColorScheme cs, TextTheme tt, OrderModel task) {
+    final isPickedUp = task.status == OrderStatus.returnPickedUp;
+    final statusLabel = isPickedUp ? 'SEDANG DIANTAR KE SELLER' : 'MENUNGGU PENJEMPUTAN';
+    final statusColor = isPickedUp ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -335,27 +399,26 @@ class _CourierReturBodyState extends State<CourierReturBody> {
                   height: 1.2,
                 ),
               ),
-              if (task != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: widget.status.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: widget.status.color.withOpacity(0.35),
-                    ),
-                  ),
-                  child: Text(
-                    widget.status.label,
-                    style: tt.labelSmall?.copyWith(
-                      color: widget.status.color,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.7,
-                      fontSize: 10,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.35),
                   ),
                 ),
+                child: Text(
+                  statusLabel,
+                  style: tt.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
             ],
           ),
 
@@ -372,28 +435,12 @@ class _CourierReturBodyState extends State<CourierReturBody> {
           const SizedBox(height: 20),
 
           // ── Item Card ──────────────────────────────────────────────────
-          task == null
-              ? _SectionCard(
-                  label: 'DETAIL BARANG',
-                  child: _EmptyCardContent(
-                    icon: Icons.inventory_2_outlined,
-                    message: 'Belum ada barang retur',
-                  ),
-                )
-              : _ItemCard(task: task),
+          _ItemCard(task: task),
 
           const SizedBox(height: 16),
 
           // ── Rute Card ──────────────────────────────────────────────────
-          task == null
-              ? _SectionCard(
-                  label: 'RUTE PENJEMPUTAN',
-                  child: _EmptyCardContent(
-                    icon: Icons.route_rounded,
-                    message: 'Belum ada rute',
-                  ),
-                )
-              : _RouteCard(task: task),
+          _RouteCard(task: task),
 
           const SizedBox(height: 16),
 
@@ -424,27 +471,45 @@ class _CourierReturBodyState extends State<CourierReturBody> {
           const SizedBox(height: 28),
 
           // ── Ambil Barang Retur ─────────────────────────────────────────
-          _PrimaryButton(
-            label: 'Ambil Barang Retur',
-            icon: Icons.inventory_rounded,
-            onPressed: () {
-              // TODO: update status retur ke Firestore
-            },
-          ),
+          if (!isPickedUp)
+            _PrimaryButton(
+              label: 'Ambil Barang Retur',
+              icon: Icons.inventory_rounded,
+              onPressed: () async {
+                try {
+                  await ref.read(orderRepositoryProvider).markReturnPickedUp(task.orderId);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ Barang retur berhasil diambil!'),
+                      backgroundColor: Color(0xFF2E7D32),
+                    ));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+            ),
 
-          const SizedBox(height: 12),
-
-          // ── Konfirmasi diserahkan ──────────────────────────────────────
-          _ConfirmButton(
-            enabled: _allChecked,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const CourierKonfirReturScreen(),
-                ),
-              );
-            },
-          ),
+          if (isPickedUp) ...[
+            // ── Konfirmasi diserahkan ──────────────────────────────────
+            _ConfirmButton(
+              enabled: _allChecked,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CourierKonfirReturScreen(
+                      orderId: task.orderId,
+                      itemName: task.productName,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
 
           const SizedBox(height: 32),
         ],
@@ -454,10 +519,12 @@ class _CourierReturBodyState extends State<CourierReturBody> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Item Card — menampilkan detail barang retur dari OrderModel
+// ─────────────────────────────────────────────────────────────────────────────
 class _ItemCard extends StatelessWidget {
   const _ItemCard({required this.task});
 
-  final ReturTask task;
+  final OrderModel task;
 
   @override
   Widget build(BuildContext context) {
@@ -486,26 +553,19 @@ class _ItemCard extends StatelessWidget {
               // Thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: task.itemPhotoUrl != null
-                    ? Image.network(
-                        task.itemPhotoUrl!,
-                        width: 72,
-                        height: 72,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.inventory_2_outlined,
-                          size: 30,
-                          color: cs.onSurface.withOpacity(0.3),
-                        ),
-                      ),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.inventory_2_outlined,
+                    size: 30,
+                    color: cs.onSurface.withOpacity(0.3),
+                  ),
+                ),
               ),
 
               const SizedBox(width: 14),
@@ -516,7 +576,7 @@ class _ItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      task.itemName,
+                      task.productName.isNotEmpty ? task.productName : 'Produk',
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: cs.onSurface,
@@ -524,13 +584,13 @@ class _ItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'SKU: ${task.itemSku}',
+                      'ID: ${task.orderId.substring(0, 8).toUpperCase()}',
                       style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withOpacity(0.5),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Packaging badge
+                    // Qty badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -548,7 +608,7 @@ class _ItemCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            task.itemPackaging.toUpperCase(),
+                            '${task.quantity} ${task.unit}'.toUpperCase(),
                             style: tt.labelSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface.withOpacity(0.65),
@@ -581,7 +641,7 @@ class _ItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ALAMAT PENJEMPUTAN',
+                      'ALAMAT PENJEMPUTAN (BUYER)',
                       style: tt.labelSmall?.copyWith(
                         color: cs.onSurface.withOpacity(0.42),
                         fontWeight: FontWeight.w700,
@@ -591,14 +651,16 @@ class _ItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      task.pickupAddress,
+                      task.buyerAddress.isNotEmpty
+                          ? task.buyerAddress
+                          : task.buyerName,
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: cs.onSurface,
                       ),
                     ),
                     Text(
-                      task.pickupContact,
+                      task.buyerName,
                       style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withOpacity(0.55),
                       ),
@@ -615,17 +677,16 @@ class _ItemCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Route Card — penjemputan (customer) → tujuan (seller/hub)
+// Route Card — penjemputan (buyer) → tujuan (seller)
 // ─────────────────────────────────────────────────────────────────────────────
 class _RouteCard extends StatelessWidget {
   const _RouteCard({required this.task});
 
-  final ReturTask task;
+  final OrderModel task;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -642,7 +703,7 @@ class _RouteCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Penjemputan (Customer)
+          // Penjemputan (Buyer)
           _RouteStopRow(
             iconWidget: Container(
               width: 34,
@@ -657,9 +718,11 @@ class _RouteCard extends StatelessWidget {
                 color: Color(0xFF3B82F6),
               ),
             ),
-            label: 'PENJEMPUTAN (CUSTOMER)',
-            name: task.pickupAddress,
-            contact: task.pickupContact,
+            label: 'PENJEMPUTAN (BUYER)',
+            name: task.buyerAddress.isNotEmpty
+                ? task.buyerAddress
+                : task.buyerName,
+            contact: task.buyerName,
           ),
 
           // Dashed connector
@@ -678,7 +741,7 @@ class _RouteCard extends StatelessWidget {
             ),
           ),
 
-          // Tujuan (Seller / Hub)
+          // Tujuan (Seller)
           _RouteStopRow(
             iconWidget: Container(
               width: 34,
@@ -694,8 +757,8 @@ class _RouteCard extends StatelessWidget {
               ),
             ),
             label: 'TUJUAN (SELLER)',
-            name: task.destinationName,
-            contact: task.destinationAddress,
+            name: task.sellerName.isNotEmpty ? task.sellerName : 'Seller',
+            contact: task.sellerCity.isNotEmpty ? task.sellerCity : '',
           ),
         ],
       ),
@@ -747,13 +810,14 @@ class _RouteStopRow extends StatelessWidget {
                   color: cs.onSurface,
                 ),
               ),
-              Text(
-                contact,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface.withOpacity(0.55),
-                  height: 1.4,
+              if (contact.isNotEmpty)
+                Text(
+                  contact,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withOpacity(0.55),
+                    height: 1.4,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -763,7 +827,7 @@ class _RouteStopRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section Card wrapper (reused from tugas pattern)
+// Section Card wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.label, required this.child});

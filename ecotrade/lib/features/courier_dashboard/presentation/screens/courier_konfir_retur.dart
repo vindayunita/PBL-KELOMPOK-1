@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../features/orders/data/order_repository.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen konfirmasi retur — muncul setelah kurir klik "Konfirmasi Barang
 // Diserahkan" di halaman Retur.
 // ─────────────────────────────────────────────────────────────────────────────
-class CourierKonfirReturScreen extends StatelessWidget {
+class CourierKonfirReturScreen extends ConsumerWidget {
   const CourierKonfirReturScreen({
     super.key,
+    required this.orderId,
     this.itemName = '-',
     this.itemCategory = '-',
     this.ecoGrade = '-',
   });
 
-  /// Data produk — isi dari backend nantinya
+  final String orderId;
+
+  /// Data produk
   final String itemName;
   final String itemCategory;
   final String ecoGrade;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -90,9 +96,24 @@ class CourierKonfirReturScreen extends StatelessWidget {
 
                     // ── Tombol Barang Telah Diserahkan ─────────────────────
                     _SerahkanButton(
-                      onPressed: () {
-                        // TODO: update status retur ke Firestore → selesai
-                        Navigator.of(context).pop(true);
+                      onPressed: () async {
+                        try {
+                          await ref.read(orderRepositoryProvider).markReturnDelivered(orderId);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('✅ Barang retur berhasil diserahkan ke seller!'),
+                              backgroundColor: Color(0xFF2E7D32),
+                            ));
+                            // Pop back to courier dashboard
+                            Navigator.of(context).pop(true);
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
                       },
                     ),
                     const SizedBox(height: 16),

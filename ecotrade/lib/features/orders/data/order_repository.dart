@@ -41,6 +41,40 @@ class OrderRepository {
         });
   }
 
+  // ── Kurir: stream tugas retur yang di-assign ke kurir tertentu ─────────────
+  /// Query berdasarkan `returnCourierId` lalu filter client-side
+  /// untuk status `return_approved` dan `return_picked_up`.
+  Stream<List<OrderModel>> watchReturnTasksByCourier(String courierId) {
+    return _orders
+        .where('returnCourierId', isEqualTo: courierId)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs
+              .map(OrderModel.fromFirestore)
+              .where((o) =>
+                  o.status == OrderStatus.returnApproved ||
+                  o.status == OrderStatus.returnPickedUp)
+              .toList();
+          list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          return list;
+        });
+  }
+
+  // ── Kurir: stream tugas retur SELESAI yang di-assign ke kurir tertentu ────
+  Stream<List<OrderModel>> watchHistoryReturnTasksByCourier(String courierId) {
+    return _orders
+        .where('returnCourierId', isEqualTo: courierId)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs
+              .map(OrderModel.fromFirestore)
+              .where((o) => o.status == OrderStatus.returnCompleted)
+              .toList();
+          list.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          return list;
+        });
+  }
+
   // ── Admin: stream orders berdasarkan status ───────────────────────────────
   Stream<List<OrderModel>> watchOrdersByStatus(String status) {
     return _orders
@@ -99,6 +133,42 @@ class OrderRepository {
     return _orders.doc(orderId).update({
       'status':    OrderStatus.delivered.toJson(),
       'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Kurir: ambil barang retur dari buyer (return_approved → return_picked_up) ──
+  Future<void> markReturnPickedUp(String orderId) {
+    return _orders.doc(orderId).update({
+      'status':    'return_picked_up',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Kurir: serahkan barang ke seller (return_picked_up → return_completed) ──
+  Future<void> markReturnDelivered(String orderId) async {
+    final orderRef = _orders.doc(orderId);
+    
+    await _db.runTransaction((tx) async {
+      final orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists) throw Exception('Order tidak ditemukan');
+      
+      final data = orderSnap.data()!;
+      final buyerId = data['buyerId'] as String?;
+      final total = (data['total'] as num?)?.toDouble() ?? 0.0;
+      
+      // Update status order
+      tx.update(orderRef, {
+        'status':    'return_completed',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Tambahkan saldo refund ke pembeli
+      if (buyerId != null && buyerId.isNotEmpty && total > 0) {
+        final userRef = _db.collection('users').doc(buyerId);
+        tx.set(userRef, {
+          'refundBalance': FieldValue.increment(total),
+        }, SetOptions(merge: true));
+      }
     });
   }
 }

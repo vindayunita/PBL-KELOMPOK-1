@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
+import '../../../../features/user/domain/models/user_model.dart';
 import '../../../../features/seller_registration/domain/models/seller_application_model.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
 import '../../../../features/seller_registration/presentation/screens/seller_registration_screen.dart';
+import '../../../../features/admin_dashboard/data/payout_repository.dart';
 import '../../../courier_dashboard/domain/courier_application_providers.dart';
 import '../../../courier_dashboard/domain/models/courier_application_model.dart';
 import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart';
@@ -115,6 +119,12 @@ class BuyerProfileScreen extends ConsumerWidget {
                   if (user != null) _RoleBadges(roles: user.roles, activeRole: user.activeRole),
 
                   const SizedBox(height: 32),
+
+                  // Wallet Saldo Refund
+                  if (user != null && user.refundBalance > 0) ...[
+                    _RefundWalletCard(user: user),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Alamat summary
                   if (user != null && user.addresses.isNotEmpty) ...[  
@@ -1019,6 +1029,181 @@ class _LogoutButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Refund Wallet Card & Withdrawal Form
+// ─────────────────────────────────────────────────────────────────────────────
+class _RefundWalletCard extends ConsumerWidget {
+  const _RefundWalletCard({required this.user});
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E7D32).withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF2E7D32), size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Saldo Refund Retur',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2E7D32),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  rupiah.format(user.refundBalance),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1B5E20),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => _showWithdrawalDialog(context, ref, user.refundBalance),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Cairkan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWithdrawalDialog(BuildContext context, WidgetRef ref, double amount) {
+    final bankNameCtrl = TextEditingController();
+    final accountNameCtrl = TextEditingController();
+    final accountNumCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool isLoading = false;
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Cairkan Saldo Refund', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total pencairan: ${rupiah.format(amount)}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: bankNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nama Bank (contoh: BCA, Mandiri)', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: accountNumCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Nomor Rekening', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: accountNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nama Pemilik Rekening', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setState(() => isLoading = true);
+                        try {
+                          await ref.read(payoutRepositoryProvider).requestRefundPayout(
+                                userId: user.uid,
+                                userName: user.name,
+                                amount: amount,
+                                bankName: bankNameCtrl.text.trim(),
+                                bankAccountName: accountNameCtrl.text.trim(),
+                                bankAccountNumber: accountNumCtrl.text.trim(),
+                              );
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Permintaan pencairan berhasil dikirim ke Admin')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        } finally {
+                          if (context.mounted) setState(() => isLoading = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+                child: isLoading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Kirim Request'),
+              ),
+            ],
+          );
+        });
+      },
     );
   }
 }

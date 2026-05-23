@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../../domain/payout_providers.dart';
+import '../../data/payout_model.dart';
+import '../../data/payout_repository.dart';
 
 // ── Main Widget ───────────────────────────────────────────────────────────────
-class AdminPayoutScreen extends StatefulWidget {
+class AdminPayoutScreen extends ConsumerStatefulWidget {
   const AdminPayoutScreen({super.key, this.tabNotifier});
 
   /// Optional notifier — set its value to jump to a tab from outside.
   final ValueNotifier<int>? tabNotifier;
 
   @override
-  State<AdminPayoutScreen> createState() => _AdminPayoutScreenState();
+  ConsumerState<AdminPayoutScreen> createState() => _AdminPayoutScreenState();
 }
 
-class _AdminPayoutScreenState extends State<AdminPayoutScreen> {
+class _AdminPayoutScreenState extends ConsumerState<AdminPayoutScreen> {
   // 0 = Payout Seller, 1 = Refund Processing
   int _selectedTab = 0;
 
@@ -317,32 +323,284 @@ class _AdminPayoutScreenState extends State<AdminPayoutScreen> {
   }
 
   // ── Refund Content ────────────────────────────────────────────────────────────
-  Widget _buildRefundContent(
-      BuildContext context, ColorScheme cs, TextTheme tt) {
-    // TODO: Replace with real data list when model is ready
-    return SliverToBoxAdapter(
-      child: _EmptyStateCard(
-        icon: Icons.assignment_return_outlined,
-        iconColor: cs.tertiary,
-        title:
-            'Tidak ada Refund ${_refundFilterLabels[_refundFilter]}',
-        subtitle:
-            'Pengembalian dana buyer dengan status\n"${_refundFilterLabels[_refundFilter]}" akan muncul di sini.',
-        cs: cs,
-        tt: tt,
+  Widget _buildRefundContent(BuildContext context, ColorScheme cs, TextTheme tt) {
+    final asyncPayouts = ref.watch(payoutsByRoleProvider('buyer'));
+
+    return asyncPayouts.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
       ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(child: Text('Error: $e')),
+        ),
+      ),
+      data: (payouts) {
+        // Filter: 0=Pending, 1=Approved, 2=Rejected
+        final filtered = payouts.where((p) {
+          if (_refundFilter == 0) return p.status == PayoutStatus.pending;
+          if (_refundFilter == 1) return p.status == PayoutStatus.approved;
+          if (_refundFilter == 2) return p.status == PayoutStatus.rejected;
+          return false;
+        }).toList();
+
+        // Update counts (using microtask to avoid calling setState during build)
+        Future.microtask(() {
+          if (!mounted) return;
+          final pendingCount = payouts.where((p) => p.status == PayoutStatus.pending).length;
+          final approvedCount = payouts.where((p) => p.status == PayoutStatus.approved).length;
+          final rejectedCount = payouts.where((p) => p.status == PayoutStatus.rejected).length;
+
+          if (_refundCounts[0] != pendingCount ||
+              _refundCounts[1] != approvedCount ||
+              _refundCounts[2] != rejectedCount) {
+            setState(() {
+              _refundCounts[0] = pendingCount;
+              _refundCounts[1] = approvedCount;
+              _refundCounts[2] = rejectedCount;
+            });
+          }
+        });
+
+        if (filtered.isEmpty) {
+          return SliverToBoxAdapter(
+            child: _EmptyStateCard(
+              icon: Icons.assignment_return_outlined,
+              iconColor: cs.tertiary,
+              title: 'Tidak ada Refund ${_refundFilterLabels[_refundFilter]}',
+              subtitle: 'Pengembalian dana buyer dengan status\n"${_refundFilterLabels[_refundFilter]}" akan muncul di sini.',
+              cs: cs,
+              tt: tt,
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final payout = filtered[index];
+              return _PayoutRequestCard(payout: payout);
+            },
+            childCount: filtered.length,
+          ),
+        );
+      },
     );
   }
 }
 
+class _PayoutRequestCard extends ConsumerWidget {
+  const _PayoutRequestCard({required this.payout});
+  final PayoutModel payout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(payout.createdAt);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Request dari ${payout.userName}',
+                style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                dateStr,
+                style: tt.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.5)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.account_balance, size: 20, color: Colors.grey),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${payout.bankName} - ${payout.bankAccountNumber}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text('a.n. ${payout.bankAccountName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+                Text(
+                  rupiah.format(payout.amount),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2E7D32), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          if (payout.status == PayoutStatus.pending) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _handleReject(context, ref),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: cs.error,
+                      side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Tolak'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleApprove(context, ref),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Setujui'),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  payout.status == PayoutStatus.approved ? Icons.check_circle : Icons.cancel,
+                  color: payout.status == PayoutStatus.approved ? const Color(0xFF2E7D32) : cs.error,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  payout.status == PayoutStatus.approved ? 'Telah disetujui' : 'Ditolak',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: payout.status == PayoutStatus.approved ? const Color(0xFF2E7D32) : cs.error,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleApprove(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(payoutRepositoryProvider).approvePayout(payout.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payout disetujui')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _handleReject(BuildContext context, WidgetRef ref) async {
+    final noteCtrl = TextEditingController();
+    final shouldReject = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak Payout?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Saldo akan dikembalikan ke dompet user. Sertakan alasan:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteCtrl,
+              decoration: const InputDecoration(labelText: 'Alasan penolakan', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Colors.white),
+            child: const Text('Tolak'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldReject == true) {
+      try {
+        await ref.read(payoutRepositoryProvider).rejectPayout(payout.id, payout.userId, payout.amount, note: noteCtrl.text.trim());
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payout ditolak, saldo dikembalikan')));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
+      }
+    }
+  }
+}
+
 // ── Summary Banner ────────────────────────────────────────────────────────────
-class _SummaryBanner extends StatelessWidget {
+class _SummaryBanner extends ConsumerWidget {
   const _SummaryBanner({required this.cs, required this.tt});
   final ColorScheme cs;
   final TextTheme tt;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sellerPayoutsAsync = ref.watch(payoutsByRoleProvider('seller'));
+    final buyerPayoutsAsync = ref.watch(payoutsByRoleProvider('buyer'));
+
+    final sellerPayouts = sellerPayoutsAsync.value ?? [];
+    final buyerPayouts = buyerPayoutsAsync.value ?? [];
+
+    final pendingPayoutsCount = sellerPayouts.where((p) => p.status == PayoutStatus.pending).length;
+    final pendingRefundsCount = buyerPayouts.where((p) => p.status == PayoutStatus.pending).length;
+
+    double totalAmount = 0;
+    for (final p in sellerPayouts) {
+      if (p.status == PayoutStatus.pending) totalAmount += p.amount;
+    }
+    for (final p in buyerPayouts) {
+      if (p.status == PayoutStatus.pending) totalAmount += p.amount;
+    }
+
+    final formatCurrency = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0);
+    final totalAmountStr = formatCurrency.format(totalAmount);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -392,7 +650,7 @@ class _SummaryBanner extends StatelessWidget {
               Expanded(
                 child: _BannerStat(
                   label: 'Total Payout\nPending',
-                  value: '0',
+                  value: pendingPayoutsCount.toString(),
                   icon: Icons.account_balance_wallet_outlined,
                 ),
               ),
@@ -405,7 +663,7 @@ class _SummaryBanner extends StatelessWidget {
               Expanded(
                 child: _BannerStat(
                   label: 'Total Refund\nPending',
-                  value: '0',
+                  value: pendingRefundsCount.toString(),
                   icon: Icons.assignment_return_outlined,
                 ),
               ),
@@ -418,7 +676,7 @@ class _SummaryBanner extends StatelessWidget {
               Expanded(
                 child: _BannerStat(
                   label: 'Total Dana\n(Rp)',
-                  value: '0',
+                  value: totalAmountStr,
                   icon: Icons.attach_money_rounded,
                 ),
               ),

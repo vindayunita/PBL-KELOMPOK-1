@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/cart_repository.dart';
 import '../../data/order_item_model.dart';
 import '../../../seller_dashboard/domain/product_model.dart';
+import '../../../user/domain/user_providers.dart';
 import 'checkout_screen.dart';
 
 enum PurchaseType { standard, sample }
@@ -39,6 +40,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final p = widget.product;
+    final userAsync = ref.watch(currentUserDocProvider);
+    final user = userAsync.value;
+    String buyerCity = '';
+    if (user != null && user.addresses.isNotEmpty) {
+      buyerCity = user.addresses.first['city'] as String? ?? '';
+    }
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
@@ -153,7 +160,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
 
           // ── Bottom action bar ──────────────────────────────────────────
-          _buildBottomBar(context, cs, tt),
+          _buildBottomBar(context, cs, tt, buyerCity),
         ],
       ),
     );
@@ -266,7 +273,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   children: [
                     Icon(Icons.location_on_outlined, size: 12, color: cs.onSurfaceVariant),
                     const SizedBox(width: 3),
-                    Text('Indonesia',
+                    Text(p.sellerCity,
                         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   ],
                 ),
@@ -348,7 +355,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildBottomBar(BuildContext context, ColorScheme cs, TextTheme tt) {
+  Widget _buildBottomBar(BuildContext context, ColorScheme cs, TextTheme tt, String buyerCity) {
     return Container(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 14,
@@ -368,7 +375,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         children: [
           // Cart button
           GestureDetector(
-            onTap: () => _addToCart(context, cs),
+            onTap: () => _addToCart(context, cs, buyerCity),
             child: Container(
               width: 54, height: 54,
               decoration: BoxDecoration(
@@ -383,7 +390,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           // Buy Now
           Expanded(
             child: GestureDetector(
-              onTap: () => _buyNow(context, cs, tt),
+              onTap: () => _buyNow(context, cs, tt, buyerCity),
               child: Container(
                 height: 54,
                 decoration: BoxDecoration(
@@ -422,8 +429,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Divider(color: cs.outlineVariant, thickness: 1, height: 1),
       );
 
-  Future<void> _addToCart(BuildContext context, ColorScheme cs) async {
+  void _showLocationError(BuildContext context, ColorScheme cs) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text(
+          'Lokasi Anda tidak sama dengan lokasi penjual. Silakan gunakan alamat di kota yang sama untuk membeli.',
+          style: TextStyle(fontWeight: FontWeight.w600)),
+      backgroundColor: cs.error,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      duration: const Duration(seconds: 4),
+    ));
+  }
+
+  Future<void> _addToCart(BuildContext context, ColorScheme cs, String buyerCity) async {
     final p = widget.product;
+    if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
+      _showLocationError(context, cs);
+      return;
+    }
+
     try {
       await ref.read(cartRepositoryProvider).addToCart(
             productId: p.id,
@@ -464,8 +489,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  void _buyNow(BuildContext context, ColorScheme cs, TextTheme tt) {
+  void _buyNow(BuildContext context, ColorScheme cs, TextTheme tt, String buyerCity) {
     final p = widget.product;
+    if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
+      _showLocationError(context, cs);
+      return;
+    }
+
     final isSample = _purchaseType == PurchaseType.sample;
 
     // For sample, quantity is always 1 (fixed 1 Kg) — skip quantity dialog

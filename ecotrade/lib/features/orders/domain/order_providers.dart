@@ -24,6 +24,24 @@ Stream<List<OrderModel>> myCourierTasks(Ref ref) {
   });
 }
 
+/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+@riverpod
+Stream<List<OrderModel>> myCourierReturnTasks(Ref ref) {
+  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
+    if (user == null) return const Stream.empty();
+    return ref.watch(orderRepositoryProvider).watchReturnTasksByCourier(user.uid);
+  });
+}
+
+/// Stream tugas retur SELESAI kurir yang sedang login
+@riverpod
+Stream<List<OrderModel>> myCourierHistoryReturnTasks(Ref ref) {
+  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
+    if (user == null) return const Stream.empty();
+    return ref.watch(orderRepositoryProvider).watchHistoryReturnTasksByCourier(user.uid);
+  });
+}
+
 /// Stream orders berdasarkan status (untuk admin)
 @riverpod
 Stream<List<OrderModel>> ordersByStatus(Ref ref, String status) {

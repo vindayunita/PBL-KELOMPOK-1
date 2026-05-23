@@ -153,12 +153,61 @@ final class SellerCompletedOrdersProvider
 String _$sellerCompletedOrdersHash() =>
     r'97a3092a175305fbe27abe58ebbf73e50cc00be5';
 
-/// Stream return request untuk seller ini.
+/// Stream return request untuk seller ini (dari koleksi `returns` + legacy `orders`).
+
+@ProviderFor(sellerReturnRequests)
+const sellerReturnRequestsProvider = SellerReturnRequestsProvider._();
+
+/// Stream return request untuk seller ini (dari koleksi `returns` + legacy `orders`).
+
+final class SellerReturnRequestsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ReturnModel>>,
+          List<ReturnModel>,
+          Stream<List<ReturnModel>>
+        >
+    with
+        $FutureModifier<List<ReturnModel>>,
+        $StreamProvider<List<ReturnModel>> {
+  /// Stream return request untuk seller ini (dari koleksi `returns` + legacy `orders`).
+  const SellerReturnRequestsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sellerReturnRequestsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sellerReturnRequestsHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<ReturnModel>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<ReturnModel>> create(Ref ref) {
+    return sellerReturnRequests(ref);
+  }
+}
+
+String _$sellerReturnRequestsHash() =>
+    r'520b1ffee52495140558ae6a891bf3ae58d150be';
+
+/// [DEPRECATED] Gunakan sellerReturnRequestsProvider.
+/// Tetap dipertahankan agar provider lama tidak error.
 
 @ProviderFor(sellerReturnOrders)
 const sellerReturnOrdersProvider = SellerReturnOrdersProvider._();
 
-/// Stream return request untuk seller ini.
+/// [DEPRECATED] Gunakan sellerReturnRequestsProvider.
+/// Tetap dipertahankan agar provider lama tidak error.
 
 final class SellerReturnOrdersProvider
     extends
@@ -168,7 +217,8 @@ final class SellerReturnOrdersProvider
           Stream<List<OrderModel>>
         >
     with $FutureModifier<List<OrderModel>>, $StreamProvider<List<OrderModel>> {
-  /// Stream return request untuk seller ini.
+  /// [DEPRECATED] Gunakan sellerReturnRequestsProvider.
+  /// Tetap dipertahankan agar provider lama tidak error.
   const SellerReturnOrdersProvider._()
     : super(
         from: null,

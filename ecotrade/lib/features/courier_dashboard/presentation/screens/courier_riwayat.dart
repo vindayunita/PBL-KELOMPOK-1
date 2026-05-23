@@ -23,6 +23,7 @@ class _CourierRiwayatScreenState extends ConsumerState<CourierRiwayatScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final tasksAsync = ref.watch(myCourierTasksProvider);
+    final historyReturnsAsync = ref.watch(myCourierHistoryReturnTasksProvider);
 
     return SafeArea(
       child: Column(
@@ -100,15 +101,26 @@ class _CourierRiwayatScreenState extends ConsumerState<CourierRiwayatScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (allTasks) {
-                // Riwayat menampilkan yang sudah delivered, completed, atau returnRequested
-                final historyTasks = allTasks.where((t) => t.isDelivered || t.isCompleted || t.isReturnRequested).toList();
+                final historyReturns = historyReturnsAsync.value ?? [];
+                // Riwayat menampilkan yang sudah delivered, completed, returnRequested, atau returnCompleted
+                final historyTasksMap = <String, OrderModel>{};
+                for (final t in allTasks) {
+                  if (t.isDelivered || t.isCompleted || t.isReturnRequested || t.isReturnCompleted) {
+                    historyTasksMap[t.orderId] = t;
+                  }
+                }
+                for (final t in historyReturns) {
+                  historyTasksMap[t.orderId] = t;
+                }
+                final historyTasks = historyTasksMap.values.toList()
+                  ..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
                 
                 // Apply filter
                 List<OrderModel> filtered = [];
                 if (_filterIndex == 1) { // Selesai
                   filtered = historyTasks.where((t) => t.isDelivered || t.isCompleted).toList();
                 } else if (_filterIndex == 2) { // Retur
-                  filtered = historyTasks.where((t) => t.isReturnRequested).toList();
+                  filtered = historyTasks.where((t) => t.isReturnRequested || t.isReturnCompleted).toList();
                 } else {
                   filtered = historyTasks;
                 }
