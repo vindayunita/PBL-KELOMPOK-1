@@ -1,4 +1,4 @@
-﻿class UserModel {
+class UserModel {
   const UserModel({
     required this.uid,
     required this.name,
@@ -8,6 +8,7 @@
     this.photoUrl,
     this.phoneNumber,
     this.addresses = const [],
+    this.refundBalance = 0.0,
   });
 
   final String uid;
@@ -18,6 +19,7 @@
   final String? photoUrl;
   final String? phoneNumber;
   final List<Map<String, dynamic>> addresses;
+  final double refundBalance;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -32,6 +34,7 @@
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const [],
+      refundBalance: (json['refundBalance'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -44,6 +47,7 @@
         if (photoUrl    != null) 'photoUrl':    photoUrl,
         if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (addresses.isNotEmpty) 'addresses':  addresses,
+        'refundBalance': refundBalance,
       };
 
   UserModel copyWith({
@@ -55,6 +59,7 @@
     String? photoUrl,
     String? phoneNumber,
     List<Map<String, dynamic>>? addresses,
+    double? refundBalance,
   }) =>
       UserModel(
         uid:        uid        ?? this.uid,
@@ -65,6 +70,7 @@
         photoUrl:   photoUrl   ?? this.photoUrl,
         phoneNumber:phoneNumber ?? this.phoneNumber,
         addresses:  addresses  ?? this.addresses,
+        refundBalance: refundBalance ?? this.refundBalance,
       );
 
   @override

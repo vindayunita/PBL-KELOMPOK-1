@@ -10,6 +10,9 @@ enum OrderStatus {
   rejected,            // seller tolak
   shipped,             // barang dalam pengiriman (legacy)
   returnRequested,     // buyer minta retur
+  returnApproved,      // seller setujui retur, kurir akan menjemput
+  returnPickedUp,      // kurir sudah ambil barang retur dari buyer
+  returnCompleted,     // barang sudah dikembalikan ke seller
   completed,           // pesanan selesai
   cancelled,           // dibatalkan
   delivered,           // kurir selesai mengantar barang, menunggu konfirmasi buyer
@@ -27,6 +30,9 @@ extension OrderStatusX on OrderStatus {
       case OrderStatus.rejected:           return 'Ditolak Seller';
       case OrderStatus.shipped:            return 'Dalam Pengiriman';
       case OrderStatus.returnRequested:    return 'Permintaan Retur';
+      case OrderStatus.returnApproved:     return 'Retur Disetujui';
+      case OrderStatus.returnPickedUp:     return 'Kurir Menjemput Retur';
+      case OrderStatus.returnCompleted:    return 'Retur Selesai';
       case OrderStatus.completed:          return 'Selesai';
       case OrderStatus.cancelled:          return 'Dibatalkan';
       case OrderStatus.delivered:          return 'Pesanan Tiba';
@@ -45,6 +51,9 @@ OrderStatus orderStatusFromString(String? s) {
     case 'rejected':             return OrderStatus.rejected;
     case 'shipped':              return OrderStatus.shipped;
     case 'return_requested':     return OrderStatus.returnRequested;
+    case 'return_approved':      return OrderStatus.returnApproved;
+    case 'return_picked_up':     return OrderStatus.returnPickedUp;
+    case 'return_completed':     return OrderStatus.returnCompleted;
     case 'completed':            return OrderStatus.completed;
     case 'cancelled':            return OrderStatus.cancelled;
     case 'delivered':            return OrderStatus.delivered;
@@ -110,6 +119,8 @@ class OrderModel {
     this.rating,
     this.returnReason,
     this.rejectionReason,
+    this.returnCourierId,
+    this.returnCourierName,
   });
 
   final String              id;
@@ -130,6 +141,10 @@ class OrderModel {
   final int?                rating;
   final String?             returnReason;
   final String?             rejectionReason;
+  /// ID kurir yang ditugaskan untuk menjemput barang retur.
+  final String?             returnCourierId;
+  /// Nama kurir yang ditugaskan untuk menjemput barang retur.
+  final String?             returnCourierName;
 
   /// First item convenience
   OrderItemSnapshot? get firstItem => items.isNotEmpty ? items.first : null;
@@ -172,6 +187,8 @@ class OrderModel {
       rating:          (data['rating'] as num?)?.toInt(),
       returnReason:    data['returnReason']    as String?,
       rejectionReason: data['rejectionReason'] as String?,
+      returnCourierId:   data['returnCourierId']   as String?,
+      returnCourierName: data['returnCourierName'] as String?,
     );
   }
 }

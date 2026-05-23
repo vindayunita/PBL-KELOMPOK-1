@@ -13,6 +13,7 @@ class ProductModel {
     required this.imageUrl,
     required this.sellerId,
     required this.sellerName,
+    required this.sellerCity,
     required this.status,
     this.createdAt,
   });
@@ -28,6 +29,7 @@ class ProductModel {
   final String imageUrl;
   final String sellerId;
   final String sellerName;
+  final String sellerCity;
   final String status; // 'active' | 'inactive'
   final DateTime? createdAt;
 
@@ -45,6 +47,7 @@ class ProductModel {
       imageUrl: data['imageUrl'] as String? ?? '',
       sellerId: data['sellerId'] as String? ?? '',
       sellerName: data['sellerName'] as String? ?? '',
+      sellerCity: data['sellerCity'] as String? ?? 'Malang',
       status: data['status'] as String? ?? 'active',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
@@ -61,6 +64,7 @@ class ProductModel {
         'imageUrl': imageUrl,
         'sellerId': sellerId,
         'sellerName': sellerName,
+        'sellerCity': sellerCity,
         'status': status,
         'createdAt': FieldValue.serverTimestamp(),
       };
@@ -74,6 +78,7 @@ class ProductModel {
     int? stock,
     String? badge,
     String? imageUrl,
+    String? sellerCity,
     String? status,
   }) {
     return ProductModel(
@@ -88,6 +93,7 @@ class ProductModel {
       imageUrl: imageUrl ?? this.imageUrl,
       sellerId: sellerId,
       sellerName: sellerName,
+      sellerCity: sellerCity ?? this.sellerCity,
       status: status ?? this.status,
       createdAt: createdAt,
     );

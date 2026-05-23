@@ -24,6 +24,7 @@ class ProductListing {
     required this.imageUrl,
     required this.sellerId,
     required this.sellerName,
+    this.sellerCity = 'Malang',
     this.commodityType = '',
     this.stock = 0,
     this.description = '',
@@ -37,6 +38,7 @@ class ProductListing {
   final String imageUrl;
   final String sellerId;
   final String sellerName;
+  final String sellerCity;
   final String commodityType;
   final int stock;
   final String description;
@@ -52,6 +54,7 @@ class ProductListing {
       imageUrl: data['imageUrl'] as String? ?? '',
       sellerId: data['sellerId'] as String? ?? '',
       sellerName: data['sellerName'] as String? ?? '',
+      sellerCity: data['sellerCity'] as String? ?? 'Malang',
       commodityType: data['commodityType'] as String? ?? '',
       stock: (data['stock'] as num?)?.toInt() ?? 0,
       description: data['description'] as String? ?? '',
@@ -71,6 +74,7 @@ class ProductListing {
         imageUrl: imageUrl,
         sellerId: sellerId,
         sellerName: sellerName,
+        sellerCity: sellerCity,
         status: 'active',
       );
 }

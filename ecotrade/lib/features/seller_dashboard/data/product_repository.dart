@@ -66,6 +66,15 @@ class ProductRepository {
 
     final sellerName = user.displayName ?? user.email ?? 'Seller';
 
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    String sellerCity = 'Malang';
+    if (userDoc.exists) {
+      final addresses = userDoc.data()?['addresses'] as List<dynamic>? ?? [];
+      if (addresses.isNotEmpty) {
+        sellerCity = addresses.first['city'] as String? ?? 'Malang';
+      }
+    }
+
     await _col.add({
       'title': title,
       'description': description,
@@ -77,6 +86,7 @@ class ProductRepository {
       'imageUrl': imageUrl,
       'sellerId': user.uid,
       'sellerName': sellerName,
+      'sellerCity': sellerCity,
       'status': 'active',
       'createdAt': FieldValue.serverTimestamp(),
     });

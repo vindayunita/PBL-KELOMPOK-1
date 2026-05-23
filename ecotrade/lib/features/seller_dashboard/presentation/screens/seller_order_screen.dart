@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../features/buyer_dashboard/data/order_model.dart';
+import '../../../../features/buyer_dashboard/data/return_model.dart';
 import '../../data/seller_order_repository.dart';
 
 class SellerOrderScreen extends ConsumerStatefulWidget {
@@ -24,9 +25,9 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final incomingAsync   = ref.watch(sellerIncomingOrdersProvider);
-    final completedAsync  = ref.watch(sellerCompletedOrdersProvider);
-    final returnAsync     = ref.watch(sellerReturnOrdersProvider);
+    final incomingAsync  = ref.watch(sellerIncomingOrdersProvider);
+    final completedAsync = ref.watch(sellerCompletedOrdersProvider);
+    final returnAsync    = ref.watch(sellerReturnRequestsProvider);
 
     // Jumlah item berdasarkan tab aktif
     int itemCount = 0;
@@ -133,12 +134,12 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             returnAsync.when(
               loading: () => _buildLoadingState(),
               error:   (e, _) => _buildErrorState(e.toString()),
-              data:    (orders) => orders.isEmpty
+              data:    (returns) => returns.isEmpty
                   ? _buildReturnEmptyState()
                   : Column(
-                      children: orders.map((order) => Padding(
+                      children: returns.map((ret) => Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _buildReturnCard(order: order),
+                        child: _buildReturnCard(ret),
                       )).toList(),
                     ),
             )
@@ -183,10 +184,10 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
 
     final isVerified   = order.status == OrderStatus.verified;
     final isProcessing = order.status == OrderStatus.processing;
-    final isAssigned   = order.status == OrderStatus.assigned;   // kurir ditugaskan, belum terima
-    final isPickedUp   = order.status == OrderStatus.pickedUp;   // kurir sudah terima (dalam perjalanan)
-    final isDelivered  = order.status == OrderStatus.delivered;  // kurir sudah antar, menunggu konfirmasi buyer
-    final isComplete   = order.status == OrderStatus.completed;  // pesanan selesai
+    final isAssigned   = order.status == OrderStatus.assigned;
+    final isPickedUp   = order.status == OrderStatus.pickedUp;
+    final isDelivered  = order.status == OrderStatus.delivered;
+    final isComplete   = order.status == OrderStatus.completed;
 
     final badgeLabel = isVerified
         ? 'Baru'
@@ -216,7 +217,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 ? darkGreen
                 : darkGreen;
 
-    // Tipe pembelian
     final typeLabel = purchaseType.toLowerCase() == 'sample' ? 'Sample' : 'Standard';
     final typeBg    = purchaseType.toLowerCase() == 'sample'
         ? const Color(0x1A00581C) : const Color(0xFFE8F5E9);
@@ -242,9 +242,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Row utama: Gambar (kiri) + semua info (kanan) ──
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // product image
           Container(
             width: 60, height: 60,
             decoration: BoxDecoration(
@@ -258,12 +256,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 : const Icon(Icons.image_outlined, color: Colors.grey, size: 30),
           ),
           const SizedBox(width: 14),
-
-          // Kolom kanan: nama+badge, Standard/Sample, TOTAL PESANAN, TOTAL HARGA
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-              // Nama produk + Badge status sejajar
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -275,7 +269,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // Badge status tidak ditampilkan di tab Selesai
                   if (!isComplete) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -295,8 +288,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-
-              // Tipe pembelian (Standard / Sample)
               if (purchaseType.isNotEmpty) ...[
                 if (purchaseType.toLowerCase() == 'sample')
                   Container(
@@ -310,9 +301,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF717783))),
                 const SizedBox(height: 4),
               ],
-
-
-              // By courier — hanya tampil saat kurir sudah terima (pickedUp)
               if (isPickedUp && order.courierName.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -320,10 +308,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                   style: const TextStyle(fontSize: 11, color: Color(0xFF717783), fontStyle: FontStyle.italic),
                 ),
               ],
-
               const SizedBox(height: 4),
-
-              // TOTAL PESANAN — label kiri, nilai kanan
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -333,8 +318,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-
-              // TOTAL HARGA — label kiri, nilai kanan
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -343,7 +326,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: primaryBlue)),
                 ],
               ),
-
               if (order.items.length > 1) ...[
                 const SizedBox(height: 4),
                 Text('+${order.items.length - 1} produk lainnya',
@@ -356,7 +338,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
         const SizedBox(height: 14),
 
         if (isVerified)
-          // Status BARU: Tolak (kiri) + Terima (kanan)
           Row(children: [
             Expanded(
               child: OutlinedButton(
@@ -382,7 +363,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
           ])
         else if (isProcessing)
-          // Status DIKEMAS: Tugaskan Kurir (kiri) + Detail (kanan)
           Row(children: [
             Expanded(
               child: OutlinedButton(
@@ -408,7 +388,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
           ])
         else if (isAssigned)
-          // Status MENUNGGU KURIR: tombol Tugaskan hilang, hanya Detail
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
@@ -423,7 +402,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
           )
         else if (isComplete)
-          // Status SELESAI: Detail (kiri) + Lihat Penilaian (kanan)
           Row(children: [
             Expanded(
               child: OutlinedButton(
@@ -449,7 +427,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
           ])
         else
-          // Status DALAM PERJALANAN / lainnya: hanya Detail
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
@@ -467,15 +444,10 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     );
   }
 
-  // ── Return card dari Firestore ─────────────────────────────────────────────
-  Widget _buildReturnCard({required OrderModel order}) {
-    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final firstItem    = order.firstItem;
-    final productName  = firstItem?.productTitle ?? 'Produk';
-    final productImage = firstItem?.productImageUrl ?? '';
-    final qty          = firstItem?.quantity ?? 0;
-    final unit         = firstItem?.unit ?? 'kg';
-    final price        = fmt.format(order.total);
+  // ── Return card (ReturnModel) ──────────────────────────────────────────────
+  Widget _buildReturnCard(ReturnModel ret) {
+    final fmt   = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final price = fmt.format(ret.total);
 
     const labelStyle = TextStyle(
       fontSize: 10, fontWeight: FontWeight.w600,
@@ -487,118 +459,511 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: const Border(left: BorderSide(color: Color(0xFFE65100), width: 4)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        // ── Badge RETURN merah pojok kiri ──
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Text(
-            'RETURN',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.8),
-          ),
+        // ── Badge RETUR + tanggal ──
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.assignment_return_rounded, size: 12, color: Color(0xFFE65100)),
+                  SizedBox(width: 4),
+                  Text('PERMINTAAN RETUR',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                          color: Color(0xFFE65100), letterSpacing: 0.6)),
+                ],
+              ),
+            ),
+            const Spacer(),
+            Text(
+              _formatDate(ret.createdAt),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF717783)),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
 
-        // ── Row utama: Gambar + Info ──
+        // ── Gambar produk + Info ──
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Foto produk
           Container(
-            width: 60, height: 60,
+            width: 56, height: 56,
             decoration: BoxDecoration(
               color: const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(10),
             ),
             clipBehavior: Clip.antiAlias,
-            child: productImage.isNotEmpty
-                ? Image.network(productImage, fit: BoxFit.cover,
+            child: ret.productImageUrl.isNotEmpty
+                ? Image.network(ret.productImageUrl, fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.image_outlined, color: Colors.grey, size: 30))
-                : const Icon(Icons.image_outlined, color: Colors.grey, size: 30),
+                        const Icon(Icons.image_outlined, color: Colors.grey, size: 26))
+                : const Icon(Icons.image_outlined, color: Colors.grey, size: 26),
           ),
-          const SizedBox(width: 14),
-
-          // Kolom kanan: nama + total pesanan + total harga
+          const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                productName,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('TOTAL PESANAN', style: labelStyle),
-                  Text('$qty $unit',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
-                ],
-              ),
+              Text(ret.productTitle,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Text('Pembeli: ${ret.buyerName.isNotEmpty ? ret.buyerName : '-'}',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF717783))),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('TOTAL HARGA', style: labelStyle),
-                  Text(price,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: primaryBlue)),
+                  const Text('TOTAL', style: labelStyle),
+                  Text(price, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: primaryBlue)),
                 ],
               ),
             ]),
           ),
         ]),
+        const SizedBox(height: 12),
 
-        const SizedBox(height: 14),
+        // ── Alasan retur ──
+        if (ret.reason.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ALASAN RETUR',
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
+                        color: Color(0xFFBF360C), letterSpacing: 0.8)),
+                const SizedBox(height: 4),
+                Text(ret.reason,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037), height: 1.4),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
 
-        // ── Tombol Detail | Tolak | Terima ──
-        Row(children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => _showOrderDetailSheet(context, order, isReturn: true),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black38),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        // ── Thumbnail foto kondisi produk ──
+        if (ret.photoUrls.isNotEmpty) ...[
+          const Text('FOTO KONDISI PRODUK',
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
+                  color: Color(0xFF717783), letterSpacing: 0.8)),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 70,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: ret.photoUrls.length,
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => _showReturnDetailSheet(ret),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  width: 70, height: 70,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.network(
+                    ret.photoUrls[i], fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                  ),
+                ),
               ),
-              child: const Text('Detail', style: TextStyle(color: Colors.black87)),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black38),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          const SizedBox(height: 4),
+          Text(
+            'Ketuk foto untuk melihat detail',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // ── Tombol / Status berdasarkan status retur ──
+        if (ret.status == ReturnStatus.pending)
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _showReturnDetailSheet(ret),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.black26),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Detail', style: TextStyle(color: Colors.black87, fontSize: 13)),
               ),
-              child: const Text('Tolak', style: TextStyle(color: Colors.black87)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _handleRejectReturn(ret),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Tolak', style: TextStyle(color: Colors.red, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _handleApproveReturn(ret),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Setujui', style: TextStyle(fontSize: 13)),
+              ),
+            ),
+          ])
+        else if (ret.status == ReturnStatus.approved) ...[
+          _buildReturnProgressTracker(
+            courierName: ret.returnCourierName,
+            isPickedUp: ret.orderStatus == 'returnPickedUp' || ret.orderStatus == 'return_picked_up',
+            isCompleted: ret.orderStatus == 'returnCompleted' || ret.orderStatus == 'return_completed',
+          ),
+        ] else if (ret.status == ReturnStatus.rejected) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.cancel_rounded, size: 14, color: Colors.red),
+                SizedBox(width: 6),
+                Text('RETUR DITOLAK',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                      color: Colors.red, letterSpacing: 0.6)),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryBlue,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Terima'),
-            ),
-          ),
-        ]),
+        ],
       ]),
     );
   }
 
-  // ── Detail Pesanan Bottom Sheet ───────────────────────────────────────────
-  void _showOrderDetailSheet(BuildContext context, OrderModel order, {bool isReturn = false}) {
+  // ── Return Progress Tracker (approved → picked_up → completed) ────────────
+  Widget _buildReturnProgressTracker({
+    String? courierName,
+    required bool isPickedUp,
+    required bool isCompleted,
+  }) {
+    const activeColor  = Color(0xFF2E7D32);
+    const inactiveColor = Color(0xFFBDBDBD);
+
+    final steps = [
+      (
+        label: 'Disetujui',
+        sublabel: 'Seller telah menyetujui retur',
+        icon: Icons.check_circle_rounded,
+        active: true,
+      ),
+      (
+        label: 'Kurir Menjemput',
+        sublabel: courierName != null && courierName.isNotEmpty
+            ? 'Kurir: $courierName'
+            : 'Menunggu penjemputan',
+        icon: Icons.local_shipping_rounded,
+        active: isPickedUp || isCompleted,
+      ),
+      (
+        label: 'Barang Tiba',
+        sublabel: isCompleted ? 'Barang telah kembali ke seller' : 'Menunggu pengiriman ke seller',
+        icon: Icons.inventory_2_rounded,
+        active: isCompleted,
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: activeColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'PROGRESS RETUR',
+            style: TextStyle(
+              fontSize: 9, fontWeight: FontWeight.w800,
+              color: activeColor, letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...steps.asMap().entries.map((entry) {
+            final i    = entry.key;
+            final step = entry.value;
+            final isLast = i == steps.length - 1;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 24, height: 24,
+                      decoration: BoxDecoration(
+                        color: step.active ? activeColor : inactiveColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(step.icon, size: 13, color: Colors.white),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2, height: 24,
+                        color: step.active ? activeColor.withValues(alpha: 0.4) : inactiveColor.withValues(alpha: 0.3),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          step.label,
+                          style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700,
+                            color: step.active ? activeColor : inactiveColor,
+                          ),
+                        ),
+                        Text(
+                          step.sublabel,
+                          style: TextStyle(
+                            fontSize: 11, color: step.active
+                                ? activeColor.withValues(alpha: 0.8)
+                                : inactiveColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+
+  // ── Return Detail Bottom Sheet ─────────────────────────────────────────────
+  void _showReturnDetailSheet(ReturnModel ret) {
+    final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.assignment_return_rounded,
+                        color: Color(0xFFE65100), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Detail Permintaan Retur',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                        Text(ret.productTitle,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF717783)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              // Info dasar
+              _infoRow('Pembeli', ret.buyerName.isNotEmpty ? ret.buyerName : '-'),
+              const SizedBox(height: 8),
+              _infoRow('Total Nilai', fmt.format(ret.total)),
+              const SizedBox(height: 8),
+              _infoRow('Tanggal Retur', _formatDate(ret.createdAt)),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              // Alasan retur
+              const Text('ALASAN RETUR',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                      color: Color(0xFFBF360C), letterSpacing: 0.8)),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0).withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  ret.reason.isNotEmpty ? ret.reason : 'Tidak ada deskripsi.',
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037), height: 1.5),
+                ),
+              ),
+
+              // Foto kondisi produk (tampil full width satu per satu)
+              if (ret.photoUrls.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('FOTO KONDISI PRODUK',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
+                        color: Color(0xFF717783), letterSpacing: 0.8)),
+                const SizedBox(height: 10),
+                ...ret.photoUrls.map((url) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      url,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, progress) => progress == null
+                          ? child
+                          : Container(
+                              height: 180,
+                              color: const Color(0xFFF5F5F5),
+                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            ),
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 120,
+                        color: const Color(0xFFEEEEEE),
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded, color: Colors.grey, size: 40),
+                        ),
+                      ),
+                    ),
+                  ),
+                )),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Tombol Tolak & Setujui
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleRejectReturn(ret);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Tolak Retur',
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleApproveReturn(ret);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Setujui Retur',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF717783))),
+      Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+    ],
+  );
+
+  static String _formatDate(DateTime dt) {
+    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  // ── Detail Pesanan Bottom Sheet (untuk tab Order) ─────────────────────────
+  void _showOrderDetailSheet(BuildContext context, OrderModel order) {
     final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final purchaseType = order.firstItem?.purchaseType ?? 'standard';
 
@@ -616,7 +981,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40, height: 4,
@@ -628,7 +992,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Judul + Badge (RETURN / STANDARD) ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -637,21 +1000,18 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                   'Detail Pesanan',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
-                // Badge: merah jika return, biru muda jika standard
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: isReturn
-                        ? Colors.red
-                        : const Color(0xFFDCEEFF),
+                    color: const Color(0xFFDCEEFF),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isReturn ? 'RETURN' : purchaseType.toUpperCase(),
-                    style: TextStyle(
+                    purchaseType.toUpperCase(),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: isReturn ? Colors.white : primaryBlue,
+                      color: primaryBlue,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -660,7 +1020,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Nama buyer
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -676,21 +1035,16 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
             const SizedBox(height: 12),
 
-            // Daftar produk
             ...order.items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.productTitle,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                  ),
+                  Text(item.productTitle,
+                      style: const TextStyle(fontSize: 13, color: Colors.black87)),
                   const SizedBox(height: 3),
-                  Text(
-                    'Total Pembelian: ${item.quantity} ${item.unit}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF717783)),
-                  ),
+                  Text('Total Pembelian: ${item.quantity} ${item.unit}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF717783))),
                 ],
               ),
             )),
@@ -698,7 +1052,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
             const SizedBox(height: 12),
 
-            // Total
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -712,20 +1065,10 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Alamat pengiriman
             if (order.buyerAddress.isNotEmpty) ...[
               Text(
                 'Alamat: ${order.buyerAddress}',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF717783), height: 1.5),
-              ),
-            ],
-
-            // Alasan return (khusus untuk tab Return)
-            if (isReturn && order.returnReason != null && order.returnReason!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Alasan Return: ${order.returnReason}',
-                style: const TextStyle(fontSize: 12, color: Colors.red, height: 1.5),
               ),
             ],
           ],
@@ -752,7 +1095,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40, height: 4,
@@ -763,8 +1105,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Header
             const Text(
               'Penilaian Pembeli',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
@@ -784,7 +1124,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 ),
               )
             else ...[
-              // Bintang rating
               Row(
                 children: List.generate(5, (i) => Icon(
                   i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -793,7 +1132,6 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 )),
               ),
               const SizedBox(height: 12),
-              // Teks ulasan
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -814,7 +1152,139 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     );
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Approve & Reject Return ────────────────────────────────────────────────
+  Future<void> _handleApproveReturn(ReturnModel ret) async {
+    final noteCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Setujui Retur', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Setujui permintaan retur dari ${ret.buyerName}?',
+                style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.local_shipping_rounded, size: 16, color: Color(0xFF1565C0)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Kurir akan otomatis ditugaskan untuk menjemput barang dari buyer.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF1565C0), height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Catatan untuk pembeli (opsional)...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(10),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+            child: const Text('Setujui & Tugaskan Kurir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final repo = ref.read(sellerOrderRepositoryProvider);
+    try {
+      await repo.approveReturn(
+        returnId: ret.returnId,
+        orderId:  ret.orderId,
+        note:     noteCtrl.text.trim(),
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('✅ Retur disetujui! Kurir telah ditugaskan untuk menjemput barang.'),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _handleRejectReturn(ReturnModel ret) async {
+    final noteCtrl = TextEditingController();
+    final note = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak Retur', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Tolak permintaan retur dari ${ret.buyerName}?',
+                style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Alasan penolakan retur (wajib)...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(10),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, noteCtrl.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Tolak Retur'),
+          ),
+        ],
+      ),
+    );
+    if (note == null || note.isEmpty) return;
+
+    final repo = ref.read(sellerOrderRepositoryProvider);
+    try {
+      await repo.rejectReturn(
+        returnId: ret.returnId,
+        orderId:  ret.orderId,
+        note:     note,
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('❌ Retur ditolak.'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  // ── Actions untuk Order biasa ──────────────────────────────────────────────
   Future<void> _handleAcceptOrder(OrderModel order) async {
     final repo = ref.read(sellerOrderRepositoryProvider);
     try {
@@ -859,24 +1329,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     try {
       await repo.rejectOrder(order.id, reason);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('❌ Order ditolak'),
+        content: const Text('❌ Order ditolak'),
         backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
-    }
-  }
-
-  Future<void> _handleCompleteOrder(OrderModel order) async {
-    final repo = ref.read(sellerOrderRepositoryProvider);
-    try {
-      await repo.completeOrder(order.id);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('🎉 Order selesai!'),
-        backgroundColor: darkGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
@@ -906,7 +1360,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     }
   }
 
-  // ── Empty & Loading States ────────────────────────────────────────────────
+  // ── Empty & Loading States ─────────────────────────────────────────────────
   Widget _buildLoadingState() {
     return const Center(
       child: Padding(
@@ -964,10 +1418,14 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       child: const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.undo_rounded, size: 32, color: Color(0xFFCCCCCC)),
+          Icon(Icons.assignment_return_rounded, size: 36, color: Color(0xFFCCCCCC)),
           SizedBox(height: 12),
-          Text('Tidak ada permintaan return',
+          Text('Tidak ada permintaan retur',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFFAAAAAA))),
+          SizedBox(height: 6),
+          Text('Permintaan retur dari pembeli akan muncul di sini.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Color(0xFFCCCCCC), height: 1.5)),
         ],
       ),
     );

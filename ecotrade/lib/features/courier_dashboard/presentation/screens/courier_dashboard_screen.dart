@@ -43,8 +43,15 @@ class _CourierDashboardScreenState
     final isActive  = appAsync.asData?.value?.isActive ?? false;
 
     final tasksAsync = ref.watch(myCourierTasksProvider);
+    final returnTasksAsync = ref.watch(myCourierReturnTasksProvider);
+
     final allTasks = tasksAsync.value ?? [];
-    final activeTasks = allTasks.where((t) => t.isAssigned || t.isPickedUp).toList();
+    final allReturnTasks = returnTasksAsync.value ?? [];
+
+    final activeTasks = [
+      ...allTasks.where((t) => t.isAssigned || t.isPickedUp),
+      ...allReturnTasks.where((t) => t.status == OrderStatus.returnApproved || t.status == OrderStatus.returnPickedUp),
+    ];
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
@@ -498,6 +505,7 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isReturnTask = task.status == OrderStatus.returnApproved || task.status == OrderStatus.returnPickedUp;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -519,22 +527,45 @@ class _TaskCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order ID label + value
-          Text(
-            'ORDER ID',
-            style: textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.45),
-              letterSpacing: 1.0,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '#${task.orderId}',
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
+          // Header Row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ORDER ID',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.45),
+                        letterSpacing: 1.0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '#${task.orderId}',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isReturnTask)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: const Text('TUGAS RETUR',
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.red)),
+                ),
+            ],
           ),
 
           const SizedBox(height: 16),
@@ -542,9 +573,9 @@ class _TaskCard extends StatelessWidget {
           // Route info
           _RouteRow(
             icon: Icons.store_outlined,
-            iconColor: colorScheme.secondary,
-            label: 'JEMPUT (SELLER)',
-            location: task.sellerCity,
+            iconColor: isReturnTask ? colorScheme.primary : colorScheme.secondary,
+            label: isReturnTask ? 'JEMPUT (BUYER)' : 'JEMPUT (SELLER)',
+            location: isReturnTask ? task.buyerAddress : task.sellerCity,
           ),
 
           Padding(
@@ -558,9 +589,9 @@ class _TaskCard extends StatelessWidget {
 
           _RouteRow(
             icon: Icons.location_on_outlined,
-            iconColor: colorScheme.primary,
-            label: 'TUJUAN (BUYER)',
-            location: task.buyerAddress,
+            iconColor: isReturnTask ? colorScheme.secondary : colorScheme.primary,
+            label: isReturnTask ? 'TUJUAN (SELLER)' : 'TUJUAN (BUYER)',
+            location: isReturnTask ? task.sellerCity : task.buyerAddress,
           ),
 
           const SizedBox(height: 18),
