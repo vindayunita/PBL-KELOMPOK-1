@@ -6,6 +6,8 @@ import '../../data/product_repository.dart';
 import '../../data/seller_order_repository.dart';
 import 'package:intl/intl.dart';
 import 'seller_unggah_komoditi_screen.dart';
+import '../../../../features/admin_dashboard/data/payout_repository.dart';
+import '../../../../features/user/domain/user_providers.dart';
 
 class SellerProfilScreen extends ConsumerStatefulWidget {
   const SellerProfilScreen({super.key});
@@ -129,8 +131,14 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
   // ── Card Total Pendapatan ──────────────────────────────────────────────────
   Widget _buildTotalPendapatanCard() {
     final totalRevenue = ref.watch(sellerTotalRevenueProvider);
+    final userAsync = ref.watch(currentUserDocProvider);
+    final user = userAsync.value;
+    
+    final withdrawn = user?.sellerWithdrawnAmount ?? 0.0;
+    final withdrawable = totalRevenue - withdrawn;
+    
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final hasPendapatan = totalRevenue > 0;
+    final hasPendapatan = withdrawable > 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -158,8 +166,13 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
                   style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF3F6D38)),
                 ),
                 const SizedBox(height: 10),
+                Text(
+                  'Bisa ditarik: ${rupiah.format(withdrawable)}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF005DA7), fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: hasPendapatan ? () {} : null,
+                  onPressed: hasPendapatan ? () => _showSellerWithdrawalDialog(context, withdrawable) : null,
                   icon: const Icon(Icons.account_balance_wallet_outlined, size: 14, color: Color(0xFF005DA7)),
                   label: const Text(
                     'CAIRKAN DANA',
@@ -328,6 +341,119 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
           backgroundColor: Colors.white,
         ),
       ),
+    );
+  }
+
+  void _showSellerWithdrawalDialog(BuildContext context, double withdrawableAmount) {
+    final user = ref.read(currentUserDocProvider).value;
+    if (user == null) return;
+
+    final bankNameCtrl = TextEditingController(text: user.bankName ?? '');
+    final accountNameCtrl = TextEditingController(text: user.bankAccountName ?? '');
+    final accountNumCtrl = TextEditingController(text: user.bankAccountNumber ?? '');
+    final amountCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool isLoading = false;
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Cairkan Pendapatan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Maksimal penarikan: ${rupiah.format(withdrawableAmount)}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF005DA7)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Nominal Penarikan', border: OutlineInputBorder()),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Wajib diisi';
+                        final amount = double.tryParse(v);
+                        if (amount == null || amount <= 0) return 'Nominal tidak valid';
+                        if (amount > withdrawableAmount) return 'Melebihi saldo maksimal';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: bankNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nama Bank (contoh: BCA, Mandiri)', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: accountNumCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Nomor Rekening', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: accountNameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nama Pemilik Rekening', border: OutlineInputBorder()),
+                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setState(() => isLoading = true);
+                        try {
+                          final amount = double.parse(amountCtrl.text.trim());
+                          await ref.read(payoutRepositoryProvider).requestSellerPayout(
+                                userId: user.uid,
+                                userName: user.name,
+                                amount: amount,
+                                maxWithdrawable: withdrawableAmount,
+                                bankName: bankNameCtrl.text.trim(),
+                                bankAccountName: accountNameCtrl.text.trim(),
+                                bankAccountNumber: accountNumCtrl.text.trim(),
+                              );
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Permintaan pencairan berhasil dikirim ke Admin')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        } finally {
+                          if (context.mounted) setState(() => isLoading = false);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF005DA7), foregroundColor: Colors.white),
+                child: isLoading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Kirim Request'),
+              ),
+            ],
+          );
+        });
+      },
     );
   }
 }
