@@ -1113,9 +1113,9 @@ class _RefundWalletCard extends ConsumerWidget {
   }
 
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref, double amount) {
-    final bankNameCtrl = TextEditingController();
-    final accountNameCtrl = TextEditingController();
-    final accountNumCtrl = TextEditingController();
+    final bankNameCtrl = TextEditingController(text: user.bankName ?? '');
+    final accountNameCtrl = TextEditingController(text: user.bankAccountName ?? '');
+    final accountNumCtrl = TextEditingController(text: user.bankAccountNumber ?? '');
     final formKey = GlobalKey<FormState>();
 
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);

@@ -304,21 +304,72 @@ class _AdminPayoutScreenState extends ConsumerState<AdminPayoutScreen> {
     );
   }
 
-  // ── Payout Content ───────────────────────────────────────────────────────────
-  Widget _buildPayoutContent(
-      BuildContext context, ColorScheme cs, TextTheme tt) {
-    // TODO: Replace with real data list when model is ready
-    return SliverToBoxAdapter(
-      child: _EmptyStateCard(
-        icon: Icons.account_balance_wallet_outlined,
-        iconColor: cs.primary,
-        title:
-            'Tidak ada Payout ${_payoutFilterLabels[_payoutFilter]}',
-        subtitle:
-            'Permintaan pencairan dana seller dengan status\n"${_payoutFilterLabels[_payoutFilter]}" akan muncul di sini.',
-        cs: cs,
-        tt: tt,
+  Widget _buildPayoutContent(BuildContext context, ColorScheme cs, TextTheme tt) {
+    final asyncPayouts = ref.watch(payoutsByRoleProvider('seller'));
+
+    return asyncPayouts.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
       ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(child: Text('Error: $e')),
+        ),
+      ),
+      data: (payouts) {
+        // Filter: 0=Pending, 1=Approved, 2=Rejected
+        final filtered = payouts.where((p) {
+          if (_payoutFilter == 0) return p.status == PayoutStatus.pending;
+          if (_payoutFilter == 1) return p.status == PayoutStatus.approved;
+          if (_payoutFilter == 2) return p.status == PayoutStatus.rejected;
+          return false;
+        }).toList();
+
+        // Update counts (using microtask to avoid calling setState during build)
+        Future.microtask(() {
+          if (!mounted) return;
+          final pendingCount = payouts.where((p) => p.status == PayoutStatus.pending).length;
+          final approvedCount = payouts.where((p) => p.status == PayoutStatus.approved).length;
+          final rejectedCount = payouts.where((p) => p.status == PayoutStatus.rejected).length;
+
+          if (_payoutCounts[0] != pendingCount ||
+              _payoutCounts[1] != approvedCount ||
+              _payoutCounts[2] != rejectedCount) {
+            setState(() {
+              _payoutCounts[0] = pendingCount;
+              _payoutCounts[1] = approvedCount;
+              _payoutCounts[2] = rejectedCount;
+            });
+          }
+        });
+
+        if (filtered.isEmpty) {
+          return SliverToBoxAdapter(
+            child: _EmptyStateCard(
+              icon: Icons.account_balance_wallet_outlined,
+              iconColor: cs.primary,
+              title: 'Tidak ada Payout ${_payoutFilterLabels[_payoutFilter]}',
+              subtitle: 'Permintaan pencairan dana seller dengan status\n"${_payoutFilterLabels[_payoutFilter]}" akan muncul di sini.',
+              cs: cs,
+              tt: tt,
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final payout = filtered[index];
+              return _PayoutRequestCard(payout: payout);
+            },
+            childCount: filtered.length,
+          ),
+        );
+      },
     );
   }
 

@@ -62,9 +62,12 @@ class PayoutRepository {
         throw Exception('Saldo tidak mencukupi');
       }
 
-      // Kurangi saldo refund
+      // Kurangi saldo refund dan simpan info bank
       tx.update(userRef, {
         'refundBalance': FieldValue.increment(-amount),
+        'bankName': bankName,
+        'bankAccountName': bankAccountName,
+        'bankAccountNumber': bankAccountNumber,
       });
 
       // Buat request payout
@@ -79,6 +82,53 @@ class PayoutRepository {
         bankAccountNumber: bankAccountNumber,
         status: PayoutStatus.pending,
         createdAt: DateTime.now(), // akan dioverride oleh serverTimestamp di toMap()
+      ).toMap();
+
+      tx.set(payoutRef, payoutData);
+    });
+  }
+
+  // ── Seller: Request Payout ──
+  Future<void> requestSellerPayout({
+    required String userId,
+    required String userName,
+    required double amount,
+    required double maxWithdrawable,
+    required String bankName,
+    required String bankAccountName,
+    required String bankAccountNumber,
+  }) async {
+    final userRef = _db.collection('users').doc(userId);
+    final payoutRef = _payouts.doc();
+
+    await _db.runTransaction((tx) async {
+      final userSnap = await tx.get(userRef);
+      if (!userSnap.exists) throw Exception('User tidak ditemukan');
+
+      if (amount <= 0 || amount > maxWithdrawable) {
+        throw Exception('Nominal tidak valid atau melebihi batas');
+      }
+
+      // Tambahkan ke withdrawn amount dan simpan info bank
+      tx.update(userRef, {
+        'sellerWithdrawnAmount': FieldValue.increment(amount),
+        'bankName': bankName,
+        'bankAccountName': bankAccountName,
+        'bankAccountNumber': bankAccountNumber,
+      });
+
+      // Buat request payout
+      final payoutData = PayoutModel(
+        id: payoutRef.id,
+        userId: userId,
+        userRole: 'seller',
+        userName: userName,
+        amount: amount,
+        bankName: bankName,
+        bankAccountName: bankAccountName,
+        bankAccountNumber: bankAccountNumber,
+        status: PayoutStatus.pending,
+        createdAt: DateTime.now(),
       ).toMap();
 
       tx.set(payoutRef, payoutData);
@@ -100,6 +150,10 @@ class PayoutRepository {
     final userRef = _db.collection('users').doc(userId);
 
     await _db.runTransaction((tx) async {
+      final payoutSnap = await tx.get(payoutRef);
+      if (!payoutSnap.exists) return;
+      final role = payoutSnap.data()?['userRole'] as String? ?? 'buyer';
+
       // Update payout status
       tx.update(payoutRef, {
         'status': PayoutStatus.rejected.name,
@@ -107,10 +161,16 @@ class PayoutRepository {
         if (note != null) 'adminNote': note,
       });
 
-      // Kembalikan saldo ke user
-      tx.set(userRef, {
-        'refundBalance': FieldValue.increment(amount),
-      }, SetOptions(merge: true));
+      // Kembalikan saldo ke user sesuai role
+      if (role == 'seller') {
+        tx.set(userRef, {
+          'sellerWithdrawnAmount': FieldValue.increment(-amount),
+        }, SetOptions(merge: true));
+      } else {
+        tx.set(userRef, {
+          'refundBalance': FieldValue.increment(amount),
+        }, SetOptions(merge: true));
+      }
     });
   }
 }
