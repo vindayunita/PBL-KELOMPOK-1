@@ -1,11 +1,19 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/cart_repository.dart';
 import '../../data/order_item_model.dart';
+import '../../data/order_repository.dart';
+import '../../data/review_model.dart';
 import '../../../seller_dashboard/domain/product_model.dart';
 import '../../../user/domain/user_providers.dart';
 import 'checkout_screen.dart';
+
+/// Provider stream review untuk satu produk
+final _productReviewsProvider =
+    StreamProvider.family<List<ReviewModel>, String>((ref, productId) {
+  return ref.read(orderRepositoryProvider).reviewsForProduct(productId);
+});
 
 enum PurchaseType { standard, sample }
 
@@ -150,6 +158,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                         // Purchase type
                         _buildPurchaseType(p, cs, tt),
+                        _divider(cs),
+
+                        // Reviews section
+                        _buildReviews(p, cs, tt),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -428,6 +440,136 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Divider(color: cs.outlineVariant, thickness: 1, height: 1),
       );
+
+  Widget _buildReviews(ProductModel p, ColorScheme cs, TextTheme tt) {
+    final reviewsAsync = ref.watch(_productReviewsProvider(p.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'ULASAN PEMBELI',
+          style: tt.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        reviewsAsync.when(
+          loading: () => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: CircularProgressIndicator(color: cs.primary, strokeWidth: 2),
+            ),
+          ),
+          error: (e, _) => Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 32, color: cs.error.withValues(alpha: 0.7)),
+                const SizedBox(height: 8),
+                Text('Ulasan tidak dapat dimuat',
+                    style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(e.toString(),
+                    textAlign: TextAlign.center,
+                    style: tt.labelSmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.4)),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          data: (reviews) {
+            if (reviews.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.rate_review_outlined,
+                        size: 36, color: cs.onSurface.withValues(alpha: 0.25)),
+                    const SizedBox(height: 8),
+                    Text('Belum ada ulasan untuk produk ini',
+                        style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.4))),
+                  ],
+                ),
+              );
+            }
+
+            // Rata-rata rating
+            final avgRating = reviews.fold<double>(
+                    0, (sum, r) => sum + r.rating) /
+                reviews.length;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Summary bar
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        avgRating.toStringAsFixed(1),
+                        style: tt.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: cs.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: List.generate(5, (i) => Icon(
+                              i < avgRating.round()
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: const Color(0xFFFFC107),
+                              size: 18,
+                            )),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${reviews.length} ulasan',
+                            style: tt.bodySmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.6)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Daftar review
+                ...reviews.map((r) => _ReviewCard(review: r, cs: cs, tt: tt)),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   void _showLocationError(BuildContext context, ColorScheme cs) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -905,3 +1047,297 @@ class _TypeCard extends StatelessWidget {
   }
 }
 
+
+
+// ─── Review Card ──────────────────────────────────────────────────────────────
+/// Kartu ulasan individual: avatar inisial, nama, rating, teks, foto, video.
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({
+    required this.review,
+    required this.cs,
+    required this.tt,
+  });
+  final ReviewModel  review;
+  final ColorScheme  cs;
+  final TextTheme    tt;
+
+  String _fmtDate(DateTime dt) {
+    const months = [
+      'Jan','Feb','Mar','Apr','Mei','Jun',
+      'Jul','Agt','Sep','Okt','Nov','Des',
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Baris atas: avatar + nama + tanggal + bintang
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: cs.primaryContainer,
+                child: Text(
+                  review.buyerInitial,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: cs.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.buyerName,
+                      style: tt.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    Text(
+                      _fmtDate(review.createdAt),
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: List.generate(5, (i) => Icon(
+                  i < review.rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: const Color(0xFFFFC107),
+                  size: 14,
+                )),
+              ),
+            ],
+          ),
+
+          // Badge Standard / Sample
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: review.isSample
+                      ? const Color(0xFFE8F5E9)
+                      : const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: review.isSample
+                        ? const Color(0xFF2E7D32)
+                        : const Color(0xFF1565C0),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      review.isSample
+                          ? Icons.science_rounded
+                          : Icons.shopping_bag_rounded,
+                      size: 10,
+                      color: review.isSample
+                          ? const Color(0xFF2E7D32)
+                          : const Color(0xFF1565C0),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      review.isSample ? 'Sample' : 'Standard',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: review.isSample
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFF1565C0),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          if (review.reviewText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              review.reviewText,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.8),
+                height: 1.5,
+              ),
+            ),
+          ],
+
+          // Grid foto
+          if (review.photoUrls.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 80,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: review.photoUrls.map((url) {
+                  return GestureDetector(
+                    onTap: () => _showFullImage(context, url),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      width: 80, height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: cs.outlineVariant, width: 1),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (ctx, child, prog) =>
+                              prog == null ? child : Container(
+                                color: cs.surfaceContainerHigh,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 1.5, color: cs.primary),
+                                  ),
+                                ),
+                              ),
+                          errorBuilder: (_, __, ___) => Container(
+                            color: cs.surfaceContainerHigh,
+                            child: Icon(Icons.broken_image_outlined,
+                                color: cs.onSurfaceVariant, size: 24),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+
+          // Video thumbnail
+          if (review.videoUrl != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                        'Video review tersedia — gunakan browser untuk memutarnya'),
+                    backgroundColor: cs.secondary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+              },
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.3), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.play_arrow_rounded,
+                          color: cs.onPrimary, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Video Ulasan',
+                              style: tt.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface,
+                              )),
+                          Text('Ketuk untuk info',
+                              style: tt.labelSmall?.copyWith(
+                                fontSize: 10,
+                                color: cs.onSurface.withValues(alpha: 0.4),
+                              )),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.videocam_rounded,
+                        color: cs.primary.withValues(alpha: 0.6), size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showFullImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white, size: 48),
+              ),
+            ),
+            Positioned(
+              top: 8, right: 8,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close,
+                      color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

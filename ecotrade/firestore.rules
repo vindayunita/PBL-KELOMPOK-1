@@ -82,6 +82,17 @@ service cloud.firestore {
                         || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
     }
 
+    // ── Reviews ────────────────────────────────────────────────────────
+    // Semua user yang login bisa membaca review (agar buyer lain bisa lihat)
+    // Hanya buyer yang punya akun yang bisa menulis review
+    match /reviews/{reviewId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.buyerId == request.auth.uid;
+      allow update, delete: if request.auth != null
+                            && resource.data.buyerId == request.auth.uid;
+    }
+
     // ── Fallback: authenticated users ─────────────────────────────────
     match /{document=**} {
       allow read, write: if request.auth != null;
