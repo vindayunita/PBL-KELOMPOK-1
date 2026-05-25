@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,115 +228,11 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
 
   // ── Review Dialog ─────────────────────────────────────────────────────────
   void _showReviewDialog(OrderModel order, ColorScheme cs) {
-    int rating = 5;
-    final ctrl = TextEditingController();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSt) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            top: 24, left: 20, right: 20,
-          ),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36, height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text('Beri Ulasan',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
-                  )),
-              const SizedBox(height: 4),
-              Text(
-                order.firstItem?.productTitle ?? '',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: cs.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Bintang rating
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) => GestureDetector(
-                  onTap: () => setSt(() => rating = i + 1),
-                  child: Icon(
-                    i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: const Color(0xFFFFC107),
-                    size: 36,
-                  ),
-                )),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: ctrl,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Tulis ulasan Anda...',
-                  filled: true,
-                  fillColor: cs.surfaceContainerLow,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await ref.read(orderRepositoryProvider).submitReview(
-                      orderId: order.id,
-                      rating: rating,
-                      reviewText: ctrl.text.trim(),
-                    );
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Ulasan berhasil dikirim!'),
-                          backgroundColor: cs.secondary,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Kirim Ulasan',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => _ReviewSheet(order: order, cs: cs),
     );
   }
 
@@ -1068,7 +964,489 @@ class _ProductThumb extends StatelessWidget {
 /// - Upload foto kondisi produk (maks 3 foto)
 /// - Preview thumbnail dengan tombol hapus
 /// - Loading state selama upload & submit
+// ─── Review Sheet ────────────────────────────────────────────────────────────
+/// Bottom sheet lengkap untuk mengulas produk:
+/// - Rating bintang 1-5
+/// - Teks ulasan
+/// - Upload foto (maks 5)
+/// - Upload video (maks 1) ditampilkan sebagai thumbnail
+class _ReviewSheet extends ConsumerStatefulWidget {
+  const _ReviewSheet({required this.order, required this.cs});
+  final OrderModel  order;
+  final ColorScheme cs;
+
+  @override
+  ConsumerState<_ReviewSheet> createState() => _ReviewSheetState();
+}
+
+class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
+  final _ctrl   = TextEditingController();
+  final _picker = ImagePicker();
+
+  int  _rating  = 5;
+  bool _loading = false;
+
+  final _photos = <({Uint8List bytes, String ext})>[];
+  ({Uint8List bytes, String ext, String name})? _video;
+
+  static const _maxPhotos = 5;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_photos.length >= _maxPhotos) return;
+    final xFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 80,
+    );
+    if (xFile == null) return;
+    final bytes = await xFile.readAsBytes();
+    final ext   = xFile.name.split('.').last.toLowerCase();
+    setState(() => _photos.add((bytes: bytes, ext: ext)));
+  }
+
+  Future<void> _pickVideo() async {
+    if (_video != null) return;
+    final xFile = await _picker.pickVideo(source: ImageSource.gallery);
+    if (xFile == null) return;
+    // Validasi format video
+    final ext = xFile.name.split('.').last.toLowerCase();
+    const validFormats = ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'm4v'];
+    if (!validFormats.contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Format video tidak didukung. Gunakan: mp4, mov, avi, mkv, webm, 3gp, flv, wmv, m4v'),
+            backgroundColor: widget.cs.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+      return;
+    }
+    final bytes = await xFile.readAsBytes();
+    setState(() => _video = (bytes: bytes, ext: ext, name: xFile.name));
+  }
+
+  void _removePhoto(int i) => setState(() => _photos.removeAt(i));
+  void _removeVideo()      => setState(() => _video = null);
+
+  Future<void> _submit() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      await ref.read(orderRepositoryProvider).submitReview(
+        orderId:      widget.order.id,
+        productId:    widget.order.firstItem?.productId ?? '',
+        purchaseType: widget.order.firstItem?.purchaseType ?? 'standard',
+        rating:       _rating,
+        reviewText:   text,
+        photos:       _photos,
+        video:        _video != null
+            ? (bytes: _video!.bytes, ext: _video!.ext)
+            : null,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Ulasan berhasil dikirim!'),
+            backgroundColor: widget.cs.secondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengirim ulasan: $e'),
+            backgroundColor: widget.cs.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final canSubmit = _ctrl.text.trim().isNotEmpty && !_loading;
+
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        top: 20, left: 20, right: 20,
+      ),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        child: StatefulBuilder(
+          builder: (_, setSt) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.rate_review_rounded,
+                        color: cs.onPrimaryContainer, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Beri Ulasan',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
+                            )),
+                        Text(
+                          widget.order.firstItem?.productTitle ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Rating bintang
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(5, (i) => GestureDetector(
+                    onTap: () {
+                      setState(() => _rating = i + 1);
+                      setSt(() {});
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        i < _rating
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        color: const Color(0xFFFFC107),
+                        size: 40,
+                      ),
+                    ),
+                  )),
+                ),
+              ),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 16),
+                  child: Text(
+                    _rating == 5 ? 'Sangat Puas'
+                        : _rating == 4 ? 'Puas'
+                        : _rating == 3 ? 'Cukup'
+                        : _rating == 2 ? 'Kurang'
+                        : 'Sangat Kurang',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ),
+              // Teks ulasan
+              Text('Tulis Ulasan',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    letterSpacing: 0.5,
+                  )),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _ctrl,
+                maxLines: 3,
+                onChanged: (_) => setSt(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Bagaimana kualitas produk ini?',
+                  hintStyle: TextStyle(
+                    color: cs.onSurface.withValues(alpha: 0.35),
+                    fontSize: 13,
+                  ),
+                  filled: true,
+                  fillColor: cs.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: cs.primary, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.all(14),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Upload foto
+              Row(children: [
+                Text('Foto Produk',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      letterSpacing: 0.5,
+                    )),
+                const SizedBox(width: 6),
+                 Text('(maks $_maxPhotos foto, opsional)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurface.withValues(alpha: 0.4),
+                    )),
+              ]),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 90,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    ..._photos.asMap().entries.map((entry) {
+                      final idx   = entry.key;
+                      final photo = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        width: 90, height: 90,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: cs.primary.withValues(alpha: 0.4),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.memory(photo.bytes, fit: BoxFit.cover),
+                              Positioned(
+                                top: 4, right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _removePhoto(idx),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close,
+                                        color: Colors.white, size: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    if (_photos.length < _maxPhotos)
+                      GestureDetector(
+                        onTap: _pickPhoto,
+                        child: Container(
+                          width: 90, height: 90,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: cs.outlineVariant, width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo_rounded,
+                                  color: cs.onSurface.withValues(alpha: 0.4),
+                                  size: 26),
+                              const SizedBox(height: 4),
+                              Text('Tambah',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: cs.onSurface.withValues(alpha: 0.4),
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Upload video
+              Row(children: [
+                Text('Video Produk',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      letterSpacing: 0.5,
+                    )),
+                const SizedBox(width: 6),
+                Text('(maks 1, opsional)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurface.withValues(alpha: 0.4),
+                    )),
+              ]),
+              const SizedBox(height: 10),
+              if (_video == null)
+                GestureDetector(
+                  onTap: _pickVideo,
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cs.outlineVariant, width: 1.5),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.videocam_rounded,
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                            size: 22),
+                        const SizedBox(width: 8),
+                        Text('Pilih video dari galeri',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: cs.onSurface.withValues(alpha: 0.5),
+                            )),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: cs.primary.withValues(alpha: 0.4), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.video_file_rounded,
+                          color: cs.primary, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _video!.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _removeVideo,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black26,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close,
+                              color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 24),
+              // Tombol kirim
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canSubmit
+                        ? cs.primary
+                        : cs.surfaceContainerHigh,
+                    foregroundColor: canSubmit
+                        ? cs.onPrimary
+                        : cs.onSurface.withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  onPressed: canSubmit ? () async {
+                    setSt(() {});
+                    await _submit();
+                  } : null,
+                  child: _loading
+                      ? const SizedBox(
+                          width: 22, height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text('Kirim Ulasan',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Return Request Sheet ──────────────────────────────────────────────────────
+/// Bottom sheet lengkap untuk mengajukan permintaan retur:
+/// - Deskripsi wajib diisi
+/// - Upload foto kondisi produk (maks 3 foto)
+/// - Preview thumbnail dengan tombol hapus
+/// - Loading state selama upload & submit
 class _ReturnRequestSheet extends ConsumerStatefulWidget {
+
   const _ReturnRequestSheet({required this.order, required this.cs});
   final OrderModel   order;
   final ColorScheme  cs;
@@ -1276,9 +1654,8 @@ class _ReturnRequestSheetState extends ConsumerState<_ReturnRequestSheet> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  '(maks $_maxPhotos foto)',
-                  style: TextStyle(
+                Text('(maks $_maxPhotos foto, opsional)',
+                    style: TextStyle(
                     fontSize: 11,
                     color: cs.onSurface.withValues(alpha: 0.4),
                   ),

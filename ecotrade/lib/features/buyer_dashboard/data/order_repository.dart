@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'order_item_model.dart';
 import 'order_model.dart';
+import 'review_model.dart';
 
 part 'order_repository.g.dart';
 
@@ -102,15 +103,89 @@ class OrderRepository {
   }
 
   // ── Submit review ────────────────────────────────────────────────────────
+  // ── Submit review ────────────────────────────────────────────────────────
+  /// Menyimpan review ke koleksi `reviews` (bisa dilihat semua buyer & seller) dan
+  /// mengupdate dokumen `orders` dengan flag sudah review.
   Future<void> submitReview({
     required String orderId,
+    required String productId,
+    required String purchaseType,
     required int    rating,
     required String reviewText,
+    List<({Uint8List bytes, String ext})> photos = const [],
+    ({Uint8List bytes, String ext})? video,
   }) async {
-    await _db.collection('orders').doc(orderId).update({
-      'rating':     rating,
-      'reviewText': reviewText,
-      'updatedAt':  FieldValue.serverTimestamp(),
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User tidak terautentikasi');
+
+    // 1. Upload foto ke Storage
+    final photoUrls = <String>[];
+    for (final photo in photos) {
+      final ts   = DateTime.now().millisecondsSinceEpoch;
+      final path = 'review_photos/$productId/$orderId/$ts.${photo.ext}';
+      final ref  = _storage.ref(path);
+      await ref.putData(
+        photo.bytes,
+        SettableMetadata(contentType: 'image/${photo.ext}'),
+      );
+      photoUrls.add(await ref.getDownloadURL());
+    }
+
+    // 2. Upload video ke Storage (jika ada)
+    String? videoUrl;
+    if (video != null) {
+      final ts   = DateTime.now().millisecondsSinceEpoch;
+      final path = 'review_videos/$productId/$orderId/$ts.${video.ext}';
+      final ref  = _storage.ref(path);
+      await ref.putData(
+        video.bytes,
+        SettableMetadata(contentType: 'video/${video.ext}'),
+      );
+      videoUrl = await ref.getDownloadURL();
+    }
+
+    final batch = _db.batch();
+
+    // 3. Simpan ke koleksi `reviews` agar bisa dibaca buyer & seller
+    final reviewRef = _db.collection('reviews').doc();
+    batch.set(reviewRef, {
+      'reviewId':     reviewRef.id,
+      'productId':    productId,
+      'orderId':      orderId,
+      'buyerId':      user.uid,
+      'buyerName':    user.displayName ?? user.email?.split('@').first ?? 'Pembeli',
+      'rating':       rating,
+      'reviewText':   reviewText,
+      'photoUrls':    photoUrls,
+      'videoUrl':     videoUrl,
+      'purchaseType': purchaseType,
+      'createdAt':    FieldValue.serverTimestamp(),
+    });
+
+    // 4. Update dokumen order (untuk cek status reviewed)
+    batch.update(_db.collection('orders').doc(orderId), {
+      'rating':           rating,
+      'reviewText':       reviewText,
+      'reviewPhotoUrls':  photoUrls,
+      'reviewVideoUrl':   videoUrl,
+      'updatedAt':        FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
+  // ── Stream reviews per produk ────────────────────────────────────────────
+  /// Stream semua review untuk produk tertentu, diurutkan terbaru dulu.
+  /// Sorting dilakukan di client untuk menghindari kebutuhan composite index Firestore.
+  Stream<List<ReviewModel>> reviewsForProduct(String productId) {
+    return _db
+        .collection('reviews')
+        .where('productId', isEqualTo: productId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(ReviewModel.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     });
   }
 

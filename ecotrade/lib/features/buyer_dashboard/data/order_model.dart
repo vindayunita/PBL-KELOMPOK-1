@@ -117,6 +117,8 @@ class OrderModel {
     this.courierName = '',
     this.reviewText,
     this.rating,
+    this.reviewPhotoUrls = const [],
+    this.reviewVideoUrl,
     this.returnReason,
     this.rejectionReason,
     this.returnCourierId,
@@ -139,6 +141,8 @@ class OrderModel {
   final String              courierName;
   final String?             reviewText;
   final int?                rating;
+  final List<String>        reviewPhotoUrls;
+  final String?             reviewVideoUrl;
   final String?             returnReason;
   final String?             rejectionReason;
   /// ID kurir yang ditugaskan untuk menjemput barang retur.
@@ -185,6 +189,8 @@ class OrderModel {
       courierName:     data['courierName']     as String? ?? '',
       reviewText:      data['reviewText']      as String?,
       rating:          (data['rating'] as num?)?.toInt(),
+      reviewPhotoUrls: ((data['reviewPhotoUrls'] as List<dynamic>?) ?? []).map((e) => e as String).toList(),
+      reviewVideoUrl:  data['reviewVideoUrl']  as String?,
       returnReason:    data['returnReason']    as String?,
       rejectionReason: data['rejectionReason'] as String?,
       returnCourierId:   data['returnCourierId']   as String?,

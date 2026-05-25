@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../features/buyer_dashboard/data/order_model.dart';
@@ -1078,76 +1079,294 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
   }
 
   // ── Lihat Penilaian Bottom Sheet ──────────────────────────────────────────
+  // -- Lihat Penilaian -- fetch real-time dari koleksi reviews --
   void _showReviewSheet(BuildContext context, OrderModel order) {
-    final hasReview = order.reviewText != null && order.reviewText!.isNotEmpty;
-    final rating    = order.rating ?? 0;
+    final productId = order.firstItem?.productId ?? '';
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Penilaian Pembeli',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: Color(0xFFEEEEEE)),
-            const SizedBox(height: 16),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: productId.isEmpty
+              ? const Center(child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('Produk tidak diketahui.',
+                      style: TextStyle(color: Colors.grey)),
+                ))
+              : StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _reviewsStream(productId),
+                  builder: (ctx, snap) {
+                    final reviews = snap.data ?? [];
+                    return ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                      children: [
+                        // Handle bar
+                        Center(
+                          child: Container(
+                            width: 40, height: 4,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0E0E0),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        // Header
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCEEFF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.star_rounded,
+                                  color: primaryBlue, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Ulasan Pembeli',
+                                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                  Text(order.firstItem?.productTitle ?? '',
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF717783)),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ],
+                              ),
+                            ),
+                            if (snap.connectionState == ConnectionState.waiting)
+                              const SizedBox(width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: primaryBlue)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                        const SizedBox(height: 16),
 
-            if (!hasReview)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    'Pembeli belum memberikan penilaian.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
-                  ),
+                        if (snap.hasError)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text('Gagal memuat ulasan. Coba lagi nanti.',
+                                style: const TextStyle(color: Colors.red, fontSize: 13)),
+                          )
+                        else if (reviews.isEmpty && snap.connectionState != ConnectionState.waiting)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.rate_review_outlined, size: 40, color: Color(0xFFDDDDDD)),
+                                  SizedBox(height: 12),
+                                  Text('Belum ada ulasan untuk produk ini.',
+                                      style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA))),
+                                ],
+                              ),
+                            ),
+                          )
+                        else ...[
+                          // Summary rata-rata
+                          if (reviews.isNotEmpty) ...{
+                            () {
+                              final avg = reviews.fold<double>(
+                                  0, (s, r) => s + ((r['rating'] as num?)?.toDouble() ?? 0)) / reviews.length;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCEEFF).withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(avg.toStringAsFixed(1),
+                                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: primaryBlue)),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(children: List.generate(5, (i) => Icon(
+                                          i < avg.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+                                          color: const Color(0xFFFFC107), size: 18))),
+                                        Text('\ ulasan',
+                                            style: const TextStyle(fontSize: 12, color: Color(0xFF717783))),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }(),
+                          },
+                          // Daftar review
+                          ...reviews.map((r) => _buildSellerReviewCard(r)),
+                        ],
+                      ],
+                    );
+                  },
                 ),
-              )
-            else ...[
-              Row(
-                children: List.generate(5, (i) => Icon(
-                  i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: const Color(0xFFFFC107),
-                  size: 28,
-                )),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F8F8),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFEEEEEE)),
-                ),
-                child: Text(
-                  order.reviewText!,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
-                ),
-              ),
-            ],
-          ],
         ),
+      ),
+    );
+  }
+
+  // Stream reviews for a product from Firestore
+  Stream<List<Map<String, dynamic>>> _reviewsStream(String productId) {
+    return FirebaseFirestore.instance
+        .collection('reviews')
+        .where('productId', isEqualTo: productId)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs
+          .map((d) => d.data())
+          .toList();
+      list.sort((a, b) {
+        final ta = a['createdAt'] as Timestamp?;
+        final tb = b['createdAt'] as Timestamp?;
+        if (ta == null || tb == null) return 0;
+        return tb.compareTo(ta);
+      });
+      return list;
+    });
+  }
+
+  Widget _buildSellerReviewCard(Map<String, dynamic> r) {
+    final buyerName    = r['buyerName']    as String? ?? 'Pembeli';
+    final rating       = (r['rating']      as num?)?.toInt() ?? 0;
+    final reviewText   = r['reviewText']   as String? ?? '';
+    final purchaseType = r['purchaseType'] as String? ?? 'standard';
+    final isSample     = purchaseType.toLowerCase() == 'sample';
+    final rawPhotos    = r['photoUrls']    as List<dynamic>? ?? [];
+    final photoUrls    = rawPhotos.cast<String>();
+    final videoUrl     = r['videoUrl']     as String?;
+    final ts           = r['createdAt'];
+    String dateStr = '';
+    if (ts != null) {
+      try {
+        final dt = (ts as Timestamp).toDate();
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        dateStr = dt.day.toString() + ' ' + months[dt.month - 1] + ' ' + dt.year.toString();
+      } catch (_) {}
+    }
+    final initial = buyerName.isNotEmpty ? buyerName[0].toUpperCase() : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Baris atas: avatar + nama + tanggal + bintang
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: const Color(0xFFDCEEFF),
+                child: Text(initial,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: primaryBlue)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(buyerName,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87)),
+                    if (dateStr.isNotEmpty)
+                      Text(dateStr,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF717783))),
+                  ],
+                ),
+              ),
+              Row(children: List.generate(5, (i) => Icon(
+                i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: const Color(0xFFFFC107), size: 14))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Badge Standard/Sample
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: isSample ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSample ? const Color(0xFF2E7D32) : primaryBlue,
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              isSample ? 'Sample' : 'Standard',
+              style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700,
+                color: isSample ? const Color(0xFF2E7D32) : primaryBlue,
+              ),
+            ),
+          ),
+          if (reviewText.isNotEmpty) ...{
+            const SizedBox(height: 10),
+            Text(reviewText,
+                style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5)),
+          },
+          // Foto
+          if (photoUrls.isNotEmpty) ...{
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 72,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: photoUrls.map((url) => Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDDDDDD)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.network(url, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image_outlined, color: Colors.grey)),
+                )).toList(),
+              ),
+            ),
+          },
+          // Video
+          if (videoUrl != null) ...{
+            const SizedBox(height: 10),
+            Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCEEFF).withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: primaryBlue.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.play_circle_rounded, color: primaryBlue, size: 20),
+                  SizedBox(width: 8),
+                  Text('Video Ulasan tersedia',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: primaryBlue)),
+                ],
+              ),
+            ),
+          },
+        ],
       ),
     );
   }
