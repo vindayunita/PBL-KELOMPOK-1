@@ -24,6 +24,13 @@ class SellerRegistrationController extends _$SellerRegistrationController {
     required double pricePerKg,
     String? city,
     XFile? commodityImage,
+    // ── KYC Parameters ──────────────────────────────────────────────────────
+    required XFile ktpImage,
+    required XFile selfieImage,
+    required String ktpName,
+    required String bankName,
+    required String bankAccountName,
+    required String bankAccountNumber,
   }) async {
     state = const AsyncLoading();
     final user = FirebaseAuth.instance.currentUser;
@@ -33,8 +40,8 @@ class SellerRegistrationController extends _$SellerRegistrationController {
     }
 
     state = await AsyncValue.guard(() async {
-      // 1. Upload gambar ke Firebase Storage (web-compatible via putData)
-      String imageUrl = '';
+      // 1. Upload gambar komoditi (opsional)
+      String commodityImageUrl = '';
       if (commodityImage != null) {
         try {
           final bytes = await commodityImage.readAsBytes();
@@ -42,15 +49,45 @@ class SellerRegistrationController extends _$SellerRegistrationController {
           final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
           final ref = FirebaseStorage.instance
               .ref()
-              .child('seller_registrations/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.$ext');
+              .child('seller_registrations/${user.uid}/commodity_${DateTime.now().millisecondsSinceEpoch}.$ext');
           await ref.putData(bytes, SettableMetadata(contentType: mime));
-          imageUrl = await ref.getDownloadURL();
+          commodityImageUrl = await ref.getDownloadURL();
         } catch (_) {
-          // Jika Storage gagal, lanjut tanpa gambar
+          // Jika Storage gagal, lanjut tanpa gambar komoditi
         }
       }
 
-      // 2. Simpan semua data (termasuk produk) ke seller_applications
+      // 2. Upload foto KTP (wajib)
+      String ktpImageUrl = '';
+      try {
+        final ktpBytes = await ktpImage.readAsBytes();
+        final ktpExt = ktpImage.name.split('.').last.toLowerCase();
+        final ktpMime = ktpExt == 'png' ? 'image/png' : 'image/jpeg';
+        final ktpRef = FirebaseStorage.instance
+            .ref()
+            .child('kyc/${user.uid}/ktp_${DateTime.now().millisecondsSinceEpoch}.$ktpExt');
+        await ktpRef.putData(ktpBytes, SettableMetadata(contentType: ktpMime));
+        ktpImageUrl = await ktpRef.getDownloadURL();
+      } catch (e) {
+        throw Exception('Gagal mengupload foto KTP: $e');
+      }
+
+      // 3. Upload foto selfie + KTP (wajib)
+      String selfieImageUrl = '';
+      try {
+        final selfieBytes = await selfieImage.readAsBytes();
+        final selfieExt = selfieImage.name.split('.').last.toLowerCase();
+        final selfieMime = selfieExt == 'png' ? 'image/png' : 'image/jpeg';
+        final selfieRef = FirebaseStorage.instance
+            .ref()
+            .child('kyc/${user.uid}/selfie_${DateTime.now().millisecondsSinceEpoch}.$selfieExt');
+        await selfieRef.putData(selfieBytes, SettableMetadata(contentType: selfieMime));
+        selfieImageUrl = await selfieRef.getDownloadURL();
+      } catch (e) {
+        throw Exception('Gagal mengupload foto selfie: $e');
+      }
+
+      // 4. Simpan semua data ke seller_applications
       final repo = ref.read(sellerApplicationRepositoryProvider);
       final app = SellerApplicationModel(
         uid:                 user.uid,
@@ -63,9 +100,17 @@ class SellerRegistrationController extends _$SellerRegistrationController {
         productName:         productName,
         stock:               stock,
         pricePerKg:          pricePerKg,
-        commodityImageUrl:   imageUrl,
+        commodityImageUrl:   commodityImageUrl,
         status:              'pending',
+        kycStatus:           'pending',
         submittedAt:         DateTime.now().toIso8601String(),
+        // KYC data
+        ktpImageUrl:          ktpImageUrl,
+        selfieWithKtpImageUrl:selfieImageUrl,
+        ktpName:              ktpName,
+        bankName:             bankName,
+        bankAccountName:      bankAccountName,
+        bankAccountNumber:    bankAccountNumber,
       );
 
       await repo.submitApplication(app);

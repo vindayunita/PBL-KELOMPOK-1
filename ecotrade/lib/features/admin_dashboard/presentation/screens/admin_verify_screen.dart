@@ -35,7 +35,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   final List<String> _tabs = [
     'Courier', 'Payment', 'Refund', 'Seller',
   ];
-  final List<String> _sellerFilterLabels  = ['Pending', 'Approved', 'Rejected'];
+  final List<String> _sellerFilterLabels  = ['Pending', 'Approved', 'Rejected', 'KYC Review'];
   final List<String> _courierFilterLabels = ['Pending', 'Approved', 'Rejected'];
   final List<String> _paymentFilterLabels = ['Pending', 'Verified', 'Rejected'];
   final List<String> _paymentStatusKeys   = ['pending_verification', 'verified', 'rejected'];
@@ -70,14 +70,26 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
     // ── Seller stream ──
     final sellerAsync = ref.watch(allSellerApplicationsProvider(null));
     final allSellerApps  = sellerAsync.value ?? [];
+
+    // "KYC Review" = seller aktif (approved) tapi KYC-nya masih pending
+    final kycReviewApps = allSellerApps
+        .where((a) => a.isApproved && a.kycStatus == 'pending')
+        .toList();
+
     final sellerCounts = [
       allSellerApps.where((a) => a.isPending).length,
-      allSellerApps.where((a) => a.isApproved).length,
+      allSellerApps.where((a) => a.isApproved && a.kycStatus != 'pending').length,
       allSellerApps.where((a) => a.isRejected).length,
+      kycReviewApps.length, // KYC Review tab
     ];
-    final filteredSellerApps = allSellerApps
-        .where((a) => a.status == _statusKeys[_sellerFilter])
-        .toList();
+
+    // Filter berdasarkan tab yang dipilih
+    final filteredSellerApps = _sellerFilter == 3
+        ? kycReviewApps  // tab KYC Review
+        : allSellerApps
+            .where((a) => a.status == _statusKeys[_sellerFilter])
+            .where((a) => _sellerFilter != 1 || a.kycStatus != 'pending')
+            .toList();
     final isSellerLoading = sellerAsync.isLoading && allSellerApps.isEmpty;
 
     // ── Courier stream ──
@@ -120,8 +132,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                         final sel = _selectedTab == i;
                         // Badge pada tab Seller (index 3) dan Courier (index 0) jika ada pending
                         final isPendingBadge = (i == 3 && sellerCounts[0] > 0) ||
+                                              (i == 3 && sellerCounts[3] > 0) ||
                                               (i == 0 && courierCounts[0] > 0);
-                        final badgeCount = i == 3 ? sellerCounts[0] : courierCounts[0];
+                        final badgeCount = i == 3
+                            ? sellerCounts[0] + sellerCounts[3]
+                            : courierCounts[0];
                         return GestureDetector(
                           onTap: () => setState(() => _selectedTab = i),
                           child: AnimatedContainer(
@@ -258,7 +273,12 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
 
   Widget _buildSellerFilterBar(
       ColorScheme cs, TextTheme tt, List<int> counts) {
-    final filterColors = [cs.primary, const Color(0xFF2E7D32), cs.error];
+    final filterColors = [
+      cs.primary, 
+      const Color(0xFF2E7D32), 
+      cs.error, 
+      const Color(0xFFF57F17) // KYC Review tab color
+    ];
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -331,15 +351,31 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
     }
     return SliverList(
       delegate: SliverChildBuilderDelegate(
-        (ctx, i) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _SellerCard(
-            key: ValueKey(apps[i].uid), // stable key agar tidak rebuild paksa
-            app: apps[i],
-            onApprove: apps[i].isPending ? () => _handleApprove(apps[i]) : null,
-            onReject:  apps[i].isPending ? () => _handleReject(apps[i])  : null,
-          ),
-        ),
+        (ctx, i) {
+          final app = apps[i];
+          // Seller lama (kyc-only): status=approved tapi kycStatus=pending
+          final isKycOnly = app.isApproved && app.kycStatus == 'pending';
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _SellerCard(
+              key: ValueKey(app.uid),
+              app: app,
+              // Pendaftar baru → approve/reject application
+              onApprove: app.isPending
+                  ? () => _handleApprove(app)
+                  : isKycOnly
+                      ? () => _handleKycApprove(app)  // seller lama → kyc only
+                      : null,
+              onReject: app.isPending
+                  ? () => _handleReject(app)
+                  : isKycOnly
+                      ? () => _handleKycReject(app)   // seller lama → kyc only
+                      : null,
+              isKycOnly: isKycOnly,
+            ),
+          );
+        },
         childCount: apps.length,
       ),
     );
@@ -351,8 +387,92 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
       await repo.approveApplication(app.uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ ${app.businessName} disetujui'),
+          content: Text('✅ ${app.businessName.isNotEmpty ? app.businessName : app.name} disetujui sebagai seller'),
           backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  // ── Handler KYC-Only: untuk seller lama / re-verifikasi bank ─────────────
+  Future<void> _handleKycApprove(SellerApplicationModel app) async {
+    final repo = ref.read(sellerApplicationRepositoryProvider);
+    try {
+      await repo.approveKycOnly(app.uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ KYC ${app.name} diverifikasi — pencairan dana aktif'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _handleKycReject(SellerApplicationModel app) async {
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+            SizedBox(width: 8),
+            Text('Tolak KYC', style: TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Alasan penolakan KYC untuk ${app.name}:',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Misal: Nama KTP tidak cocok dengan nama rekening, foto KTP buram...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Tolak KYC')),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    final repo = ref.read(sellerApplicationRepositoryProvider);
+    try {
+      await repo.rejectKycOnly(app.uid, reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ KYC ${app.name} ditolak'),
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ));
@@ -966,12 +1086,15 @@ class _SellerCard extends StatefulWidget {
   final SellerApplicationModel app;
   final Future<void> Function()? onApprove;
   final Future<void> Function()? onReject;
+  /// true jika seller sudah aktif (approved) tapi KYC-nya baru disubmit
+  final bool isKycOnly;
 
   const _SellerCard({
     super.key,
     required this.app,
     this.onApprove,
     this.onReject,
+    this.isKycOnly = false,
   });
 
   @override
@@ -987,11 +1110,45 @@ class _SellerCardState extends State<_SellerCard> {
     final tt = Theme.of(context).textTheme;
     final app = widget.app;
 
-    final (statusColor, statusLabel, statusIcon) = switch (app.status) {
-      'approved' => (const Color(0xFF2E7D32), 'Approved', Icons.check_circle_rounded),
-      'rejected' => (cs.error, 'Ditolak', Icons.cancel_rounded),
-      _          => (cs.primary, 'Pending', Icons.hourglass_top_rounded),
-    };
+    final (statusColor, statusLabel, statusIcon) = widget.isKycOnly
+        // Seller lama — highlight kondisi KYC pending
+        ? (const Color(0xFFF57F17), 'KYC Pending', Icons.assignment_late_rounded)
+        : switch (app.status) {
+            'approved' => (const Color(0xFF2E7D32), 'Approved', Icons.check_circle_rounded),
+            'rejected' => (cs.error, 'Ditolak', Icons.cancel_rounded),
+            _          => (cs.primary, 'Pending', Icons.hourglass_top_rounded),
+          };
+
+    // Banner khusus untuk seller lama yang perlu verifikasi KYC
+    final kycOnlyBanner = widget.isKycOnly
+        ? Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: const Color(0xFFFFC107).withValues(alpha: 0.5)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 14, color: Color(0xFFF57F17)),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Seller aktif — menunggu verifikasi KYC pertama. Cek foto KTP & rekening di bawah.',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF5D4037),
+                        fontWeight: FontWeight.w600,
+                        height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
 
     return Container(
       decoration: BoxDecoration(
@@ -1118,6 +1275,248 @@ class _SellerCardState extends State<_SellerCard> {
               ),
             ],
 
+            // ════════════════════════════════════════════════════════════
+            // ── KYC Section ─────────────────────────────────────────────
+            // ════════════════════════════════════════════════════════════
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.badge_outlined, size: 14, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text('VERIFIKASI KYC',
+                          style: tt.labelSmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // KYC Status Badge
+                  Builder(builder: (_) {
+                    final kycStatus = app.kycStatus;
+                    Color bgColor;
+                    Color textColor;
+                    IconData icon;
+                    String label;
+                    switch (kycStatus) {
+                      case 'verified':
+                        bgColor   = const Color(0xFFE8F5E9);
+                        textColor = const Color(0xFF2E7D32);
+                        icon      = Icons.verified_rounded;
+                        label     = 'KYC Terverifikasi';
+                        break;
+                      case 'rejected':
+                        bgColor   = const Color(0xFFFFEBEE);
+                        textColor = Colors.red;
+                        icon      = Icons.cancel_rounded;
+                        label     = 'KYC Ditolak';
+                        break;
+                      case 'pending':
+                      case 'pending_kyc':
+                      default:
+                        bgColor   = const Color(0xFFFFF8E1);
+                        textColor = const Color(0xFFF57F17);
+                        icon      = Icons.hourglass_top_rounded;
+                        label     = 'Menunggu Verifikasi';
+                    }
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: bgColor,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 13, color: textColor),
+                          const SizedBox(width: 5),
+                          Text(label,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: textColor)),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Nama KTP
+                  if (app.ktpName != null && app.ktpName!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _kycInfoRow(
+                      context,
+                      icon: Icons.person_outline_rounded,
+                      label: 'Nama sesuai KTP',
+                      value: app.ktpName!,
+                      highlight: true,
+                    ),
+                  ],
+
+                  // ── Foto KTP ──
+                  if (app.ktpImageUrl != null &&
+                      app.ktpImageUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _AdminImageSection(
+                      title: '📋 Foto KTP',
+                      imageUrl: app.ktpImageUrl!,
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: Center(
+                        child: Text('Foto KTP belum diupload',
+                            style: tt.bodySmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.4))),
+                      ),
+                    ),
+                  ],
+
+                  // ── Foto Selfie + KTP ──
+                  if (app.selfieWithKtpImageUrl != null &&
+                      app.selfieWithKtpImageUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _AdminImageSection(
+                      title: '🤳 Foto Selfie + KTP',
+                      imageUrl: app.selfieWithKtpImageUrl!,
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: Center(
+                        child: Text('Foto selfie belum diupload',
+                            style: tt.bodySmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.4))),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Data Bank ──────────────────────────────────────────────
+            if (app.bankName != null && app.bankName!.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.account_balance_rounded,
+                            size: 14, color: Color(0xFF2E7D32)),
+                        const SizedBox(width: 6),
+                        Text('DATA REKENING BANK',
+                            style: tt.labelSmall?.copyWith(
+                                color: const Color(0xFF2E7D32),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _kycInfoRow(context,
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: 'Nama Bank',
+                        value: app.bankName!),
+                    const SizedBox(height: 6),
+                    _kycInfoRow(context,
+                        icon: Icons.numbers_rounded,
+                        label: 'Nomor Rekening',
+                        value: app.bankAccountNumber ?? '-'),
+                    const SizedBox(height: 6),
+                    _kycInfoRow(context,
+                        icon: Icons.person_rounded,
+                        label: 'Nama Pemilik Rekening',
+                        value: app.bankAccountName ?? '-',
+                        highlight: true),
+
+                    // ── Peringatan kecocokan nama ──
+                    const SizedBox(height: 12),
+                    Builder(builder: (_) {
+                      final ktpName = app.ktpName?.trim().toLowerCase() ?? '';
+                      final accName =
+                          app.bankAccountName?.trim().toLowerCase() ?? '';
+                      final isMatch = ktpName.isNotEmpty &&
+                          accName.isNotEmpty &&
+                          (accName.contains(ktpName.split(' ').first) ||
+                              ktpName.contains(accName.split(' ').first));
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isMatch
+                              ? const Color(0xFFE8F5E9)
+                              : const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isMatch
+                                  ? Icons.check_circle_rounded
+                                  : Icons.warning_amber_rounded,
+                              size: 14,
+                              color: isMatch
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.red,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                isMatch
+                                    ? 'Nama KTP dan nama rekening kemungkinan cocok'
+                                    : 'Periksa: nama KTP dan nama rekening mungkin berbeda!',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isMatch
+                                      ? const Color(0xFF2E7D32)
+                                      : Colors.red,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+
             // Rejection reason (if rejected)
             if (app.isRejected && app.rejectionReason != null) ...[
               const SizedBox(height: 10),
@@ -1146,11 +1545,13 @@ class _SellerCardState extends State<_SellerCard> {
               ),
             ],
 
-            // Action buttons (pending only)
-            if (app.isPending) ...[
+            // Action buttons — untuk pendaftar baru (isPending)
+            // ATAU seller lama yang mengirim KYC (isKycOnly)
+            if (app.isPending || widget.isKycOnly) ...[
               const SizedBox(height: 18),
+              // Banner info jika seller lama
+              kycOnlyBanner,
               if (_isActing)
-                // Loading state saat proses approve/reject
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
@@ -1176,7 +1577,7 @@ class _SellerCardState extends State<_SellerCard> {
                                 }
                               },
                         icon: const Icon(Icons.close_rounded, size: 16),
-                        label: const Text('Tolak'),
+                        label: Text(widget.isKycOnly ? 'Tolak KYC' : 'Tolak'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: cs.error,
                           side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
@@ -1199,10 +1600,17 @@ class _SellerCardState extends State<_SellerCard> {
                                   if (mounted) setState(() => _isActing = false);
                                 }
                               },
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Setujui'),
+                        icon: Icon(
+                          widget.isKycOnly
+                              ? Icons.verified_rounded
+                              : Icons.check_rounded,
+                          size: 16,
+                        ),
+                        label: Text(widget.isKycOnly ? 'Verifikasi KYC' : 'Setujui'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
+                          backgroundColor: widget.isKycOnly
+                              ? const Color(0xFF1565C0)  // biru untuk KYC
+                              : const Color(0xFF2E7D32), // hijau untuk approve
                           padding: const EdgeInsets.symmetric(vertical: 11),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -1217,6 +1625,7 @@ class _SellerCardState extends State<_SellerCard> {
       ),
     );
   }
+
 
   Widget _chip(BuildContext context, IconData icon, String label) {
     final cs = Theme.of(context).colorScheme;
@@ -1241,6 +1650,43 @@ class _SellerCardState extends State<_SellerCard> {
     } catch (_) {
       return iso;
     }
+  }
+
+  Widget _kycInfoRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    bool highlight = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: cs.onSurface.withValues(alpha: 0.45)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              text: '$label: ',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.55),
+              ),
+              children: [
+                TextSpan(
+                  text: value,
+                  style: TextStyle(
+                    fontWeight: highlight ? FontWeight.w800 : FontWeight.w600,
+                    color: highlight ? cs.primary : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

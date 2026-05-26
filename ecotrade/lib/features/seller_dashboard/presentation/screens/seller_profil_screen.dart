@@ -6,6 +6,9 @@ import '../../data/product_repository.dart';
 import '../../data/seller_order_repository.dart';
 import 'package:intl/intl.dart';
 import 'seller_unggah_komoditi_screen.dart';
+import 'seller_withdrawal_screen.dart';
+import 'seller_bank_edit_screen.dart';
+import 'seller_kyc_completion_screen.dart';
 import '../../../../features/admin_dashboard/data/payout_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
 
@@ -46,6 +49,8 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDashboardHeader(),
+            // ── KYC Banner untuk seller lama yang belum verifikasi ──
+            _buildKycBanner(),
             const SizedBox(height: 20),
             _buildTotalProdukCard(),
             const SizedBox(height: 12),
@@ -60,6 +65,143 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ── KYC Banner (untuk seller lama / belum kyc) ──────────────────────────
+  Widget _buildKycBanner() {
+    final userAsync = ref.watch(currentUserDocProvider);
+    final user = userAsync.value;
+    if (user == null) return const SizedBox.shrink();
+
+    final kycStatus = user.kycStatus;
+
+    // Hanya tampilkan banner jika belum/tidak terverifikasi
+    if (kycStatus == 'verified') return const SizedBox.shrink();
+
+    Color bgColor;
+    Color borderColor;
+    Color iconColor;
+    IconData icon;
+    String title;
+    String subtitle;
+    String? buttonLabel;
+    VoidCallback? onButton;
+
+    switch (kycStatus) {
+      case 'pending':
+        bgColor     = const Color(0xFFFFF8E1);
+        borderColor = const Color(0xFFFFC107).withValues(alpha: 0.5);
+        iconColor   = const Color(0xFFF57F17);
+        icon        = Icons.hourglass_top_rounded;
+        title       = 'Verifikasi KYC Sedang Diproses';
+        subtitle    = 'Admin sedang meninjau dokumen identitas Anda. Fitur cairkan dana akan aktif setelah disetujui (1–2 hari kerja).';
+        buttonLabel = null;
+        onButton    = null;
+        break;
+      case 'rejected':
+        bgColor     = const Color(0xFFFFEBEE);
+        borderColor = const Color(0xFFEF5350).withValues(alpha: 0.4);
+        iconColor   = const Color(0xFFB71C1C);
+        icon        = Icons.cancel_rounded;
+        title       = 'Verifikasi KYC Ditolak';
+        subtitle    = 'Dokumen KYC Anda ditolak. Harap kirim ulang dengan dokumen yang valid.';
+        buttonLabel = 'Kirim Ulang KYC';
+        onButton    = () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SellerKycCompletionScreen()));
+        break;
+      default: // null / 'unverified' / string lainnya = seller lama
+        bgColor     = const Color(0xFFE3F2FD);
+        borderColor = const Color(0xFF1976D2).withValues(alpha: 0.35);
+        iconColor   = const Color(0xFF1565C0);
+        icon        = Icons.verified_user_outlined;
+        title       = 'Lengkapi Verifikasi Identitas (KYC)';
+        subtitle    = 'Untuk dapat mencairkan dana penjualan, Anda perlu mengunggah KTP dan data rekening bank. Proses verifikasi hanya dilakukan sekali.';
+        buttonLabel = 'Lengkapi KYC Sekarang';
+        onButton    = () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SellerKycCompletionScreen()));
+    }
+
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: onButton,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: iconColor.withValues(alpha: 0.08),
+                  blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: iconColor)),
+                      const SizedBox(height: 4),
+                      Text(subtitle,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: iconColor.withValues(alpha: 0.75),
+                              height: 1.5)),
+                      if (buttonLabel != null) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 36,
+                          child: ElevatedButton(
+                            onPressed: onButton,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: iconColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(buttonLabel,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700)),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.arrow_forward_rounded, size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -133,12 +275,15 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
     final totalRevenue = ref.watch(sellerTotalRevenueProvider);
     final userAsync = ref.watch(currentUserDocProvider);
     final user = userAsync.value;
-    
-    final withdrawn = user?.sellerWithdrawnAmount ?? 0.0;
+
+    final withdrawn   = user?.sellerWithdrawnAmount ?? 0.0;
     final withdrawable = totalRevenue - withdrawn;
-    
+    final kycStatus   = user?.kycStatus ?? 'unverified';
+    final isVerified  = kycStatus == 'verified';
+    final isPending   = kycStatus == 'pending';
+
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final hasPendapatan = withdrawable > 0;
+    final canWithdraw = isVerified && withdrawable >= kMinWithdrawalAmount;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -149,52 +294,128 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'TOTAL PENDAPATAN',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF414751), letterSpacing: 1.2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TOTAL PENDAPATAN',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF414751), letterSpacing: 1.2),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      rupiah.format(totalRevenue),
+                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF3F6D38)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Bisa ditarik: ${rupiah.format(withdrawable)}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF005DA7), fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  rupiah.format(totalRevenue),
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF3F6D38)),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Bisa ditarik: ${rupiah.format(withdrawable)}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF005DA7), fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: hasPendapatan ? () => _showSellerWithdrawalDialog(context, withdrawable) : null,
-                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 14, color: Color(0xFF005DA7)),
-                  label: const Text(
-                    'CAIRKAN DANA',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF005DA7)),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(color: primaryGreen, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.payments_outlined, color: Color(0xFF3F6D38), size: 24),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Status KYC Badge ─────────────────────────────────────────
+          _KycStatusBadge(kycStatus: kycStatus),
+
+          const SizedBox(height: 12),
+
+          // ── Tombol Cairkan Dana ──────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: canWithdraw
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SellerWithdrawalScreen(
+                                withdrawableAmount: withdrawable,
+                              ),
+                            ),
+                          )
+                      : !isVerified
+                          ? () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SellerWithdrawalScreen(
+                                    withdrawableAmount: withdrawable,
+                                  ),
+                                ),
+                              )
+                          : null,
+                  icon: Icon(
+                    isVerified
+                        ? Icons.account_balance_wallet_outlined
+                        : Icons.lock_outline_rounded,
+                    size: 14,
+                    color: const Color(0xFF005DA7),
+                  ),
+                  label: Text(
+                    isVerified ? 'CAIRKAN DANA' : 'CEK STATUS',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF005DA7)),
                   ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     backgroundColor: const Color(0xFFEFF6FF),
                     side: const BorderSide(color: Color(0xFF005DA7)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(color: primaryGreen, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.payments_outlined, color: Color(0xFF3F6D38), size: 24),
+              ),
+              const SizedBox(width: 8),
+              // Tombol Ubah Bank (hanya jika sudah verified)
+              if (isVerified || isPending)
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SellerBankEditScreen(),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.edit_rounded,
+                    size: 13,
+                    color: Color(0xFF888888),
+                  ),
+                  label: const Text(
+                    'UBAH BANK',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF888888)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    backgroundColor: const Color(0xFFF5F5F5),
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -344,116 +565,69 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
     );
   }
 
-  void _showSellerWithdrawalDialog(BuildContext context, double withdrawableAmount) {
-    final user = ref.read(currentUserDocProvider).value;
-    if (user == null) return;
+}
 
-    final bankNameCtrl = TextEditingController(text: user.bankName ?? '');
-    final accountNameCtrl = TextEditingController(text: user.bankAccountName ?? '');
-    final accountNumCtrl = TextEditingController(text: user.bankAccountNumber ?? '');
-    final amountCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+// ─────────────────────────────────────────────────────────────────────────────
+// KYC Status Badge
+// ─────────────────────────────────────────────────────────────────────────────
+class _KycStatusBadge extends StatelessWidget {
+  const _KycStatusBadge({required this.kycStatus});
+  final String kycStatus;
 
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        bool isLoading = false;
-        return StatefulBuilder(builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Cairkan Pendapatan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-            content: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Maksimal penarikan: ${rupiah.format(withdrawableAmount)}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF005DA7)),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: amountCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Nominal Penarikan', border: OutlineInputBorder()),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Wajib diisi';
-                        final amount = double.tryParse(v);
-                        if (amount == null || amount <= 0) return 'Nominal tidak valid';
-                        if (amount > withdrawableAmount) return 'Melebihi saldo maksimal';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: bankNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Nama Bank (contoh: BCA, Mandiri)', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: accountNumCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Nomor Rekening', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: accountNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Nama Pemilik Rekening', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
-                    ),
-                  ],
-                ),
-              ),
+  @override
+  Widget build(BuildContext context) {
+    Color bgColor;
+    Color textColor;
+    IconData icon;
+    String label;
+
+    switch (kycStatus) {
+      case 'verified':
+        bgColor   = const Color(0xFFE8F5E9);
+        textColor = const Color(0xFF2E7D32);
+        icon      = Icons.verified_rounded;
+        label     = 'Terverifikasi — Pencairan dana aktif';
+        break;
+      case 'pending':
+        bgColor   = const Color(0xFFFFF8E1);
+        textColor = const Color(0xFFF57F17);
+        icon      = Icons.hourglass_top_rounded;
+        label     = 'Menunggu verifikasi admin';
+        break;
+      case 'rejected':
+        bgColor   = const Color(0xFFFFEBEE);
+        textColor = const Color(0xFFB71C1C);
+        icon      = Icons.cancel_rounded;
+        label     = 'Verifikasi ditolak — Hubungi admin';
+        break;
+      default:
+        bgColor   = const Color(0xFFF5F5F5);
+        textColor = const Color(0xFF888888);
+        icon      = Icons.info_outline_rounded;
+        label     = 'KYC belum dilengkapi';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: textColor,
             ),
-            actions: [
-              TextButton(
-                onPressed: isLoading ? null : () => Navigator.pop(ctx),
-                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setState(() => isLoading = true);
-                        try {
-                          final amount = double.parse(amountCtrl.text.trim());
-                          await ref.read(payoutRepositoryProvider).requestSellerPayout(
-                                userId: user.uid,
-                                userName: user.name,
-                                amount: amount,
-                                maxWithdrawable: withdrawableAmount,
-                                bankName: bankNameCtrl.text.trim(),
-                                bankAccountName: accountNameCtrl.text.trim(),
-                                bankAccountNumber: accountNumCtrl.text.trim(),
-                              );
-                          if (context.mounted) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Permintaan pencairan berhasil dikirim ke Admin')),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                          }
-                        } finally {
-                          if (context.mounted) setState(() => isLoading = false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF005DA7), foregroundColor: Colors.white),
-                child: isLoading
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Kirim Request'),
-              ),
-            ],
-          );
-        });
-      },
+          ),
+        ],
+      ),
     );
   }
 }

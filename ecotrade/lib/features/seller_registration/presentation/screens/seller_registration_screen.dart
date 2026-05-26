@@ -34,6 +34,62 @@ const _kotaJawaTimurSeller = [
   'Sumenep', 'Trenggalek', 'Tuban', 'Tulungagung',
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Daftar Bank Indonesia
+// ─────────────────────────────────────────────────────────────────────────────
+const _bankIndonesiaList = [
+  'Bank BCA (Bank Central Asia)',
+  'Bank Mandiri',
+  'Bank BRI (Bank Rakyat Indonesia)',
+  'Bank BNI (Bank Negara Indonesia)',
+  'Bank CIMB Niaga',
+  'Bank Danamon',
+  'Bank Permata',
+  'Bank Maybank Indonesia',
+  'Bank OCBC NISP',
+  'Bank Panin',
+  'Bank BTN (Bank Tabungan Negara)',
+  'Bank BSI (Bank Syariah Indonesia)',
+  'Bank Muamalat',
+  'Bank BTPN',
+  'Bank Mega',
+  'Bank Commonwealth',
+  'Bank Sinarmas',
+  'Bank DBS Indonesia',
+  'Bank HSBC Indonesia',
+  'Bank Standard Chartered Indonesia',
+  'Bank Citibank Indonesia',
+  'Bank ANZ Indonesia',
+  'Bank BPD Jawa Timur (Bank Jatim)',
+  'Bank BPD Jawa Tengah (Bank Jateng)',
+  'Bank BPD Jawa Barat (Bank BJB)',
+  'Bank BPD DKI Jakarta',
+  'Bank BPD Bali',
+  'Bank BPD Sulselbar',
+  'Bank BPD Kaltim',
+  'Bank BPD Sumatera Utara',
+  'Bank BPD Sumatera Barat',
+  'Bank BPD Sumatera Selatan',
+  'Bank BPD Riau Kepri',
+  'Bank BPD Kalimantan Barat',
+  'Bank BPD Sulawesi Utara',
+  'Bank BPD NTB',
+  'Bank BPD NTT',
+  'Bank BPD Papua',
+  'Bank Ina Perdana',
+  'Bank Neo Commerce',
+  'Allo Bank',
+  'SeaBank (Bank Seabank Indonesia)',
+  'Bank Jago',
+  'Blu by BCA Digital',
+  'Bank Raya (BRI Agro)',
+  'Bank Saqu (TMRW by UOB)',
+  'GoPay Later (Bank Jago)',
+  'OVO (Bank Nobu)',
+  'Dana (Bank Allo)',
+  'Jenius (BTPN)',
+];
+
 class SellerRegistrationScreen extends ConsumerStatefulWidget {
   const SellerRegistrationScreen({super.key});
 
@@ -52,9 +108,24 @@ class _SellerRegistrationScreenState
   final _stockController = TextEditingController();
   final _priceController = TextEditingController();
 
+  // KYC — Nama sesuai KTP
+  final _ktpNameController = TextEditingController();
+
+  // KYC — Data Bank
+  String? _selectedBank;
+  final _accountNumberController = TextEditingController();
+  final _accountNameController = TextEditingController();
+
   String? _selectedCommodity;
   XFile? _commodityImage;
   Uint8List? _commodityImageBytes;
+
+  // KYC — Foto KTP & Selfie
+  XFile? _ktpImage;
+  Uint8List? _ktpImageBytes;
+  XFile? _selfieImage;
+  Uint8List? _selfieImageBytes;
+
   final _imagePicker = ImagePicker();
 
   // Pilih kota
@@ -78,6 +149,9 @@ class _SellerRegistrationScreenState
     _commodityDescController.dispose();
     _stockController.dispose();
     _priceController.dispose();
+    _ktpNameController.dispose();
+    _accountNumberController.dispose();
+    _accountNameController.dispose();
     super.dispose();
   }
 
@@ -107,6 +181,54 @@ class _SellerRegistrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal memilih gambar: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickKtpImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 90,
+      );
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _ktpImage = pickedFile;
+          _ktpImageBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memilih foto KTP: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickSelfieImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 90,
+      );
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _selfieImage = pickedFile;
+          _selfieImageBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memilih foto selfie: $e')),
         );
       }
     }
@@ -161,6 +283,45 @@ class _SellerRegistrationScreenState
       return;
     }
 
+    // ── Validasi foto KTP ───────────────────────────────────────────────────
+    if (_ktpImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Harap upload foto KTP Anda'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    // ── Validasi foto selfie + KTP ──────────────────────────────────────────
+    if (_selfieImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Harap upload foto selfie bersama KTP'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    // ── Validasi bank ───────────────────────────────────────────────────────
+    if (_selectedBank == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Pilih nama bank terlebih dahulu'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
     // Submit to controller
     ref.read(sellerRegistrationControllerProvider.notifier).submitRegistration(
           businessName: _businessNameController.text.trim(),
@@ -172,6 +333,12 @@ class _SellerRegistrationScreenState
           pricePerKg: double.parse(_priceController.text.trim()),
           city: _resolvedCity,
           commodityImage: _commodityImage,
+          ktpImage: _ktpImage!,
+          selfieImage: _selfieImage!,
+          ktpName: _ktpNameController.text.trim(),
+          bankName: _selectedBank!,
+          bankAccountName: _accountNameController.text.trim(),
+          bankAccountNumber: _accountNumberController.text.trim(),
         );
   }
 
@@ -360,6 +527,9 @@ class _SellerRegistrationScreenState
             _ImageUploadBox(
               imageBytes: _commodityImageBytes,
               onTap: _pickImage,
+              label: 'UNGGAH FOTO PRODUK',
+              hint: 'Tap untuk memilih gambar',
+              icon: Icons.add_photo_alternate_rounded,
             ),
 
             const SizedBox(height: 24),
@@ -457,6 +627,174 @@ class _SellerRegistrationScreenState
 
             const SizedBox(height: 40),
 
+            // ════════════════════════════════════════════════════════════════
+            // ── SECTION: Verifikasi Identitas (KYC) ─────────────────────────
+            // ════════════════════════════════════════════════════════════════
+            _SectionDivider(
+              icon: Icons.badge_outlined,
+              title: 'Verifikasi Identitas',
+              subtitle: 'Wajib untuk keamanan pencairan dana',
+              color: colorScheme.primary,
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Info Banner KYC ──────────────────────────────────────────
+            _KycInfoBanner(colorScheme: colorScheme, textTheme: textTheme),
+
+            const SizedBox(height: 20),
+
+            // ── Nama sesuai KTP ──────────────────────────────────────────
+            _FormLabel(label: 'NAMA LENGKAP (SESUAI KTP)'),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: _ktpNameController,
+              hint: 'Nama lengkap sesuai KTP',
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Nama sesuai KTP wajib diisi';
+                }
+                if (value.trim().length < 3) {
+                  return 'Nama terlalu pendek';
+                }
+                return null;
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Foto KTP ─────────────────────────────────────────────────
+            Row(
+              children: [
+                _FormLabel(label: 'FOTO KTP'),
+                const SizedBox(width: 8),
+                _RequiredBadge(colorScheme: colorScheme, textTheme: textTheme),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pastikan foto KTP jelas, tidak blur, dan semua teks terbaca.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ImageUploadBox(
+              imageBytes: _ktpImageBytes,
+              onTap: _pickKtpImage,
+              label: 'UPLOAD FOTO KTP',
+              hint: 'Ketuk untuk memilih foto KTP',
+              icon: Icons.credit_card_rounded,
+              accentColor: colorScheme.tertiary,
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Foto Selfie + KTP ────────────────────────────────────────
+            Row(
+              children: [
+                _FormLabel(label: 'FOTO SELFIE + KTP'),
+                const SizedBox(width: 8),
+                _RequiredBadge(colorScheme: colorScheme, textTheme: textTheme),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Foto wajah Anda sambil memegang KTP. Wajah dan teks KTP harus terlihat jelas.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ImageUploadBox(
+              imageBytes: _selfieImageBytes,
+              onTap: _pickSelfieImage,
+              label: 'UPLOAD FOTO SELFIE + KTP',
+              hint: 'Ketuk untuk memilih foto selfie',
+              icon: Icons.face_rounded,
+              accentColor: const Color(0xFF7B5EA7),
+            ),
+
+            const SizedBox(height: 32),
+
+            // ════════════════════════════════════════════════════════════════
+            // ── SECTION: Data Rekening Bank ──────────────────────────────────
+            // ════════════════════════════════════════════════════════════════
+            _SectionDivider(
+              icon: Icons.account_balance_rounded,
+              title: 'Data Rekening Bank',
+              subtitle: 'Untuk pencairan dana hasil penjualan',
+              color: const Color(0xFF2E7D32),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Info Bank ────────────────────────────────────────────────
+            _BankInfoBanner(colorScheme: colorScheme, textTheme: textTheme),
+
+            const SizedBox(height: 20),
+
+            // ── Pilih Bank ───────────────────────────────────────────────
+            _FormLabel(label: 'NAMA BANK'),
+            const SizedBox(height: 8),
+            _BankDropdown(
+              value: _selectedBank,
+              onChanged: (v) => setState(() => _selectedBank = v),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Nomor Rekening ───────────────────────────────────────────
+            _FormLabel(label: 'NOMOR REKENING'),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: _accountNumberController,
+              hint: 'Contoh: 1234567890',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Nomor rekening wajib diisi';
+                }
+                if (value.trim().length < 6) {
+                  return 'Nomor rekening tidak valid';
+                }
+                return null;
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Nama Pemilik Rekening ────────────────────────────────────
+            _FormLabel(label: 'NAMA PEMILIK REKENING'),
+            const SizedBox(height: 4),
+            Text(
+              'Harus sama persis dengan nama pada KTP di atas',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.error.withValues(alpha: 0.8),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _CustomTextField(
+              controller: _accountNameController,
+              hint: 'Nama sesuai buku tabungan / aplikasi bank',
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Nama pemilik rekening wajib diisi';
+                }
+                // Peringatan jika nama berbeda dengan nama KTP
+                final ktpName = _ktpNameController.text.trim().toLowerCase();
+                final accName = value.trim().toLowerCase();
+                if (ktpName.isNotEmpty && !accName.contains(ktpName.split(' ').first)) {
+                  return 'Nama pemilik rekening tidak cocok dengan nama KTP';
+                }
+                return null;
+              },
+            ),
+
+            const SizedBox(height: 40),
+
             // ── Submit Button ────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
@@ -486,7 +824,7 @@ class _SellerRegistrationScreenState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            'Daftar',
+                            'Daftar & Kirim Verifikasi',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -504,6 +842,253 @@ class _SellerRegistrationScreenState
             const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section Divider
+// ─────────────────────────────────────────────────────────────────────────────
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KYC Info Banner
+// ─────────────────────────────────────────────────────────────────────────────
+class _KycInfoBanner extends StatelessWidget {
+  const _KycInfoBanner({required this.colorScheme, required this.textTheme});
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded,
+              color: colorScheme.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mengapa perlu KTP?',
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Verifikasi KTP memastikan identitas Anda asli dan melindungi keamanan dana hasil penjualan. Data Anda akan dijaga kerahasiaannya.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bank Info Banner
+// ─────────────────────────────────────────────────────────────────────────────
+class _BankInfoBanner extends StatelessWidget {
+  const _BankInfoBanner({required this.colorScheme, required this.textTheme});
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.security_rounded,
+              color: Color(0xFF2E7D32), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nama rekening HARUS sama dengan nama KTP',
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF2E7D32),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Admin akan memverifikasi kecocokan nama KTP dan nama pemilik rekening. Pendaftaran akan ditolak jika tidak sama.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF1B5E20).withValues(alpha: 0.75),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Required Badge
+// ─────────────────────────────────────────────────────────────────────────────
+class _RequiredBadge extends StatelessWidget {
+  const _RequiredBadge({required this.colorScheme, required this.textTheme});
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'WAJIB',
+        style: textTheme.labelSmall?.copyWith(
+          color: colorScheme.onErrorContainer,
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bank Dropdown
+// ─────────────────────────────────────────────────────────────────────────────
+class _BankDropdown extends StatelessWidget {
+  const _BankDropdown({required this.value, required this.onChanged});
+  final String? value;
+  final void Function(String?) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        isExpanded: true,
+        hint: Text(
+          'Pilih nama bank',
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
+        ),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        icon: Icon(Icons.keyboard_arrow_down_rounded,
+            color: colorScheme.onSurface.withValues(alpha: 0.6)),
+        dropdownColor: colorScheme.surface,
+        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+        validator: (v) => v == null ? 'Pilih bank terlebih dahulu' : null,
+        items: _bankIndonesiaList.map((bank) {
+          return DropdownMenuItem<String>(
+            value: bank,
+            child: Text(bank, overflow: TextOverflow.ellipsis),
+          );
+        }).toList(),
+        onChanged: onChanged,
       ),
     );
   }
@@ -541,12 +1126,16 @@ class _CustomTextField extends StatelessWidget {
     required this.hint,
     this.maxLines = 1,
     this.validator,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
   final String? Function(String?)? validator;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -557,6 +1146,8 @@ class _CustomTextField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       validator: validator,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: hint,
@@ -654,35 +1245,43 @@ class _CommodityDropdown extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Image Upload Box
+// Image Upload Box (reusable)
 // ─────────────────────────────────────────────────────────────────────────────
 class _ImageUploadBox extends StatelessWidget {
   const _ImageUploadBox({
     required this.imageBytes,
     required this.onTap,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.accentColor,
   });
 
   final Uint8List? imageBytes;
   final VoidCallback onTap;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final color = accentColor ?? colorScheme.primary;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 180,
+        height: 160,
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: imageBytes != null
-                ? colorScheme.primary.withValues(alpha: 0.5)
+                ? color.withValues(alpha: 0.5)
                 : colorScheme.outline.withValues(alpha: 0.3),
             width: imageBytes != null ? 2 : 1.5,
-            style: BorderStyle.solid,
           ),
         ),
         child: imageBytes == null
@@ -690,31 +1289,27 @@ class _ImageUploadBox extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.add_photo_alternate_rounded,
-                      color: colorScheme.primary,
-                      size: 28,
-                    ),
+                    child: Icon(icon, color: color, size: 26),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Text(
-                    'UNGGAH FOTO PRODUK',
+                    label,
                     style: TextStyle(
-                      color: colorScheme.primary,
-                      fontSize: 13,
+                      color: color,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+                      letterSpacing: 0.6,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tap untuk memilih gambar',
+                    hint,
                     style: TextStyle(
                       color: colorScheme.onSurface.withValues(alpha: 0.45),
                       fontSize: 11,
@@ -727,12 +1322,8 @@ class _ImageUploadBox extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(
-                      imageBytes!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.memory(imageBytes!, fit: BoxFit.cover),
                   ),
-                  // Overlay: ganti foto
                   Positioned(
                     bottom: 8, right: 8,
                     child: Container(
@@ -742,12 +1333,11 @@ class _ImageUploadBox extends StatelessWidget {
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.edit_rounded,
-                              size: 13, color: Colors.white),
-                          const SizedBox(width: 4),
+                          Icon(Icons.edit_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
                           Text('Ganti Foto',
                               style: TextStyle(
                                 color: Colors.white,
@@ -756,6 +1346,20 @@ class _ImageUploadBox extends StatelessWidget {
                               )),
                         ],
                       ),
+                    ),
+                  ),
+                  // Checkmark overlay
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check_rounded,
+                          color: Colors.white, size: 18),
                     ),
                   ),
                 ],
@@ -801,6 +1405,10 @@ class _NumberInputField extends StatelessWidget {
             hintStyle: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withValues(alpha: 0.4),
             ),
+            suffixText: suffix,
+            suffixStyle: textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
             filled: true,
             fillColor:
                 colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -833,24 +1441,13 @@ class _NumberInputField extends StatelessWidget {
             ),
           ),
         ),
-
-        const SizedBox(height: 8),
-
-        // Suffix label
-        Text(
-          suffix,
-          style: textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
-            fontSize: 11,
-          ),
-        ),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Seller Kota Card
+// Kota Card
 // ─────────────────────────────────────────────────────────────────────────────
 class _SellerKotaCard extends StatelessWidget {
   const _SellerKotaCard({
@@ -869,55 +1466,79 @@ class _SellerKotaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 10),
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primary.withValues(alpha: 0.06)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+              ? colorScheme.primary.withValues(alpha: 0.08)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? cs.primary : cs.outline.withValues(alpha: 0.2),
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.5)
+                : colorScheme.outline.withValues(alpha: 0.15),
             width: selected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              isOther ? Icons.more_horiz_rounded : Icons.location_on_outlined,
-              color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
-              size: 22,
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     nama,
-                    style: tt.bodyMedium?.copyWith(
+                    style: textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: selected ? cs.primary : cs.onSurface,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
                     ),
                   ),
-                  Text(
-                    provinsi,
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.45),
+                  if (provinsi.isNotEmpty)
+                    Text(
+                      provinsi,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
-            if (selected)
-              Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
+            if (isOther)
+              Icon(
+                Icons.keyboard_arrow_right_rounded,
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withValues(alpha: 0.4),
+              )
+            else
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: selected ? colorScheme.primary : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.outline.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 14)
+                    : null,
+              ),
           ],
         ),
       ),
@@ -926,7 +1547,7 @@ class _SellerKotaCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Seller Kota Dropdown (muncul saat "Kota Lainnya" dipilih)
+// Dropdown Kota Lainnya
 // ─────────────────────────────────────────────────────────────────────────────
 class _SellerKotaDropdown extends StatelessWidget {
   const _SellerKotaDropdown({
@@ -935,59 +1556,46 @@ class _SellerKotaDropdown extends StatelessWidget {
   });
 
   final String? selectedKota;
-  final ValueChanged<String?> onChanged;
+  final void Function(String?) onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        decoration: BoxDecoration(
-          color: cs.primaryContainer.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cs.primary.withValues(alpha: 0.35),
-            width: 1.2,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: selectedKota,
+        hint: Text(
+          'Pilih kota di Jawa Timur',
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.4),
           ),
         ),
-        child: DropdownButtonFormField<String>(
-          initialValue: selectedKota,
-          isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: cs.primary, size: 22),
-          decoration: InputDecoration(
-            prefixIcon: Icon(Icons.location_city_outlined,
-                size: 20, color: cs.primary.withValues(alpha: 0.7)),
-            hintText: 'Pilih kota / kabupaten',
-            hintStyle: tt.bodyMedium?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.4),
-            ),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
-          ),
-          style: tt.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: cs.primary,
-          ),
-          dropdownColor: cs.surface,
-          borderRadius: BorderRadius.circular(12),
-          menuMaxHeight: 300,
-          items: _kotaJawaTimurSeller.map((kota) {
-            return DropdownMenuItem<String>(
-              value: kota,
-              child: Text(kota),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          validator: (v) => v == null ? 'Harap pilih kota / kabupaten' : null,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
+        icon: Icon(Icons.keyboard_arrow_down_rounded,
+            color: colorScheme.onSurface.withValues(alpha: 0.6)),
+        dropdownColor: colorScheme.surface,
+        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+        items: _kotaJawaTimurSeller.map((kota) {
+          return DropdownMenuItem<String>(
+            value: kota,
+            child: Text(kota),
+          );
+        }).toList(),
+        onChanged: onChanged,
       ),
     );
   }
