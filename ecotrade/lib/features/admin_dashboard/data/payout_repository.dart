@@ -5,6 +5,9 @@ import 'payout_model.dart';
 
 part 'payout_repository.g.dart';
 
+/// Batas minimum nominal penarikan dana seller (dalam Rupiah)
+const kMinWithdrawalAmount = 10000.0;
+
 @riverpod
 PayoutRepository payoutRepository(Ref ref) {
   return PayoutRepository(FirebaseFirestore.instance);
@@ -88,15 +91,12 @@ class PayoutRepository {
     });
   }
 
-  // ── Seller: Request Payout ──
+  // ── Seller: Request Payout (Bank diambil dari profil, bukan input UI) ──
   Future<void> requestSellerPayout({
     required String userId,
     required String userName,
     required double amount,
     required double maxWithdrawable,
-    required String bankName,
-    required String bankAccountName,
-    required String bankAccountNumber,
   }) async {
     final userRef = _db.collection('users').doc(userId);
     final payoutRef = _payouts.doc();
@@ -105,19 +105,48 @@ class PayoutRepository {
       final userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw Exception('User tidak ditemukan');
 
-      if (amount <= 0 || amount > maxWithdrawable) {
-        throw Exception('Nominal tidak valid atau melebihi batas');
+      final userData = userSnap.data()!;
+
+      // ── Validasi KYC ──────────────────────────────────────────────────────
+      final kycStatus = userData['kycStatus'] as String? ?? 'unverified';
+      if (kycStatus != 'verified') {
+        throw Exception(
+          kycStatus == 'pending'
+              ? 'Akun Anda sedang dalam proses verifikasi. Harap tunggu konfirmasi admin.'
+              : 'Akun Anda belum terverifikasi. Lengkapi KYC terlebih dahulu.',
+        );
       }
 
-      // Tambahkan ke withdrawn amount dan simpan info bank
+      // ── Validasi nominal ──────────────────────────────────────────────────
+      if (amount < kMinWithdrawalAmount) {
+        throw Exception(
+          'Nominal minimum penarikan adalah Rp ${kMinWithdrawalAmount.toStringAsFixed(0)}',
+        );
+      }
+      if (amount > maxWithdrawable) {
+        throw Exception('Nominal melebihi saldo yang bisa ditarik');
+      }
+      if (amount <= 0) {
+        throw Exception('Nominal tidak valid');
+      }
+
+      // ── Ambil data bank dari profil (bukan dari input UI) ─────────────────
+      final bankName          = userData['bankName']          as String? ?? '';
+      final bankAccountName   = userData['bankAccountName']   as String? ?? '';
+      final bankAccountNumber = userData['bankAccountNumber'] as String? ?? '';
+
+      if (bankName.isEmpty || bankAccountName.isEmpty || bankAccountNumber.isEmpty) {
+        throw Exception(
+          'Data rekening bank tidak lengkap. Hubungi admin untuk verifikasi ulang.',
+        );
+      }
+
+      // ── Tambahkan ke withdrawn amount ──────────────────────────────────────
       tx.update(userRef, {
         'sellerWithdrawnAmount': FieldValue.increment(amount),
-        'bankName': bankName,
-        'bankAccountName': bankAccountName,
-        'bankAccountNumber': bankAccountNumber,
       });
 
-      // Buat request payout
+      // ── Buat request payout ────────────────────────────────────────────────
       final payoutData = PayoutModel(
         id: payoutRef.id,
         userId: userId,

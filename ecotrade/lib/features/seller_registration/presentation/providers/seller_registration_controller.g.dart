@@ -35,7 +35,7 @@ final class SellerRegistrationControllerProvider
 }
 
 String _$sellerRegistrationControllerHash() =>
-    r'1b7c38471586e086397be24372e1aa1b7fcd6e8a';
+    r'2f1ce7269b61c7b90a444e996e3a64d5f3b6733f';
 
 abstract class _$SellerRegistrationController extends $AsyncNotifier<void> {
   FutureOr<void> build();

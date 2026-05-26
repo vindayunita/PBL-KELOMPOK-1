@@ -15,6 +15,14 @@ class SellerApplicationModel {
     this.commodityImageUrl = '',
     this.rejectionReason,
     this.reviewedAt,
+    // ── KYC Fields ──────────────────────────────────────────────────────────
+    this.ktpImageUrl,
+    this.selfieWithKtpImageUrl,
+    this.ktpName,
+    this.bankName,
+    this.bankAccountName,
+    this.bankAccountNumber,
+    this.kycStatus = 'pending_kyc',
   });
 
   final String uid;
@@ -33,9 +41,39 @@ class SellerApplicationModel {
   final String? rejectionReason;
   final String? reviewedAt;
 
+  // ── KYC Fields ────────────────────────────────────────────────────────────
+  /// URL foto KTP yang diupload ke Firebase Storage
+  final String? ktpImageUrl;
+
+  /// URL foto selfie bersama KTP
+  final String? selfieWithKtpImageUrl;
+
+  /// Nama sesuai KTP (diisi manual oleh seller)
+  final String? ktpName;
+
+  /// Nama bank rekening tujuan pencairan
+  final String? bankName;
+
+  /// Nama pemilik rekening (harus sama persis dengan nama KTP)
+  final String? bankAccountName;
+
+  /// Nomor rekening tujuan pencairan
+  final String? bankAccountNumber;
+
+  /// Status KYC:
+  /// - `pending_kyc`  : belum ada data KTP/bank
+  /// - `pending`      : sudah upload, menunggu review admin
+  /// - `verified`     : sudah diverifikasi admin
+  /// - `rejected`     : ditolak admin (biasanya nama tidak cocok)
+  final String kycStatus;
+
   bool get isPending  => status == 'pending';
   bool get isApproved => status == 'approved';
   bool get isRejected => status == 'rejected';
+
+  bool get isKycVerified  => kycStatus == 'verified';
+  bool get isKycPending   => kycStatus == 'pending' || kycStatus == 'pending_kyc';
+  bool get isKycRejected  => kycStatus == 'rejected';
 
   factory SellerApplicationModel.fromJson(Map<String, dynamic> json, String uid) {
     return SellerApplicationModel(
@@ -54,6 +92,14 @@ class SellerApplicationModel {
       commodityImageUrl:   json['commodityImageUrl']   as String? ?? '',
       rejectionReason:     json['rejectionReason']     as String?,
       reviewedAt:          json['reviewedAt']          as String?,
+      // KYC
+      ktpImageUrl:          json['ktpImageUrl']          as String?,
+      selfieWithKtpImageUrl:json['selfieWithKtpImageUrl']as String?,
+      ktpName:              json['ktpName']              as String?,
+      bankName:             json['bankName']             as String?,
+      bankAccountName:      json['bankAccountName']      as String?,
+      bankAccountNumber:    json['bankAccountNumber']    as String?,
+      kycStatus:            json['kycStatus']            as String? ?? 'pending_kyc',
     );
   }
 
@@ -69,8 +115,15 @@ class SellerApplicationModel {
         'stock':               stock,
         'pricePerKg':          pricePerKg,
         'commodityImageUrl':   commodityImageUrl,
-        if (city            != null) 'city':            city,
-        if (rejectionReason != null) 'rejectionReason': rejectionReason,
-        if (reviewedAt      != null) 'reviewedAt':      reviewedAt,
+        'kycStatus':           kycStatus,
+        if (city              != null) 'city':                  city,
+        if (rejectionReason   != null) 'rejectionReason':       rejectionReason,
+        if (reviewedAt        != null) 'reviewedAt':            reviewedAt,
+        if (ktpImageUrl       != null) 'ktpImageUrl':           ktpImageUrl,
+        if (selfieWithKtpImageUrl != null) 'selfieWithKtpImageUrl': selfieWithKtpImageUrl,
+        if (ktpName           != null) 'ktpName':               ktpName,
+        if (bankName          != null) 'bankName':              bankName,
+        if (bankAccountName   != null) 'bankAccountName':       bankAccountName,
+        if (bankAccountNumber != null) 'bankAccountNumber':     bankAccountNumber,
       };
 }

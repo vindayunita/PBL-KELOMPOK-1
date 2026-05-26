@@ -13,6 +13,9 @@ class UserModel {
     this.bankAccountName,
     this.bankAccountNumber,
     this.sellerWithdrawnAmount = 0.0,
+    // ── KYC Fields ──────────────────────────────────────────────────────────
+    this.kycStatus = 'unverified',
+    this.bankVerifiedAt,
   });
 
   final String uid;
@@ -28,6 +31,21 @@ class UserModel {
   final String? bankAccountName;
   final String? bankAccountNumber;
   final double sellerWithdrawnAmount;
+
+  // ── KYC Fields ────────────────────────────────────────────────────────────
+  /// Status KYC seller:
+  /// - `unverified` : belum pernah daftar seller / belum upload KTP
+  /// - `pending`    : sudah upload, menunggu review admin
+  /// - `verified`   : sudah diverifikasi (bisa cairkan dana)
+  /// - `rejected`   : ditolak (nama KTP ≠ nama rekening, dll.)
+  final String kycStatus;
+
+  /// Timestamp terakhir kali data bank diverifikasi oleh admin (ISO 8601)
+  final String? bankVerifiedAt;
+
+  bool get isKycVerified => kycStatus == 'verified';
+  bool get isKycPending  => kycStatus == 'pending';
+  bool get isKycRejected => kycStatus == 'rejected';
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -47,6 +65,8 @@ class UserModel {
       bankAccountName: json['bankAccountName'] as String?,
       bankAccountNumber: json['bankAccountNumber'] as String?,
       sellerWithdrawnAmount: (json['sellerWithdrawnAmount'] as num?)?.toDouble() ?? 0.0,
+      kycStatus:      json['kycStatus']      as String? ?? 'unverified',
+      bankVerifiedAt: json['bankVerifiedAt'] as String?,
     );
   }
 
@@ -60,10 +80,12 @@ class UserModel {
         if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (addresses.isNotEmpty) 'addresses':  addresses,
         'refundBalance': refundBalance,
-        if (bankName != null) 'bankName': bankName,
-        if (bankAccountName != null) 'bankAccountName': bankAccountName,
+        if (bankName          != null) 'bankName':          bankName,
+        if (bankAccountName   != null) 'bankAccountName':   bankAccountName,
         if (bankAccountNumber != null) 'bankAccountNumber': bankAccountNumber,
         'sellerWithdrawnAmount': sellerWithdrawnAmount,
+        'kycStatus': kycStatus,
+        if (bankVerifiedAt != null) 'bankVerifiedAt': bankVerifiedAt,
       };
 
   UserModel copyWith({
@@ -80,6 +102,8 @@ class UserModel {
     String? bankAccountName,
     String? bankAccountNumber,
     double? sellerWithdrawnAmount,
+    String? kycStatus,
+    String? bankVerifiedAt,
   }) =>
       UserModel(
         uid:        uid        ?? this.uid,
@@ -95,6 +119,8 @@ class UserModel {
         bankAccountName: bankAccountName ?? this.bankAccountName,
         bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
         sellerWithdrawnAmount: sellerWithdrawnAmount ?? this.sellerWithdrawnAmount,
+        kycStatus:      kycStatus      ?? this.kycStatus,
+        bankVerifiedAt: bankVerifiedAt ?? this.bankVerifiedAt,
       );
 
   @override
@@ -107,5 +133,5 @@ class UserModel {
 
   @override
   String toString() =>
-      'UserModel(uid: $uid, name: $name, roles: $roles, activeRole: $activeRole)';
+      'UserModel(uid: $uid, name: $name, roles: $roles, activeRole: $activeRole, kycStatus: $kycStatus)';
 }
