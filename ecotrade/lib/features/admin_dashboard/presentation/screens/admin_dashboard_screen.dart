@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
 import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
@@ -241,38 +240,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  void _showProfileMenu(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading:
-                  Icon(Icons.manage_accounts_rounded, color: colorScheme.primary),
-              title: const Text('Admin Settings'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: Icon(Icons.logout_rounded, color: colorScheme.error),
-              title: Text('Sign Out',
-                  style: TextStyle(color: colorScheme.error)),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(authRepositoryProvider).signOut();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ── Empty Activity State ──────────────────────────────────────────────────────
@@ -340,8 +307,6 @@ class _AdminStatCard extends StatelessWidget {
     required this.color,
     required this.onTap,
     required this.actionLabel,
-    this.badge,
-    this.badgeColor,
   });
 
   final String label;
@@ -350,8 +315,6 @@ class _AdminStatCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final String actionLabel;
-  final String? badge;
-  final Color? badgeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -369,34 +332,18 @@ class _AdminStatCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
                 Icon(icon, color: color, size: 20),
                 const Spacer(),
-                if (badge != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: badgeColor ?? color,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onError,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 9,
-                      ),
-                    ),
-                  ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 8),
             Text(
               value,
-              style: textTheme.titleLarge?.copyWith(
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
               ),
@@ -406,15 +353,19 @@ class _AdminStatCard extends StatelessWidget {
               style: textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurface.withOpacity(0.6),
               ),
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Row(
               children: [
-                Text(
-                  actionLabel,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
+                Flexible(
+                  child: Text(
+                    actionLabel,
+                    style: textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -428,104 +379,3 @@ class _AdminStatCard extends StatelessWidget {
   }
 }
 
-// ── Activity Item ─────────────────────────────────────────────────────────────
-class _ActivityItem extends StatelessWidget {
-  const _ActivityItem({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.isNew,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String title;
-  final String subtitle;
-  final String time;
-  final bool isNew;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                time,
-                style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.45),
-                ),
-              ),
-              if (isNew) ...[
-                const SizedBox(height: 4),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
