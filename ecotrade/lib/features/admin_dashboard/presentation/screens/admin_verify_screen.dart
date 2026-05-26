@@ -1814,6 +1814,43 @@ class _PaymentMiniCard extends StatelessWidget {
                     style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.5)),
                   ),
+                  const SizedBox(height: 5),
+                  // ── Purchase Type Badges ──
+                  Builder(builder: (_) {
+                    final types = order.items
+                        .map((i) => i.purchaseType)
+                        .toSet()
+                        .toList();
+                    return Wrap(
+                      spacing: 4,
+                      children: types.map((t) {
+                        final isSample = t == 'sample';
+                        final badgeColor = isSample
+                            ? const Color(0xFF7C3AED)
+                            : const Color(0xFF0369A1);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: badgeColor.withValues(alpha: 0.35),
+                                width: 0.8),
+                          ),
+                          child: Text(
+                            isSample ? 'Sample' : 'Standard',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: badgeColor,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -2027,12 +2064,60 @@ class _PaymentDetailPanelState extends State<_PaymentDetailPanel> {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          // Nama produk
-                          Text(
-                            item.productTitle,
-                            style: tt.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface),
+                          // Nama produk + tipe badge
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.productTitle,
+                                  style: tt.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: cs.onSurface),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Purchase Type Badge
+                              Builder(builder: (_) {
+                                final isSample = item.purchaseType == 'sample';
+                                final badgeColor = isSample
+                                    ? const Color(0xFF7C3AED)
+                                    : const Color(0xFF0369A1);
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: badgeColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: badgeColor.withValues(alpha: 0.4),
+                                        width: 0.9),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isSample
+                                            ? Icons.science_outlined
+                                            : Icons.inventory_2_outlined,
+                                        size: 10,
+                                        color: badgeColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        isSample ? 'Sample' : 'Standard',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: badgeColor,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           // Harga satuan, qty, subtotal
