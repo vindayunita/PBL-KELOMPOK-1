@@ -137,7 +137,7 @@ class OrderModel {
       productName:     data['productName']   as String? ?? firstItem?['productTitle'] as String? ?? 'Produk',
       quantity:        (data['quantity']     as num?)?.toInt() ?? (firstItem?['quantity'] as num?)?.toInt() ?? 1,
       unit:            data['unit']          as String? ?? firstItem?['unit'] as String? ?? 'kg',
-      totalPrice:      (data['totalPrice']   as num?)?.toDouble() ?? 0,
+      totalPrice:      (data['totalPrice']   as num?)?.toDouble() ?? (data['total'] as num?)?.toDouble() ?? 0,
       status:          OrderStatus.fromString(data['status'] as String? ?? 'pending'),
       courierId:       data['courierId']     as String?,
       courierName:     data['courierName']   as String?,
