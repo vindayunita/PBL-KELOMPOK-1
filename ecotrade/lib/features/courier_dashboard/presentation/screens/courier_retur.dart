@@ -147,9 +147,18 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
   }
 
   Widget _buildTaskContent(BuildContext context, ColorScheme cs, TextTheme tt, OrderModel task) {
-    final isPickedUp = task.status == OrderStatus.returnPickedUp;
-    final statusLabel = isPickedUp ? 'SEDANG DIANTAR KE SELLER' : 'MENUNGGU PENJEMPUTAN';
-    final statusColor = isPickedUp ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6);
+    final isAssigned  = task.status == OrderStatus.returnAssigned;
+    final isPickedUp  = task.status == OrderStatus.returnPickedUp;
+    final statusLabel = isPickedUp
+        ? 'SEDANG DIANTAR KE SELLER'
+        : isAssigned
+            ? 'MENUNGGU KONFIRMASI KAMU'
+            : 'MENUNGGU PENJEMPUTAN';
+    final statusColor = isPickedUp
+        ? const Color(0xFFF59E0B)
+        : isAssigned
+            ? const Color(0xFF7C3AED)
+            : const Color(0xFF3B82F6);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -242,8 +251,27 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
 
           const SizedBox(height: 28),
 
+          // ── Terima / Tolak Retur (return_assigned) ─────────────────────
+          if (isAssigned) _ReturnAcceptRejectButtons(
+            task: task,
+            onAccepted: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('✅ Tugas retur diterima!'),
+                backgroundColor: Color(0xFF2E7D32),
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+            onRejected: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Tugas retur ditolak. Seller akan cari kurir lain.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+          ),
+
           // ── Ambil Barang Retur ─────────────────────────────────────────
-          if (!isPickedUp)
+          if (!isAssigned && !isPickedUp)
             _PrimaryButton(
               label: 'Ambil Barang Retur',
               icon: Icons.inventory_rounded,
@@ -267,7 +295,6 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
             ),
 
           if (isPickedUp) ...[
-            // ── Konfirmasi diserahkan ──────────────────────────────────
             _ConfirmButton(
               enabled: _allChecked,
               onPressed: () {
@@ -375,9 +402,18 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
   }
 
   Widget _buildTaskBody(BuildContext context, ColorScheme cs, TextTheme tt, OrderModel task) {
-    final isPickedUp = task.status == OrderStatus.returnPickedUp;
-    final statusLabel = isPickedUp ? 'SEDANG DIANTAR KE SELLER' : 'MENUNGGU PENJEMPUTAN';
-    final statusColor = isPickedUp ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6);
+    final isAssigned  = task.status == OrderStatus.returnAssigned;
+    final isPickedUp  = task.status == OrderStatus.returnPickedUp;
+    final statusLabel = isPickedUp
+        ? 'SEDANG DIANTAR KE SELLER'
+        : isAssigned
+            ? 'MENUNGGU KONFIRMASI KAMU'
+            : 'MENUNGGU PENJEMPUTAN';
+    final statusColor = isPickedUp
+        ? const Color(0xFFF59E0B)
+        : isAssigned
+            ? const Color(0xFF7C3AED)
+            : const Color(0xFF3B82F6);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -470,8 +506,27 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
 
           const SizedBox(height: 28),
 
+          // ── Terima / Tolak Retur (return_assigned) ─────────────────────
+          if (isAssigned) _ReturnAcceptRejectButtons(
+            task: task,
+            onAccepted: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('✅ Tugas retur diterima!'),
+                backgroundColor: Color(0xFF2E7D32),
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+            onRejected: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Tugas retur ditolak. Seller akan cari kurir lain.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+          ),
+
           // ── Ambil Barang Retur ─────────────────────────────────────────
-          if (!isPickedUp)
+          if (!isAssigned && !isPickedUp)
             _PrimaryButton(
               label: 'Ambil Barang Retur',
               icon: Icons.inventory_rounded,
@@ -495,7 +550,6 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
             ),
 
           if (isPickedUp) ...[
-            // ── Konfirmasi diserahkan ──────────────────────────────────
             _ConfirmButton(
               enabled: _allChecked,
               onPressed: () {
@@ -1101,5 +1155,168 @@ class _ConfirmButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Accept / Reject buttons — ditampilkan saat status return_assigned
+// ─────────────────────────────────────────────────────────────────────────────
+class _ReturnAcceptRejectButtons extends ConsumerWidget {
+  const _ReturnAcceptRejectButtons({
+    required this.task,
+    required this.onAccepted,
+    required this.onRejected,
+  });
+
+  final OrderModel task;
+  final VoidCallback onAccepted;
+  final VoidCallback onRejected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Column(
+      children: [
+        // ── Info banner ──────────────────────────────────────────────────
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.25)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: Color(0xFF7C3AED), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Seller telah menugaskan kamu untuk menjemput barang retur ini. Terima atau tolak tugas.',
+                  style: tt.bodySmall?.copyWith(
+                    color: const Color(0xFF5B21B6),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ── Tombol Terima ─────────────────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: () => _onAccept(context, ref),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+            label: Text(
+              'Terima Tugas Retur',
+              style: tt.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(26)),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ── Tombol Tolak ─────────────────────────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: OutlinedButton.icon(
+            onPressed: () => _onReject(context, ref),
+            icon: Icon(Icons.cancel_outlined, size: 20, color: cs.error),
+            label: Text(
+              'Tolak Tugas Retur',
+              style: tt.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700, color: cs.error),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: cs.error.withOpacity(0.6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(26)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _onAccept(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Terima Tugas Retur',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+            'Kamu yakin ingin menerima tugas penjemputan barang retur ini?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Terima'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(orderRepositoryProvider).acceptReturn(task.orderId);
+      onAccepted();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _onReject(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tolak Tugas Retur',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+            'Tolak tugas ini? Seller akan mendapat notifikasi dan dapat menugaskan kurir lain.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ya, Tolak'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(orderRepositoryProvider).rejectReturnTask(task.orderId);
+      onRejected();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 }

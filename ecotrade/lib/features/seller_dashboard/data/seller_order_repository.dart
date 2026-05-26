@@ -297,19 +297,19 @@ class SellerOrderRepository {
 
     // (sellerIds sudah diambil di atas)
 
-    // 2. Batch write: approve return + assign courier
+    // 2. Batch write: approve return + assign courier (status: return_assigned = menunggu konfirmasi kurir)
     final batch = _db.batch();
     batch.set(_db.collection('returns').doc(returnId), {
       'status':            'approved',
       'sellerNote':        note,
       'returnCourierId':   courierId,
       'returnCourierName': courierName,
-      'orderStatus':       'return_approved',
+      'orderStatus':       'return_assigned',
       'sellerIds':         sellerIds, // Ensure sellerIds is present for legacy orders
       'updatedAt':         FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     batch.update(_orders.doc(orderId), {
-      'status':            'return_approved',
+      'status':            'return_assigned',
       'returnCourierId':   courierId,
       'returnCourierName': courierName,
       'updatedAt':         FieldValue.serverTimestamp(),
@@ -417,6 +417,81 @@ class SellerOrderRepository {
   // ── Re-assign ke kurir lain (dipanggil saat kurir tolak tugas) ───────────
   Future<void> reAssignCourier(String orderId, String rejectedCourierId) {
     return assignCourier(orderId, excludeCourierId: rejectedCourierId);
+  }
+
+  // ── Tugaskan ulang kurir untuk retur (setelah kurir menolak) ─────────────
+  /// Menemukan kurir aktif baru dan mengupdate KEDUA koleksi (orders + returns).
+  Future<void> reassignReturnCourier({
+    required String returnId,
+    required String orderId,
+    String? excludeCourierId,
+  }) async {
+    // Ambil kota seller
+    final orderSnap = await _orders.doc(orderId).get();
+    final sellerIds = orderSnap.data()?['sellerIds'] as List<dynamic>? ?? [];
+
+    String targetCity = 'Malang';
+    if (sellerIds.isNotEmpty) {
+      final sellerDoc = await _db.collection('users').doc(sellerIds.first).get();
+      if (sellerDoc.exists) {
+        final addresses = sellerDoc.data()?['addresses'] as List<dynamic>? ?? [];
+        if (addresses.isNotEmpty) {
+          targetCity = addresses.first['city'] as String? ?? 'Malang';
+        }
+      }
+    }
+
+    // Cari kurir aktif baru (kecualikan yang menolak)
+    String courierId = '';
+    String courierName = 'Kurir';
+
+    final activeSnap = await _db
+        .collection('courier_applications')
+        .where('status', isEqualTo: 'approved')
+        .where('isActive', isEqualTo: true)
+        .where('area', isEqualTo: targetCity)
+        .get();
+
+    var activeDocs = excludeCourierId != null
+        ? activeSnap.docs.where((d) => d.id != excludeCourierId).toList()
+        : activeSnap.docs.toList();
+
+    // Fallback: tanpa filter isActive
+    if (activeDocs.isEmpty) {
+      final allSnap = await _db
+          .collection('courier_applications')
+          .where('status', isEqualTo: 'approved')
+          .where('area', isEqualTo: targetCity)
+          .get();
+      activeDocs = excludeCourierId != null
+          ? allSnap.docs.where((d) => d.id != excludeCourierId).toList()
+          : allSnap.docs.toList();
+    }
+
+    if (activeDocs.isEmpty) {
+      throw Exception('Tidak ada kurir tersedia untuk ditugaskan ulang.');
+    }
+
+    activeDocs.shuffle();
+    final courierDoc = activeDocs.first;
+    courierId = courierDoc.id;
+    courierName = courierDoc.data()['fullName'] as String? ?? 'Kurir';
+
+    // Batch update kedua koleksi sekaligus
+    final batch = _db.batch();
+    batch.update(_orders.doc(orderId), {
+      'status':            'return_assigned',
+      'returnCourierId':   courierId,
+      'returnCourierName': courierName,
+      'updatedAt':         FieldValue.serverTimestamp(),
+    });
+    batch.set(_db.collection('returns').doc(returnId), {
+      'returnCourierId':   courierId,
+      'returnCourierName': courierName,
+      'orderStatus':       'return_assigned',
+      'updatedAt':         FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await batch.commit();
   }
 
   // ── Seller mark selesai → completed ──────────────────────────────────────
