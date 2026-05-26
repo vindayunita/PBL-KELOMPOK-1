@@ -8,9 +8,12 @@ part of 'buyer_dashboard_screen.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// Raw stream of all active products from Firestore
 
 @ProviderFor(marketListings)
 const marketListingsProvider = MarketListingsProvider._();
+
+/// Raw stream of all active products from Firestore
 
 final class MarketListingsProvider
     extends
@@ -22,6 +25,7 @@ final class MarketListingsProvider
     with
         $FutureModifier<List<ProductListing>>,
         $StreamProvider<List<ProductListing>> {
+  /// Raw stream of all active products from Firestore
   const MarketListingsProvider._()
     : super(
         from: null,
