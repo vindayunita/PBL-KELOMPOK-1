@@ -157,7 +157,7 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
     final statusColor = isPickedUp
         ? const Color(0xFFF59E0B)
         : isAssigned
-            ? const Color(0xFF7C3AED)
+            ? const Color(0xFF4A90E2)
             : const Color(0xFF3B82F6);
 
     return Padding(
@@ -412,7 +412,7 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
     final statusColor = isPickedUp
         ? const Color(0xFFF59E0B)
         : isAssigned
-            ? const Color(0xFF7C3AED)
+            ? const Color(0xFF4A90E2)
             : const Color(0xFF3B82F6);
 
     return SingleChildScrollView(
@@ -1184,20 +1184,20 @@ class _ReturnAcceptRejectButtons extends ConsumerWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withOpacity(0.08),
+            color: const Color(0xFF4A90E2).withOpacity(0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.25)),
+            border: Border.all(color: const Color(0xFF4A90E2).withOpacity(0.25)),
           ),
           child: Row(
             children: [
               const Icon(Icons.info_outline_rounded,
-                  color: Color(0xFF7C3AED), size: 20),
+                  color: Color(0xFF4A90E2), size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Seller telah menugaskan kamu untuk menjemput barang retur ini. Terima atau tolak tugas.',
                   style: tt.bodySmall?.copyWith(
-                    color: const Color(0xFF5B21B6),
+                    color: const Color(0xFF4A90E2),
                     height: 1.5,
                   ),
                 ),

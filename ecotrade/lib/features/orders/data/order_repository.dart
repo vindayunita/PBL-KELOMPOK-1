@@ -138,11 +138,28 @@ class OrderRepository {
   }
 
   // ── Kurir: ambil barang retur dari buyer (return_approved → return_picked_up) ──
-  Future<void> markReturnPickedUp(String orderId) {
-    return _orders.doc(orderId).update({
+  Future<void> markReturnPickedUp(String orderId) async {
+    final orderRef = _orders.doc(orderId);
+    final returnsSnap = await _db
+        .collection('returns')
+        .where('orderId', isEqualTo: orderId)
+        .limit(1)
+        .get();
+
+    final batch = _db.batch();
+    batch.update(orderRef, {
       'status':    'return_picked_up',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    if (returnsSnap.docs.isNotEmpty) {
+      batch.update(returnsSnap.docs.first.reference, {
+        'orderStatus': 'return_picked_up',
+        'updatedAt':   FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 
   // ── Kurir: terima tugas retur (return_assigned → return_approved) ─────────
@@ -208,6 +225,11 @@ class OrderRepository {
   // ── Kurir: serahkan barang ke seller (return_picked_up → return_completed) ──
   Future<void> markReturnDelivered(String orderId) async {
     final orderRef = _orders.doc(orderId);
+    final returnsSnap = await _db
+        .collection('returns')
+        .where('orderId', isEqualTo: orderId)
+        .limit(1)
+        .get();
     
     await _db.runTransaction((tx) async {
       final orderSnap = await tx.get(orderRef);
@@ -222,6 +244,13 @@ class OrderRepository {
         'status':    'return_completed',
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      if (returnsSnap.docs.isNotEmpty) {
+        tx.update(returnsSnap.docs.first.reference, {
+          'orderStatus': 'return_completed',
+          'updatedAt':   FieldValue.serverTimestamp(),
+        });
+      }
       
       // Tambahkan saldo refund ke pembeli
       if (buyerId != null && buyerId.isNotEmpty && total > 0) {

@@ -278,7 +278,7 @@ class _TaskCard extends ConsumerWidget {
           decoration: BoxDecoration(
               color: task.isPickedUp
                   ? const Color(0xFF0891B2)
-                  : const Color(0xFF7C3AED),
+                  : const Color(0xFF4A90E2),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(18))),
           child: Row(children: [
@@ -391,7 +391,7 @@ class _TaskCard extends ConsumerWidget {
                 context: context,
                 label: 'Ambil Barang di Seller',
                 icon: Icons.storefront_rounded,
-                color: const Color(0xFF7C3AED),
+                color: const Color(0xFF4A90E2),
                 onPressed: () => _markPickedUp(context, ref),
               ),
               const SizedBox(height: 10),
