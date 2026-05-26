@@ -281,6 +281,7 @@ class _OrderCard extends StatelessWidget {
     final isPending         = order.status == OrderStatus.pendingVerification;
     final isProcessing      = order.status == OrderStatus.processing ||
                               order.status == OrderStatus.verified;
+    final isSample          = order.firstItem?.purchaseType.toLowerCase() == 'sample';
 
     final rupiah = NumberFormat.currency(
         locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -706,24 +707,26 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: onReturn,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: cs.onSurface,
-                        side: BorderSide(
-                            color: cs.outline.withValues(alpha: 0.5),
-                            width: 1.5),
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                  if (!isSample) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onReturn,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: cs.onSurface,
+                          side: BorderSide(
+                              color: cs.outline.withValues(alpha: 0.5),
+                              width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Request Return',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700)),
                       ),
-                      child: const Text('Request Return',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
                     ),
-                  ),
-                  const SizedBox(width: 10),
+                    const SizedBox(width: 10),
+                  ],
                   Expanded(
                     child: ElevatedButton(
                       onPressed: onConfirm,
