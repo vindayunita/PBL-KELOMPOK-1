@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Status flow: pending → confirmed → assigned → picked_up → delivered
+// Return flow: return_requested → return_assigned (courier review) → return_approved → return_picked_up → return_completed
 enum OrderStatus {
   pending,
   confirmed,
@@ -9,49 +10,53 @@ enum OrderStatus {
   delivered,
   completed,
   returnRequested,
+  returnAssigned,
   returnApproved,
   returnPickedUp,
   returnCompleted;
 
   static OrderStatus fromString(String s) {
     switch (s) {
-      case 'confirmed':  return OrderStatus.confirmed;
-      case 'assigned':   return OrderStatus.assigned;
-      case 'picked_up':  return OrderStatus.pickedUp;
-      case 'delivered':  return OrderStatus.delivered;
-      case 'completed':  return OrderStatus.completed;
-      case 'return_requested': return OrderStatus.returnRequested;
-      case 'return_approved':  return OrderStatus.returnApproved;
-      case 'return_picked_up': return OrderStatus.returnPickedUp;
-      case 'return_completed': return OrderStatus.returnCompleted;
-      default:           return OrderStatus.pending;
+      case 'confirmed':       return OrderStatus.confirmed;
+      case 'assigned':        return OrderStatus.assigned;
+      case 'picked_up':       return OrderStatus.pickedUp;
+      case 'delivered':       return OrderStatus.delivered;
+      case 'completed':       return OrderStatus.completed;
+      case 'return_requested':  return OrderStatus.returnRequested;
+      case 'return_assigned':   return OrderStatus.returnAssigned;
+      case 'return_approved':   return OrderStatus.returnApproved;
+      case 'return_picked_up':  return OrderStatus.returnPickedUp;
+      case 'return_completed':  return OrderStatus.returnCompleted;
+      default:                return OrderStatus.pending;
     }
   }
 
   String toJson() {
     switch (this) {
-      case OrderStatus.confirmed:  return 'confirmed';
-      case OrderStatus.assigned:   return 'assigned';
-      case OrderStatus.pickedUp:   return 'picked_up';
-      case OrderStatus.delivered:  return 'delivered';
-      case OrderStatus.completed:  return 'completed';
+      case OrderStatus.confirmed:       return 'confirmed';
+      case OrderStatus.assigned:        return 'assigned';
+      case OrderStatus.pickedUp:        return 'picked_up';
+      case OrderStatus.delivered:       return 'delivered';
+      case OrderStatus.completed:       return 'completed';
       case OrderStatus.returnRequested: return 'return_requested';
+      case OrderStatus.returnAssigned:  return 'return_assigned';
       case OrderStatus.returnApproved:  return 'return_approved';
       case OrderStatus.returnPickedUp:  return 'return_picked_up';
       case OrderStatus.returnCompleted: return 'return_completed';
-      case OrderStatus.pending:    return 'pending';
+      case OrderStatus.pending:         return 'pending';
     }
   }
 
   String get label {
     switch (this) {
-      case OrderStatus.pending:    return 'Menunggu Konfirmasi';
-      case OrderStatus.confirmed:  return 'Dikonfirmasi Seller';
-      case OrderStatus.assigned:   return 'Kurir Ditugaskan';
-      case OrderStatus.pickedUp:   return 'Dalam Pengiriman';
-      case OrderStatus.delivered:  return 'Terkirim';
-      case OrderStatus.completed:  return 'Selesai';
+      case OrderStatus.pending:         return 'Menunggu Konfirmasi';
+      case OrderStatus.confirmed:       return 'Dikonfirmasi Seller';
+      case OrderStatus.assigned:        return 'Kurir Ditugaskan';
+      case OrderStatus.pickedUp:        return 'Dalam Pengiriman';
+      case OrderStatus.delivered:       return 'Terkirim';
+      case OrderStatus.completed:       return 'Selesai';
       case OrderStatus.returnRequested: return 'Permintaan Retur';
+      case OrderStatus.returnAssigned:  return 'Menunggu Konfirmasi Kurir';
       case OrderStatus.returnApproved:  return 'Retur Disetujui';
       case OrderStatus.returnPickedUp:  return 'Kurir Menjemput Retur';
       case OrderStatus.returnCompleted: return 'Retur Selesai';
@@ -109,10 +114,11 @@ class OrderModel {
   bool get isDelivered => status == OrderStatus.delivered;
   bool get isCompleted => status == OrderStatus.completed;
   bool get isReturnRequested => status == OrderStatus.returnRequested;
+  bool get isReturnAssigned  => status == OrderStatus.returnAssigned;
   bool get isReturnApproved  => status == OrderStatus.returnApproved;
   bool get isReturnPickedUp  => status == OrderStatus.returnPickedUp;
   bool get isReturnCompleted => status == OrderStatus.returnCompleted;
-  bool get isReturnRelated   => isReturnRequested || isReturnApproved || isReturnPickedUp || isReturnCompleted;
+  bool get isReturnRelated   => isReturnRequested || isReturnAssigned || isReturnApproved || isReturnPickedUp || isReturnCompleted;
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;

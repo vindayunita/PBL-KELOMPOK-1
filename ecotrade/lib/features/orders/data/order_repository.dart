@@ -43,7 +43,7 @@ class OrderRepository {
 
   // ── Kurir: stream tugas retur yang di-assign ke kurir tertentu ─────────────
   /// Query berdasarkan `returnCourierId` lalu filter client-side
-  /// untuk status `return_approved` dan `return_picked_up`.
+  /// untuk status `return_assigned`, `return_approved`, dan `return_picked_up`.
   Stream<List<OrderModel>> watchReturnTasksByCourier(String courierId) {
     return _orders
         .where('returnCourierId', isEqualTo: courierId)
@@ -52,6 +52,7 @@ class OrderRepository {
           final list = snap.docs
               .map(OrderModel.fromFirestore)
               .where((o) =>
+                  o.status == OrderStatus.returnAssigned ||
                   o.status == OrderStatus.returnApproved ||
                   o.status == OrderStatus.returnPickedUp)
               .toList();
@@ -142,6 +143,66 @@ class OrderRepository {
       'status':    'return_picked_up',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  // ── Kurir: terima tugas retur (return_assigned → return_approved) ─────────
+  /// Juga menyinkronkan koleksi `returns` agar seller dashboard ikut update.
+  Future<void> acceptReturn(String orderId) async {
+    final batch = _db.batch();
+
+    // Update orders
+    batch.update(_orders.doc(orderId), {
+      'status':    'return_approved',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Cari dokumen returns yang terkait dengan orderId ini lalu sync
+    final returnsSnap = await _db
+        .collection('returns')
+        .where('orderId', isEqualTo: orderId)
+        .limit(1)
+        .get();
+    if (returnsSnap.docs.isNotEmpty) {
+      batch.update(returnsSnap.docs.first.reference, {
+        'orderStatus': 'return_approved',
+        'updatedAt':   FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  // ── Kurir: tolak tugas retur (return_assigned → return_requested) ─────────
+  /// Menghapus penugasan kurir sehingga seller bisa assign ulang.
+  /// Juga menyinkronkan koleksi `returns` agar seller tahu kurir menolak.
+  Future<void> rejectReturnTask(String orderId) async {
+    final batch = _db.batch();
+
+    // Update orders — hapus info kurir, kembali ke return_requested
+    batch.update(_orders.doc(orderId), {
+      'status':            'return_requested',
+      'returnCourierId':   FieldValue.delete(),
+      'returnCourierName': FieldValue.delete(),
+      'updatedAt':         FieldValue.serverTimestamp(),
+    });
+
+    // Sync ke returns — pertahankan status='approved' (seller sudah setuju)
+    // tapi reset orderStatus + courier agar seller bisa assign ulang
+    final returnsSnap = await _db
+        .collection('returns')
+        .where('orderId', isEqualTo: orderId)
+        .limit(1)
+        .get();
+    if (returnsSnap.docs.isNotEmpty) {
+      batch.update(returnsSnap.docs.first.reference, {
+        'orderStatus':       'return_requested',
+        'returnCourierId':   FieldValue.delete(),
+        'returnCourierName': FieldValue.delete(),
+        'updatedAt':         FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 
   // ── Kurir: serahkan barang ke seller (return_picked_up → return_completed) ──

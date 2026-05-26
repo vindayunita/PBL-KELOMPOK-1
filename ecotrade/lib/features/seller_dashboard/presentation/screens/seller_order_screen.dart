@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -639,11 +639,64 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             ),
           ])
         else if (ret.status == ReturnStatus.approved) ...[
-          _buildReturnProgressTracker(
-            courierName: ret.returnCourierName,
-            isPickedUp: ret.orderStatus == 'returnPickedUp' || ret.orderStatus == 'return_picked_up',
-            isCompleted: ret.orderStatus == 'returnCompleted' || ret.orderStatus == 'return_completed',
-          ),
+          // ── State: kurir menolak → seller perlu assign ulang ──────────────
+          if (ret.orderStatus == 'return_requested') ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFE65100)),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Kurir menolak tugas. Tugaskan kurir lain.',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                          color: Color(0xFFE65100)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _handleReassignReturnCourier(ret),
+                icon: const Icon(Icons.person_search_rounded, size: 16),
+                label: const Text('Cari & Tugaskan Kurir Lain',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE65100),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          // ── State: menunggu kurir konfirmasi (return_assigned) ──────────────
+          ] else if (ret.orderStatus == 'return_assigned') ...[
+            _buildReturnProgressTracker(
+              courierName: ret.returnCourierName,
+              isWaitingCourier: true,
+              isPickedUp: false,
+              isCompleted: false,
+            ),
+          // ── State: kurir sudah terima & progress berjalan ──────────────────
+          ] else ...[
+            _buildReturnProgressTracker(
+              courierName: ret.returnCourierName,
+              isWaitingCourier: false,
+              isPickedUp: ret.orderStatus == 'returnPickedUp' || ret.orderStatus == 'return_picked_up',
+              isCompleted: ret.orderStatus == 'returnCompleted' || ret.orderStatus == 'return_completed',
+            ),
+          ],
         ] else if (ret.status == ReturnStatus.rejected) ...[
           Container(
             width: double.infinity,
@@ -668,35 +721,45 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     );
   }
 
-  // ── Return Progress Tracker (approved → picked_up → completed) ────────────
+  // ── Return Progress Tracker ──────────────────────────────────────────────
   Widget _buildReturnProgressTracker({
     String? courierName,
+    required bool isWaitingCourier, // return_assigned: menunggu konfirmasi kurir
     required bool isPickedUp,
     required bool isCompleted,
   }) {
-    const activeColor  = Color(0xFF2E7D32);
+    const activeColor   = Color(0xFF2E7D32);
+    const pendingColor  = Color(0xFFF59E0B); // amber = menunggu
     const inactiveColor = Color(0xFFBDBDBD);
+
+    final courierSubLabel = courierName != null && courierName.isNotEmpty
+        ? 'Kurir: $courierName'
+        : 'Menunggu kurir...';
 
     final steps = [
       (
         label: 'Disetujui',
         sublabel: 'Seller telah menyetujui retur',
         icon: Icons.check_circle_rounded,
-        active: true,
+        color: activeColor,
+      ),
+      (
+        label: 'Menunggu Konfirmasi Kurir',
+        sublabel: isWaitingCourier ? courierSubLabel : (isPickedUp || isCompleted ? 'Kurir mengkonfirmasi' : ''),
+        icon: Icons.hourglass_top_rounded,
+        color: isWaitingCourier ? pendingColor : (isPickedUp || isCompleted ? activeColor : inactiveColor),
       ),
       (
         label: 'Kurir Menjemput',
-        sublabel: courierName != null && courierName.isNotEmpty
-            ? 'Kurir: $courierName'
-            : 'Menunggu penjemputan',
+        sublabel: isPickedUp || isCompleted ? courierSubLabel : 'Menunggu penjemputan',
         icon: Icons.local_shipping_rounded,
-        active: isPickedUp || isCompleted,
+        color: isPickedUp || isCompleted ? activeColor : inactiveColor,
       ),
       (
         label: 'Barang Tiba',
         sublabel: isCompleted ? 'Barang telah kembali ke seller' : 'Menunggu pengiriman ke seller',
         icon: Icons.inventory_2_rounded,
-        active: isCompleted,
+        color: isCompleted ? activeColor : inactiveColor,
       ),
     ];
 
@@ -704,18 +767,23 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
+        color: isWaitingCourier ? const Color(0xFFFFFDE7) : const Color(0xFFE8F5E9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: activeColor.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: isWaitingCourier
+              ? pendingColor.withValues(alpha: 0.35)
+              : activeColor.withValues(alpha: 0.25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PROGRESS RETUR',
+          Text(
+            isWaitingCourier ? 'MENUNGGU KONFIRMASI KURIR' : 'PROGRESS RETUR',
             style: TextStyle(
               fontSize: 9, fontWeight: FontWeight.w800,
-              color: activeColor, letterSpacing: 0.8,
+              color: isWaitingCourier ? pendingColor : activeColor,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 10),
@@ -731,7 +799,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                     Container(
                       width: 24, height: 24,
                       decoration: BoxDecoration(
-                        color: step.active ? activeColor : inactiveColor,
+                        color: step.color,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(step.icon, size: 13, color: Colors.white),
@@ -739,7 +807,9 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                     if (!isLast)
                       Container(
                         width: 2, height: 24,
-                        color: step.active ? activeColor.withValues(alpha: 0.4) : inactiveColor.withValues(alpha: 0.3),
+                        color: step.color == inactiveColor
+                            ? inactiveColor.withValues(alpha: 0.3)
+                            : step.color.withValues(alpha: 0.4),
                       ),
                   ],
                 ),
@@ -754,17 +824,19 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                           step.label,
                           style: TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w700,
-                            color: step.active ? activeColor : inactiveColor,
+                            color: step.color,
                           ),
                         ),
-                        Text(
-                          step.sublabel,
-                          style: TextStyle(
-                            fontSize: 11, color: step.active
-                                ? activeColor.withValues(alpha: 0.8)
-                                : inactiveColor,
+                        if (step.sublabel.isNotEmpty)
+                          Text(
+                            step.sublabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: step.color == inactiveColor
+                                  ? inactiveColor
+                                  : step.color.withValues(alpha: 0.8),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -1500,6 +1572,52 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  // ── Tugaskan Ulang Kurir (setelah kurir menolak return task) ──────────────
+  Future<void> _handleReassignReturnCourier(ReturnModel ret) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cari Kurir Lain', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+          'Sistem akan otomatis mencari dan menugaskan kurir aktif lain untuk menjemput barang retur ini.',
+          style: TextStyle(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE65100), foregroundColor: Colors.white),
+            child: const Text('Tugaskan Ulang'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final repo = ref.read(sellerOrderRepositoryProvider);
+    try {
+      await repo.reassignReturnCourier(
+        returnId: ret.returnId,
+        orderId:  ret.orderId,
+        excludeCourierId: ret.returnCourierId,
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('🚚 Kurir baru berhasil ditugaskan untuk retur!'),
+        backgroundColor: const Color(0xFFE65100),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Gagal: ${e.toString().replaceFirst('Exception: ', '')}'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 
