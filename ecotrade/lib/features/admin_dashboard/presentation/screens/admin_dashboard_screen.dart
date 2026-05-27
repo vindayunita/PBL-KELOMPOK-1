@@ -5,6 +5,8 @@ import '../../../../features/auth/domain/auth_providers.dart';
 import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import '../../data/payout_model.dart';
+import '../../domain/payout_providers.dart';
 import 'admin_alerts_screen.dart';
 import 'admin_payout_screen.dart';
 import 'admin_profile_screen.dart';
@@ -49,12 +51,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final sellerAsync   = ref.watch(allSellerApplicationsProvider(null));
     final courierAsync  = ref.watch(allCourierApplicationsProvider(null));
     final paymentAsync  = ref.watch(allOrdersStreamProvider(status: 'pending_verification'));
+    final sellerPayoutsAsync = ref.watch(payoutsByRoleProvider('seller'));
+    final buyerPayoutsAsync  = ref.watch(payoutsByRoleProvider('buyer'));
     final pendingSellers  =
         sellerAsync.value?.where((a) => a.isPending).length ?? 0;
     final pendingCouriers =
         courierAsync.value?.where((a) => a.isPending).length ?? 0;
     final pendingPayments = paymentAsync.value?.length ?? 0;
-    final totalPending = pendingSellers + pendingCouriers + pendingPayments;
+    final pendingPayoutSellers = sellerPayoutsAsync.value
+        ?.where((p) => p.status == PayoutStatus.pending).length ?? 0;
+    final pendingRefundProcess = buyerPayoutsAsync.value
+        ?.where((p) => p.status == PayoutStatus.pending).length ?? 0;
+    final totalPending = pendingSellers + pendingCouriers + pendingPayments
+        + pendingPayoutSellers + pendingRefundProcess;
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
@@ -111,7 +120,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    
+
                     // ── Stats Grid ──
                     GridView.count(
                       crossAxisCount: 2,
@@ -121,29 +130,35 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       crossAxisSpacing: 14,
                       childAspectRatio: 1.3,
                       children: [
+                        // Biru — Verify Courier
                         _AdminStatCard(
-                          label: 'Pending Counter',
-                          value: '0',
-                          icon: Icons.pending_actions_rounded,
-                          color: colorScheme.primary,
-                          onTap: () {},
+                          label: 'Verify Courier',
+                          value: '$pendingCouriers',
+                          icon: Icons.delivery_dining_rounded,
+                          color: const Color(0xFF0277BD),
+                          onTap: () => _navigateFromAlert(1, 0),
                           actionLabel: 'Verify Now',
+                          isLive: pendingCouriers > 0,
                         ),
+                        // Hijau — Verify Payment
                         _AdminStatCard(
-                          label: 'Total Pending',
-                          value: 'Rp 0',
-                          icon: Icons.payments_outlined,
-                          color: colorScheme.tertiary,
-                          onTap: () {},
+                          label: 'Verify Payment',
+                          value: '$pendingPayments',
+                          icon: Icons.credit_card_rounded,
+                          color: const Color(0xFF00695C),
+                          onTap: () => _navigateFromAlert(1, 1),
                           actionLabel: 'Approve All',
+                          isLive: pendingPayments > 0,
                         ),
+                        // Merah — Refund Claims
                         _AdminStatCard(
                           label: 'Refund Claims',
-                          value: '0',
-                          icon: Icons.assignment_return_outlined,
+                          value: '$pendingRefundProcess',
+                          icon: Icons.assignment_return_rounded,
                           color: colorScheme.error,
-                          onTap: () {},
-                          actionLabel: 'Auth Claims',
+                          onTap: () => _navigateFromAlert(2, 1),
+                          actionLabel: 'Review Claims',
+                          isLive: pendingRefundProcess > 0,
                         ),
                       ],
                     ),
@@ -299,7 +314,7 @@ class _EmptyActivityState extends StatelessWidget {
 }
 
 // ── Admin Stat Card ───────────────────────────────────────────────────────────
-class _AdminStatCard extends StatelessWidget {
+class _AdminStatCard extends StatefulWidget {
   const _AdminStatCard({
     required this.label,
     required this.value,
@@ -307,6 +322,7 @@ class _AdminStatCard extends StatelessWidget {
     required this.color,
     required this.onTap,
     required this.actionLabel,
+    this.isLive = false,
   });
 
   final String label;
@@ -315,61 +331,144 @@ class _AdminStatCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final String actionLabel;
+  /// Jika true, tampilkan badge merah berdenyut + border highlight
+  final bool isLive;
+
+  @override
+  State<_AdminStatCard> createState() => _AdminStatCardState();
+}
+
+class _AdminStatCardState extends State<_AdminStatCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _scale = Tween<double>(begin: 0.85, end: 1.15).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+    if (widget.isLive) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_AdminStatCard old) {
+    super.didUpdateWidget(old);
+    if (widget.isLive && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!widget.isLive && _pulse.isAnimating) {
+      _pulse.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final live = widget.isLive;
 
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
+          color: live
+              ? widget.color.withValues(alpha: 0.13)
+              : widget.color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(
+            color: live
+                ? widget.color.withValues(alpha: 0.55)
+                : widget.color.withValues(alpha: 0.18),
+            width: live ? 1.5 : 1.0,
+          ),
+          boxShadow: live
+              ? [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ── Icon row + live badge ──
             Row(
               children: [
-                Icon(icon, color: color, size: 20),
+                Icon(widget.icon, color: widget.color, size: 20),
                 const Spacer(),
+                if (live)
+                  ScaleTransition(
+                    scale: _scale,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: cs.error,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: cs.error.withValues(alpha: 0.5),
+                            blurRadius: 5,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
+            // ── Count value ──
             Text(
-              value,
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: colorScheme.onSurface,
+              widget.value,
+              style: tt.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: live ? widget.color : cs.onSurface,
+                height: 1.0,
               ),
             ),
+            const SizedBox(height: 2),
             Text(
-              label,
-              style: textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
+              widget.label,
+              style: tt.labelSmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: live ? 0.75 : 0.55),
+                fontWeight: live ? FontWeight.w600 : FontWeight.w400,
               ),
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
+            // ── Action label ──
             Row(
               children: [
                 Flexible(
                   child: Text(
-                    actionLabel,
-                    style: textTheme.labelSmall?.copyWith(
-                      color: color,
+                    widget.actionLabel,
+                    style: tt.labelSmall?.copyWith(
+                      color: widget.color,
                       fontWeight: FontWeight.w700,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward_rounded, color: color, size: 12),
+                const SizedBox(width: 3),
+                Icon(Icons.arrow_forward_rounded, color: widget.color, size: 12),
               ],
             ),
           ],
@@ -378,4 +477,5 @@ class _AdminStatCard extends StatelessWidget {
     );
   }
 }
+
 

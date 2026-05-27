@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import '../../data/payout_model.dart';
+import '../../domain/payout_providers.dart';
 
 // ── Main Widget ───────────────────────────────────────────────────────────────
 class AdminAlertsScreen extends ConsumerWidget {
@@ -33,10 +35,18 @@ class AdminAlertsScreen extends ConsumerWidget {
         allOrdersStreamProvider(status: 'pending_verification'));
     final pendingPayments = paymentAsync.value?.length ?? 0;
 
-    // Placeholder counts — replace when real models are wired
-    const pendingRefunds       = 0;
-    const pendingPayoutSellers = 0;
-    const pendingRefundProcess = 0;
+    // Live payout counts
+    final sellerPayoutsAsync = ref.watch(payoutsByRoleProvider('seller'));
+    final buyerPayoutsAsync  = ref.watch(payoutsByRoleProvider('buyer'));
+    final pendingPayoutSellers = sellerPayoutsAsync.value
+            ?.where((p) => p.status == PayoutStatus.pending)
+            .length ?? 0;
+    final pendingRefundProcess = buyerPayoutsAsync.value
+            ?.where((p) => p.status == PayoutStatus.pending)
+            .length ?? 0;
+
+    // Placeholder — replace when refund-claim model is wired
+    const pendingRefunds = 0;
 
     final totalPending = pendingSellers +
         pendingCouriers +
