@@ -346,12 +346,40 @@ class SellerOrderRepository {
   }
 
   // ── Seller tolak order → rejected ────────────────────────────────────────
+  /// Menolak order dan mengembalikan stok produk yang sudah dikurangi
+  /// saat admin memverifikasi pembayaran.
   Future<void> rejectOrder(String orderId, String reason) async {
-    await _orders.doc(orderId).update({
+    // 1. Baca order untuk mendapatkan items dan mengembalikan stok
+    final orderSnap = await _orders.doc(orderId).get();
+    if (!orderSnap.exists) throw Exception('Order $orderId tidak ditemukan');
+
+    final data     = orderSnap.data()!;
+    final rawItems = data['items'] as List<dynamic>? ?? [];
+
+    final batch = _db.batch();
+
+    // 2. Update status order
+    batch.update(_orders.doc(orderId), {
       'status':          'rejected',
       'rejectionReason': reason,
       'updatedAt':       FieldValue.serverTimestamp(),
     });
+
+    // 3. Kembalikan stok setiap produk
+    for (final raw in rawItems) {
+      final item      = raw as Map<String, dynamic>;
+      final productId = item['productId'] as String?;
+      final quantity  = (item['quantity'] as num?)?.toInt() ?? 0;
+      if (productId == null || productId.isEmpty || quantity <= 0) continue;
+
+      final productRef = _db.collection('products').doc(productId);
+      batch.update(productRef, {
+        'stock':     FieldValue.increment(quantity),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
   }
 
   // ── Seller assign kurir otomatis → assigned ──────────────────────────────
