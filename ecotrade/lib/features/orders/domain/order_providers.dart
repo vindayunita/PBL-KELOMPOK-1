@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../auth/domain/auth_providers.dart';
 import '../data/order_repository.dart';
 import '../domain/order_model.dart';
 
@@ -9,37 +10,35 @@ part 'order_providers.g.dart';
 /// Stream orders milik seller yang sedang login
 @riverpod
 Stream<List<OrderModel>> mySellerOrders(Ref ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
-    if (user == null) return const Stream.empty();
-    return ref.watch(orderRepositoryProvider).watchOrdersBySeller(user.uid);
-  });
+  // Gunakan currentUserProvider dari Riverpod agar reaktif terhadap perubahan auth
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const Stream.empty();
+  return ref.watch(orderRepositoryProvider).watchOrdersBySeller(user.uid);
 }
 
-/// Stream tugas aktif kurir yang sedang login
+/// Stream SEMUA tugas kurir yang sedang login (tanpa filter status)
+/// Filter dilakukan di UI untuk fleksibilitas
 @riverpod
 Stream<List<OrderModel>> myCourierTasks(Ref ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
-    if (user == null) return const Stream.empty();
-    return ref.watch(orderRepositoryProvider).watchOrdersByCourier(user.uid);
-  });
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const Stream.empty();
+  return ref.watch(orderRepositoryProvider).watchOrdersByCourier(user.uid);
 }
 
-/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+/// Stream tugas retur kurir yang sedang login
 @riverpod
 Stream<List<OrderModel>> myCourierReturnTasks(Ref ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
-    if (user == null) return const Stream.empty();
-    return ref.watch(orderRepositoryProvider).watchReturnTasksByCourier(user.uid);
-  });
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const Stream.empty();
+  return ref.watch(orderRepositoryProvider).watchReturnTasksByCourier(user.uid);
 }
 
 /// Stream tugas retur SELESAI kurir yang sedang login
 @riverpod
 Stream<List<OrderModel>> myCourierHistoryReturnTasks(Ref ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncExpand((user) {
-    if (user == null) return const Stream.empty();
-    return ref.watch(orderRepositoryProvider).watchHistoryReturnTasksByCourier(user.uid);
-  });
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const Stream.empty();
+  return ref.watch(orderRepositoryProvider).watchHistoryReturnTasksByCourier(user.uid);
 }
 
 /// Stream orders berdasarkan status (untuk admin)

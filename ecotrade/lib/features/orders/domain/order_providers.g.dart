@@ -50,14 +50,16 @@ final class MySellerOrdersProvider
   }
 }
 
-String _$mySellerOrdersHash() => r'34fba19a85f4c7fea91e6f2df3ce5243b009b463';
+String _$mySellerOrdersHash() => r'7925c938e8af3fd4bc271e368ee4807a4823700f';
 
-/// Stream tugas aktif kurir yang sedang login
+/// Stream SEMUA tugas kurir yang sedang login (tanpa filter status)
+/// Filter dilakukan di UI untuk fleksibilitas
 
 @ProviderFor(myCourierTasks)
 const myCourierTasksProvider = MyCourierTasksProvider._();
 
-/// Stream tugas aktif kurir yang sedang login
+/// Stream SEMUA tugas kurir yang sedang login (tanpa filter status)
+/// Filter dilakukan di UI untuk fleksibilitas
 
 final class MyCourierTasksProvider
     extends
@@ -67,7 +69,8 @@ final class MyCourierTasksProvider
           Stream<List<OrderModel>>
         >
     with $FutureModifier<List<OrderModel>>, $StreamProvider<List<OrderModel>> {
-  /// Stream tugas aktif kurir yang sedang login
+  /// Stream SEMUA tugas kurir yang sedang login (tanpa filter status)
+  /// Filter dilakukan di UI untuk fleksibilitas
   const MyCourierTasksProvider._()
     : super(
         from: null,
@@ -94,14 +97,14 @@ final class MyCourierTasksProvider
   }
 }
 
-String _$myCourierTasksHash() => r'c5a650c201ad7bf8135f711f9eef6708be493674';
+String _$myCourierTasksHash() => r'f543425ade32e8d3a4285040c0e9fc647f1ca6f3';
 
-/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+/// Stream tugas retur kurir yang sedang login
 
 @ProviderFor(myCourierReturnTasks)
 const myCourierReturnTasksProvider = MyCourierReturnTasksProvider._();
 
-/// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+/// Stream tugas retur kurir yang sedang login
 
 final class MyCourierReturnTasksProvider
     extends
@@ -111,7 +114,7 @@ final class MyCourierReturnTasksProvider
           Stream<List<OrderModel>>
         >
     with $FutureModifier<List<OrderModel>>, $StreamProvider<List<OrderModel>> {
-  /// Stream tugas retur kurir yang sedang login (return_approved / return_picked_up)
+  /// Stream tugas retur kurir yang sedang login
   const MyCourierReturnTasksProvider._()
     : super(
         from: null,
@@ -139,7 +142,7 @@ final class MyCourierReturnTasksProvider
 }
 
 String _$myCourierReturnTasksHash() =>
-    r'd1cc371dc3b9f19d148c96d72bdfcf068ccc53c1';
+    r'5721529da86dfd16c9b9ff24bf4d095294778b21';
 
 /// Stream tugas retur SELESAI kurir yang sedang login
 
@@ -185,7 +188,7 @@ final class MyCourierHistoryReturnTasksProvider
 }
 
 String _$myCourierHistoryReturnTasksHash() =>
-    r'c48b91540eb2ba8ab581beeacb7d838dea092e9d';
+    r'c4f8468b29909fd261d04b0858e9c8bd5fe2679a';
 
 /// Stream orders berdasarkan status (untuk admin)
 

@@ -62,9 +62,10 @@ class CourierApplicationRepository {
   // ── Admin: approve ─────────────────────────────────────────────────────────
   Future<void> approveApplication(String uid) async {
     final batch = _db.batch();
-    // 1. Update status aplikasi
+    // 1. Update status aplikasi + set isActive = true agar kurir langsung bisa bekerja
     batch.update(_apps.doc(uid), {
       'status':     'approved',
+      'isActive':   true,        // ← penting: kurir harus aktif setelah di-approve
       'reviewedAt': DateTime.now().toIso8601String(),
       'updatedAt':  FieldValue.serverTimestamp(),
     });

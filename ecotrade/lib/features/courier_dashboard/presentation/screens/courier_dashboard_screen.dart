@@ -35,12 +35,16 @@ class _CourierDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
-    final user      = ref.watch(currentUserProvider);
-    final uid       = user?.uid ?? '';
-    final appAsync  = uid.isNotEmpty
+    final user       = ref.watch(currentUserProvider);
+    final uid        = user?.uid ?? '';
+    final appAsync   = uid.isNotEmpty
         ? ref.watch(courierApplicationByUidProvider(uid))
         : const AsyncData<CourierApplicationModel?>(null);
-    final isActive  = appAsync.asData?.value?.isActive ?? false;
+    final courierApp = appAsync.asData?.value;
+    final isActive   = courierApp?.isActive ?? false;
+    // Kurir yang sudah approved bisa akses tab Tugas
+    // isActive hanya mengontrol penerimaan penugasan baru, bukan akses UI
+    final isApproved = courierApp?.isApproved ?? false;
 
     final tasksAsync = ref.watch(myCourierTasksProvider);
     final returnTasksAsync = ref.watch(myCourierReturnTasksProvider);
@@ -64,8 +68,9 @@ class _CourierDashboardScreenState
             isActive: isActive,
             onGoToTugas: () => setState(() => _selectedIndex = 1),
           ),
-          // Gate: tampilkan layar terkunci jika kurir tidak aktif
-          isActive
+          // Gate: kurir approved selalu bisa lihat tugas;
+          // hanya yang belum approved yang melihat layar terkunci
+          isApproved
               ? const CourierTugasScreen()
               : _LockedTugasScreen(
                   onGoToProfile: () =>
