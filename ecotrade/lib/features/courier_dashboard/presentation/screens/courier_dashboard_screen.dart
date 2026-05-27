@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/data/auth_repository.dart';
 import '../../../auth/domain/auth_providers.dart';
 import '../../data/courier_application_repository.dart';
 import '../../domain/models/courier_application_model.dart';
@@ -33,6 +32,15 @@ class _CourierDashboardScreenState
     extends ConsumerState<CourierDashboardScreen> {
   int _selectedIndex = 0;
 
+  /// Mengontrol sub-tab aktif di CourierTugasScreen (0 = Tugas Aktif, 1 = Retur)
+  final _tugasTabNotifier = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _tugasTabNotifier.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final user       = ref.watch(currentUserProvider);
@@ -54,7 +62,10 @@ class _CourierDashboardScreenState
 
     final activeTasks = [
       ...allTasks.where((t) => t.isAssigned || t.isPickedUp),
-      ...allReturnTasks.where((t) => t.status == OrderStatus.returnApproved || t.status == OrderStatus.returnPickedUp),
+      ...allReturnTasks.where((t) =>
+          t.status == OrderStatus.returnAssigned ||
+          t.status == OrderStatus.returnApproved ||
+          t.status == OrderStatus.returnPickedUp),
     ];
 
     return Scaffold(
@@ -66,12 +77,19 @@ class _CourierDashboardScreenState
             courierName: widget.courierName,
             tasks: activeTasks,
             isActive: isActive,
-            onGoToTugas: () => setState(() => _selectedIndex = 1),
+            onGoToTugas: () {
+              _tugasTabNotifier.value = 0;
+              setState(() => _selectedIndex = 1);
+            },
+            onGoToReturn: () {
+              _tugasTabNotifier.value = 1;
+              setState(() => _selectedIndex = 1);
+            },
           ),
           // Gate: kurir approved selalu bisa lihat tugas;
           // hanya yang belum approved yang melihat layar terkunci
           isApproved
-              ? const CourierTugasScreen()
+              ? CourierTugasScreen(tabNotifier: _tugasTabNotifier)
               : _LockedTugasScreen(
                   onGoToProfile: () =>
                       setState(() => _selectedIndex = 3),
@@ -103,12 +121,14 @@ class _HomeTab extends StatelessWidget {
     required this.tasks,
     required this.isActive,
     required this.onGoToTugas,
+    required this.onGoToReturn,
   });
 
   final String courierName;
   final List<OrderModel> tasks;
   final bool isActive;
   final VoidCallback onGoToTugas;
+  final VoidCallback onGoToReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +171,13 @@ class _HomeTab extends StatelessWidget {
                   // ── Hero Banner ──────────────────────────────────────────
                   _HeroBanner(
                     courierName: firstName,
-                    taskCount: tasks.length,
+                    taskCount: tasks.where((t) =>
+                        t.status == OrderStatus.assigned ||
+                        t.status == OrderStatus.pickedUp).length,
+                    returnTaskCount: tasks.where((t) =>
+                        t.status == OrderStatus.returnAssigned ||
+                        t.status == OrderStatus.returnApproved ||
+                        t.status == OrderStatus.returnPickedUp).length,
                     isActive: isActive,
                   ),
 
@@ -196,7 +222,7 @@ class _HomeTab extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Tugas Pengantaran\nTersedia',
+                        'Tugas Aktif Saya',
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
@@ -240,9 +266,13 @@ class _HomeTab extends StatelessWidget {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final task = tasks[index];
+                    final isReturnTask =
+                        task.status == OrderStatus.returnAssigned ||
+                        task.status == OrderStatus.returnApproved ||
+                        task.status == OrderStatus.returnPickedUp;
                     return _TaskCard(
                       task: task,
-                      onAccept: onGoToTugas,
+                      onAccept: isReturnTask ? onGoToReturn : onGoToTugas,
                       onReject: () {
                         // TODO: implementasi tolak tugas
                       },
@@ -267,11 +297,13 @@ class _HeroBanner extends StatelessWidget {
   const _HeroBanner({
     required this.courierName,
     required this.taskCount,
+    required this.returnTaskCount,
     required this.isActive,
   });
 
   final String courierName;
   final int taskCount;
+  final int returnTaskCount;
   final bool isActive;
 
   @override
@@ -345,9 +377,17 @@ class _HeroBanner extends StatelessWidget {
           const SizedBox(height: 6),
 
           Text(
-            taskCount == 0
-                ? 'Belum ada tugas pengantaran\naktif saat ini.'
-                : 'Ada $taskCount tugas pengantaran\nyang sedang kamu tangani.',
+            () {
+              if (taskCount == 0 && returnTaskCount == 0) {
+                return 'Belum ada tugas pengantaran\naktif saat ini.';
+              } else if (returnTaskCount > 0 && taskCount == 0) {
+                return 'Ada $returnTaskCount tugas RETUR\nyang perlu kamu selesaikan.';
+              } else if (returnTaskCount > 0) {
+                return 'Ada $taskCount tugas antar + $returnTaskCount tugas\nretur yang sedang aktif.';
+              } else {
+                return 'Ada $taskCount tugas pengantaran\nyang sedang kamu tangani.';
+              }
+            }(),
             style: textTheme.bodySmall?.copyWith(
               color: Colors.white.withOpacity(0.85),
               height: 1.5,
@@ -510,20 +550,29 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final isReturnTask = task.status == OrderStatus.returnApproved || task.status == OrderStatus.returnPickedUp;
+    final isReturnTask = task.status == OrderStatus.returnAssigned ||
+        task.status == OrderStatus.returnApproved ||
+        task.status == OrderStatus.returnPickedUp;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: isReturnTask
+          ? Colors.deepOrange.withOpacity(0.12)
+          : colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.35),
+          color: isReturnTask
+              ? Colors.deepOrange.withOpacity(0.45)
+              : colorScheme.outlineVariant.withOpacity(0.35),
+          width: isReturnTask ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: isReturnTask
+                ? Colors.deepOrange.withOpacity(0.08)
+                : colorScheme.shadow.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -563,17 +612,82 @@ class _TaskCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: Colors.deepOrange.shade50,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(color: Colors.deepOrange.withOpacity(0.4)),
                   ),
-                  child: const Text('TUGAS RETUR',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.red)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.assignment_return_rounded,
+                          size: 10, color: Colors.deepOrange.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        'TUGAS RETUR',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.deepOrange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
 
           const SizedBox(height: 16),
+
+          // ── Return status info strip ────────────────────────────────
+          if (isReturnTask) ...[
+            Builder(builder: (context) {
+              final String returnStatusLabel;
+              final Color returnStatusColor;
+              final IconData returnStatusIcon;
+              if (task.status == OrderStatus.returnAssigned) {
+                returnStatusLabel = 'Menunggu konfirmasimu — cek tab Retur';
+                returnStatusColor = const Color(0xFF4A90E2);
+                returnStatusIcon = Icons.notifications_active_rounded;
+              } else if (task.status == OrderStatus.returnPickedUp) {
+                returnStatusLabel = 'Barang sudah diambil — antar ke seller';
+                returnStatusColor = const Color(0xFFF59E0B);
+                returnStatusIcon = Icons.local_shipping_rounded;
+              } else {
+                returnStatusLabel = 'Menunggu penjemputan di buyer';
+                returnStatusColor = const Color(0xFF16A34A);
+                returnStatusIcon = Icons.inventory_rounded;
+              }
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: returnStatusColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: returnStatusColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(returnStatusIcon, size: 13, color: returnStatusColor),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        returnStatusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: returnStatusColor,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
 
           // Route info
           _RouteRow(
@@ -605,18 +719,28 @@ class _TaskCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: FilledButton(
+                child: FilledButton.icon(
                   onPressed: onAccept,
+                  icon: Icon(
+                    isReturnTask
+                        ? Icons.assignment_return_rounded
+                        : Icons.local_shipping_rounded,
+                    size: 16,
+                  ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
+                    backgroundColor: isReturnTask
+                        ? Colors.deepOrange.shade600
+                        : colorScheme.primary,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(
-                    'LIHAT DETAIL DI TAB TUGAS',
+                  label: Text(
+                    isReturnTask
+                        ? 'LIHAT DETAIL RETUR'
+                        : 'LIHAT DETAIL DI TAB TUGAS',
                     style: textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,

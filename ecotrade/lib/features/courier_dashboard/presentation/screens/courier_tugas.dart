@@ -14,7 +14,14 @@ import 'courier_tolak.dart';
 // Courier Tugas Screen  (Tugas Aktif | Retur)
 // ─────────────────────────────────────────────────────────────────────────────
 class CourierTugasScreen extends ConsumerStatefulWidget {
-  const CourierTugasScreen({super.key});
+  const CourierTugasScreen({
+    super.key,
+    this.tabNotifier,
+  });
+
+  /// Opsional: ValueNotifier dari parent untuk mengontrol tab aktif.
+  /// 0 = Tugas Aktif, 1 = Retur
+  final ValueNotifier<int>? tabNotifier;
 
   @override
   ConsumerState<CourierTugasScreen> createState() => _CourierTugasScreenState();
@@ -29,10 +36,20 @@ class _CourierTugasScreenState extends ConsumerState<CourierTugasScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() => setState(() {}));
+    // Dengarkan notifier dari parent
+    widget.tabNotifier?.addListener(_onTabNotifier);
+  }
+
+  void _onTabNotifier() {
+    final idx = widget.tabNotifier?.value ?? 0;
+    if (_tabController.index != idx) {
+      _tabController.animateTo(idx);
+    }
   }
 
   @override
   void dispose() {
+    widget.tabNotifier?.removeListener(_onTabNotifier);
     _tabController.dispose();
     super.dispose();
   }
