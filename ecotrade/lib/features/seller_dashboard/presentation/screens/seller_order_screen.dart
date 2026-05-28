@@ -388,7 +388,15 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               ),
             ),
           ])
-        else if (isAssigned)
+        else if (isAssigned) ...[
+          // ── Tracker: Kurir Ditugaskan (menunggu konfirmasi kurir) ──
+          _buildDeliveryProgressTracker(
+            courierName: order.courierName,
+            isWaitingCourier: true,
+            isPickedUp: false,
+            isDelivered: false,
+          ),
+          const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
@@ -401,8 +409,52 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               ),
               child: const Text('Detail', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-          )
-        else if (isComplete)
+          ),
+        ] else if (isPickedUp) ...[
+          // ── Tracker: Kurir sudah ambil barang (dalam perjalanan) ──
+          _buildDeliveryProgressTracker(
+            courierName: order.courierName,
+            isWaitingCourier: false,
+            isPickedUp: true,
+            isDelivered: false,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: () => _showOrderDetailSheet(context, order),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue, foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: const Text('Detail', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ] else if (isDelivered) ...[
+          // ── Tracker: Pesanan tiba di buyer ──
+          _buildDeliveryProgressTracker(
+            courierName: order.courierName,
+            isWaitingCourier: false,
+            isPickedUp: true,
+            isDelivered: true,
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: () => _showOrderDetailSheet(context, order),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue, foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: const Text('Detail', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ] else if (isComplete)
           Row(children: [
             Expanded(
               child: OutlinedButton(
@@ -824,6 +876,192 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                           step.label,
                           style: TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w700,
+                            color: step.color,
+                          ),
+                        ),
+                        if (step.sublabel.isNotEmpty)
+                          Text(
+                            step.sublabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: step.color == inactiveColor
+                                  ? inactiveColor
+                                  : step.color.withValues(alpha: 0.8),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+
+  // ── Delivery Progress Tracker (untuk order biasa setelah kurir ditugaskan) ─
+  Widget _buildDeliveryProgressTracker({
+    required String courierName,
+    required bool isWaitingCourier,
+    required bool isPickedUp,
+    required bool isDelivered,
+  }) {
+    const activeColor   = Color(0xFF005DA7); // primaryBlue
+    const pendingColor  = Color(0xFFF59E0B); // amber = menunggu konfirmasi kurir
+    const inactiveColor = Color(0xFFBDBDBD);
+    const doneColor     = Color(0xFF2E7D32); // hijau = selesai
+
+    final courierLabel = courierName.isNotEmpty ? courierName : 'Kurir';
+
+    // Tentukan warna & sublabel step "Kurir Ditugaskan"
+    final courierStepColor = isWaitingCourier
+        ? pendingColor
+        : (isPickedUp || isDelivered ? activeColor : inactiveColor);
+
+    final steps = [
+      (
+        label: 'Dikemas',
+        sublabel: 'Seller sedang mengemas pesanan',
+        icon: Icons.inventory_2_rounded,
+        color: doneColor, // selalu aktif (sudah lewat)
+      ),
+      (
+        label: 'Kurir Ditugaskan',
+        sublabel: isWaitingCourier
+            ? 'Menunggu konfirmasi: $courierLabel'
+            : (isPickedUp || isDelivered
+                ? '$courierLabel mengkonfirmasi'
+                : 'Menunggu konfirmasi kurir'),
+        icon: Icons.person_pin_circle_rounded,
+        color: courierStepColor,
+      ),
+      (
+        label: 'Dalam Perjalanan',
+        sublabel: isPickedUp || isDelivered
+            ? 'Dibawa oleh $courierLabel'
+            : 'Menunggu kurir mengambil barang',
+        icon: Icons.local_shipping_rounded,
+        color: isPickedUp || isDelivered ? activeColor : inactiveColor,
+      ),
+      (
+        label: 'Pesanan Tiba',
+        sublabel: isDelivered
+            ? 'Barang telah tiba di pembeli'
+            : 'Menunggu pengiriman ke pembeli',
+        icon: Icons.home_rounded,
+        color: isDelivered ? doneColor : inactiveColor,
+      ),
+    ];
+
+    // Header label
+    final headerLabel = isDelivered
+        ? 'PESANAN TIBA DI PEMBELI'
+        : isPickedUp
+            ? 'KURIR DALAM PERJALANAN'
+            : isWaitingCourier
+                ? 'MENUNGGU KONFIRMASI KURIR'
+                : 'PROGRESS PENGIRIMAN';
+
+    final headerColor = isDelivered
+        ? doneColor
+        : isPickedUp
+            ? activeColor
+            : isWaitingCourier
+                ? pendingColor
+                : activeColor;
+
+    final bgColor = isWaitingCourier
+        ? const Color(0xFFFFFDE7)
+        : isPickedUp
+            ? const Color(0xFFE3F2FD)
+            : isDelivered
+                ? const Color(0xFFE8F5E9)
+                : const Color(0xFFE3F2FD);
+
+    final borderColor = isWaitingCourier
+        ? pendingColor.withValues(alpha: 0.35)
+        : isDelivered
+            ? doneColor.withValues(alpha: 0.3)
+            : activeColor.withValues(alpha: 0.25);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDelivered
+                    ? Icons.check_circle_rounded
+                    : isPickedUp
+                        ? Icons.local_shipping_rounded
+                        : isWaitingCourier
+                            ? Icons.hourglass_top_rounded
+                            : Icons.info_outline_rounded,
+                size: 13,
+                color: headerColor,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                headerLabel,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: headerColor,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...steps.asMap().entries.map((entry) {
+            final i    = entry.key;
+            final step = entry.value;
+            final isLast = i == steps.length - 1;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 24, height: 24,
+                      decoration: BoxDecoration(
+                        color: step.color,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(step.icon, size: 13, color: Colors.white),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2, height: 24,
+                        color: step.color == inactiveColor
+                            ? inactiveColor.withValues(alpha: 0.3)
+                            : step.color.withValues(alpha: 0.4),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          step.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                             color: step.color,
                           ),
                         ),
