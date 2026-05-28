@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../features/orders/data/order_repository.dart';
 import '../../../../features/orders/domain/order_model.dart';
 import '../../../../features/orders/domain/order_providers.dart';
-import 'courier_cek_barang.dart';
 import 'courier_konfir_retur.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,8 +19,24 @@ class CourierReturScreen extends ConsumerStatefulWidget {
 class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
   final List<_ChecklistItem> _checklist = [
     _ChecklistItem(
-      title: 'Cek Kondisi Barang',
-      subtitle: 'Barang sesuai dengan foto laporan awal',
+      title: 'Paket sudah dikemas dengan baik',
+      subtitle: 'Pastikan kemasan rapi dan aman untuk dibawa.',
+    ),
+    _ChecklistItem(
+      title: 'Kondisi paket tidak sobek, bocor, atau rusak parah',
+      subtitle: 'Periksa fisik paket secara menyeluruh.',
+    ),
+    _ChecklistItem(
+      title: 'Jumlah paket sesuai',
+      subtitle: 'Cocokkan jumlah paket dengan data retur.',
+    ),
+    _ChecklistItem(
+      title: 'Ukuran dan berat paket masih sesuai dengan pengiriman',
+      subtitle: 'Pastikan dimensi dan berat tidak berubah signifikan.',
+    ),
+    _ChecklistItem(
+      title: 'Foto bukti pickup diambil',
+      subtitle: 'Dokumentasikan kondisi paket sebelum dibawa.',
     ),
   ];
 
@@ -226,28 +241,22 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
           const SizedBox(height: 16),
 
           // ── Checklist Validasi ────────────────────────────────────────
-          _SectionCard(
-            label: 'CHECKLIST VALIDASI',
-            child: Column(
-              children: _checklist.asMap().entries.map((e) {
-                final idx = e.key;
-                final item = e.value;
-                return _ChecklistTile(
-                  item: item,
-                  onTap: () async {
-                    final confirmed = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => const CourierCekBarangScreen(),
-                      ),
-                    );
-                    if (confirmed == true) {
-                      setState(() => _checklist[idx].checked = true);
-                    }
-                  },
-                );
-              }).toList(),
+          if (!isPickedUp)
+            _SectionCard(
+              label: 'CHECKLIST VALIDASI PICKUP',
+              child: Column(
+                children: _checklist.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final item = e.value;
+                  return _ChecklistTile(
+                    item: item,
+                    onTap: () {
+                      setState(() => _checklist[idx].checked = !_checklist[idx].checked);
+                    },
+                  );
+                }).toList(),
+              ),
             ),
-          ),
 
           const SizedBox(height: 28),
 
@@ -273,8 +282,9 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
           // ── Ambil Barang Retur ─────────────────────────────────────────
           if (!isAssigned && !isPickedUp)
             _PrimaryButton(
-              label: 'Ambil Barang Retur',
+              label: 'Barang Telah Diambil',
               icon: Icons.inventory_rounded,
+              enabled: _allChecked,
               onPressed: () async {
                 try {
                   await ref.read(orderRepositoryProvider).markReturnPickedUp(task.orderId);
@@ -296,13 +306,14 @@ class _CourierReturScreenState extends ConsumerState<CourierReturScreen> {
 
           if (isPickedUp) ...[
             _ConfirmButton(
-              enabled: _allChecked,
+              enabled: true,
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CourierKonfirReturScreen(
                       orderId: task.orderId,
                       itemName: task.productName,
+                      itemCategory: task.productCategory,
                     ),
                   ),
                 );
@@ -330,8 +341,24 @@ class CourierReturBody extends ConsumerStatefulWidget {
 class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
   final List<_ChecklistItem> _checklist = [
     _ChecklistItem(
-      title: 'Cek Kondisi Barang',
-      subtitle: 'Barang sesuai dengan foto laporan awal',
+      title: 'Paket sudah dikemas dengan baik',
+      subtitle: 'Pastikan kemasan rapi dan aman untuk dibawa.',
+    ),
+    _ChecklistItem(
+      title: 'Kondisi paket tidak sobek, bocor, atau rusak parah',
+      subtitle: 'Periksa fisik paket secara menyeluruh.',
+    ),
+    _ChecklistItem(
+      title: 'Jumlah paket sesuai',
+      subtitle: 'Cocokkan jumlah paket dengan data retur.',
+    ),
+    _ChecklistItem(
+      title: 'Ukuran dan berat paket masih sesuai dengan pengiriman',
+      subtitle: 'Pastikan dimensi dan berat tidak berubah signifikan.',
+    ),
+    _ChecklistItem(
+      title: 'Foto bukti pickup diambil',
+      subtitle: 'Dokumentasikan kondisi paket sebelum dibawa.',
     ),
   ];
 
@@ -481,28 +508,22 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
           const SizedBox(height: 16),
 
           // ── Checklist Validasi ─────────────────────────────────────────
-          _SectionCard(
-            label: 'CHECKLIST VALIDASI',
-            child: Column(
-              children: _checklist.asMap().entries.map((e) {
-                final idx = e.key;
-                final item = e.value;
-                return _ChecklistTile(
-                  item: item,
-                  onTap: () async {
-                    final confirmed = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => const CourierCekBarangScreen(),
-                      ),
-                    );
-                    if (confirmed == true) {
-                      setState(() => _checklist[idx].checked = true);
-                    }
-                  },
-                );
-              }).toList(),
+          if (!isPickedUp)
+            _SectionCard(
+              label: 'CHECKLIST VALIDASI PICKUP',
+              child: Column(
+                children: _checklist.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final item = e.value;
+                  return _ChecklistTile(
+                    item: item,
+                    onTap: () {
+                      setState(() => _checklist[idx].checked = !_checklist[idx].checked);
+                    },
+                  );
+                }).toList(),
+              ),
             ),
-          ),
 
           const SizedBox(height: 28),
 
@@ -528,8 +549,9 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
           // ── Ambil Barang Retur ─────────────────────────────────────────
           if (!isAssigned && !isPickedUp)
             _PrimaryButton(
-              label: 'Ambil Barang Retur',
+              label: 'Barang Telah Diambil',
               icon: Icons.inventory_rounded,
+              enabled: _allChecked,
               onPressed: () async {
                 try {
                   await ref.read(orderRepositoryProvider).markReturnPickedUp(task.orderId);
@@ -551,13 +573,14 @@ class _CourierReturBodyState extends ConsumerState<CourierReturBody> {
 
           if (isPickedUp) ...[
             _ConfirmButton(
-              enabled: _allChecked,
+              enabled: true,
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CourierKonfirReturScreen(
                       orderId: task.orderId,
                       itemName: task.productName,
+                      itemCategory: task.productCategory,
                     ),
                   ),
                 );
@@ -614,11 +637,32 @@ class _ItemCard extends StatelessWidget {
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    Icons.inventory_2_outlined,
-                    size: 30,
-                    color: cs.onSurface.withOpacity(0.3),
-                  ),
+                  child: task.productImageUrl.isNotEmpty
+                      ? Image.network(
+                          task.productImageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _CategoryIconWidget(
+                            category: task.productCategory,
+                            size: 72,
+                          ),
+                          loadingBuilder: (_, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: cs.primary.withOpacity(0.5),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : _CategoryIconWidget(
+                          category: task.productCategory,
+                          size: 72,
+                        ),
                 ),
               ),
 
@@ -644,35 +688,69 @@ class _ItemCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Qty badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.inventory_2_outlined,
-                            size: 12,
-                            color: cs.onSurface.withOpacity(0.55),
+                    // Category badge
+                    if (task.productCategory.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _categoryColor(task.productCategory).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _categoryColor(task.productCategory).withOpacity(0.3),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${task.quantity} ${task.unit}'.toUpperCase(),
-                            style: tt.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface.withOpacity(0.65),
-                              letterSpacing: 0.5,
-                              fontSize: 10,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _categoryIcon(task.productCategory),
+                              size: 12,
+                              color: _categoryColor(task.productCategory),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              task.productCategory,
+                              style: tt.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: _categoryColor(task.productCategory),
+                                letterSpacing: 0.5,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      // Qty badge fallback
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 12,
+                              color: cs.onSurface.withOpacity(0.55),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${task.quantity} ${task.unit}'.toUpperCase(),
+                              style: tt.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface.withOpacity(0.65),
+                                letterSpacing: 0.5,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -932,11 +1010,11 @@ class _SectionCard extends StatelessWidget {
 // Checklist item model
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChecklistItem {
-  _ChecklistItem({required this.title, required this.subtitle, this.checked = false});
+  _ChecklistItem({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
-  bool checked;
+  bool checked = false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -956,10 +1034,16 @@ class _ChecklistTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
+          color: item.checked
+              ? const Color(0xFF16A34A).withOpacity(0.05)
+              : cs.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(12),
+          border: item.checked
+              ? Border.all(color: const Color(0xFF16A34A).withOpacity(0.3), width: 1.5)
+              : null,
         ),
         child: Row(
           children: [
@@ -971,11 +1055,11 @@ class _ChecklistTile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: item.checked
-                    ? cs.primary
+                    ? const Color(0xFF16A34A)
                     : Colors.transparent,
                 border: Border.all(
                   color: item.checked
-                      ? cs.primary
+                      ? const Color(0xFF16A34A)
                       : cs.outlineVariant,
                   width: 2,
                 ),
@@ -996,7 +1080,9 @@ class _ChecklistTile extends StatelessWidget {
                     item.title,
                     style: tt.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: cs.onSurface,
+                      color: item.checked
+                          ? const Color(0xFF15803D)
+                          : cs.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1008,12 +1094,6 @@ class _ChecklistTile extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-
-            Icon(
-              Icons.chevron_right_rounded,
-              color: cs.onSurface.withOpacity(0.35),
-              size: 20,
             ),
           ],
         ),
@@ -1318,5 +1398,55 @@ class _ReturnAcceptRejectButtons extends ConsumerWidget {
             SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
       }
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category helpers — icon & color berdasarkan commodityType
+// ─────────────────────────────────────────────────────────────────────────────
+IconData _categoryIcon(String type) {
+  final t = type.toLowerCase();
+  if (t.contains('serat'))                              return Icons.grass_rounded;
+  if (t.contains('biomassa') || t.contains('energi'))  return Icons.local_fire_department_rounded;
+  if (t.contains('pupuk') || t.contains('pertanian'))  return Icons.eco_rounded;
+  if (t.contains('industri'))                          return Icons.factory_rounded;
+  return Icons.inventory_2_rounded;
+}
+
+Color _categoryColor(String type) {
+  final t = type.toLowerCase();
+  if (t.contains('serat'))                              return const Color(0xFF8B6914);
+  if (t.contains('biomassa') || t.contains('energi'))  return const Color(0xFF2E7D32);
+  if (t.contains('pupuk') || t.contains('pertanian'))  return const Color(0xFF558B2F);
+  if (t.contains('industri'))                          return const Color(0xFF1565C0);
+  return const Color(0xFF005DA7);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget ikon kategori — thumbnail persegi berisi ikon sesuai kategori
+// ─────────────────────────────────────────────────────────────────────────────
+class _CategoryIconWidget extends StatelessWidget {
+  const _CategoryIconWidget({required this.category, this.size = 72});
+
+  final String category;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _categoryColor(category);
+    final icon  = _categoryIcon(category);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        icon,
+        color: Colors.white,
+        size: size * 0.42,
+      ),
+    );
   }
 }

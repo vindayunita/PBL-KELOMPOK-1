@@ -79,6 +79,8 @@ class OrderModel {
     required this.unit,
     required this.totalPrice,
     required this.status,
+    this.productImageUrl = '',
+    this.productCategory = '',
     this.courierId,
     this.courierName,
     this.courierPhone,
@@ -96,6 +98,8 @@ class OrderModel {
   final String sellerCity;
   final String productId;
   final String productName;
+  final String productImageUrl;
+  final String productCategory;
   final int quantity;
   final String unit;
   final double totalPrice;
@@ -130,11 +134,21 @@ class OrderModel {
       buyerId:         data['buyerId']       as String? ?? '',
       buyerName:       data['buyerName']     as String? ?? 'Pembeli',
       buyerAddress:    data['buyerAddress']  as String? ?? '',
-      sellerId:        data['sellerId']      as String? ?? '',
-      sellerName:      data['sellerName']    as String? ?? 'Seller',
+      sellerId:        data['sellerId']      as String? ?? firstItem?['sellerId'] as String? ?? '',
+      sellerName:      (data['sellerName']   as String?)?.isNotEmpty == true
+          ? data['sellerName'] as String
+          : (firstItem?['sellerName'] as String? ?? 'Seller'),
       sellerCity:      data['sellerCity']    as String? ?? '',
       productId:       data['productId']     as String? ?? firstItem?['productId'] as String? ?? '',
       productName:     data['productName']   as String? ?? firstItem?['productTitle'] as String? ?? 'Produk',
+      productImageUrl: data['productImageUrl'] as String?
+          ?? firstItem?['productImageUrl'] as String?
+          ?? firstItem?['imageUrl'] as String?
+          ?? '',
+      productCategory: data['productCategory'] as String?
+          ?? firstItem?['commodityType'] as String?
+          ?? data['commodityType'] as String?
+          ?? '',
       quantity:        (data['quantity']     as num?)?.toInt() ?? (firstItem?['quantity'] as num?)?.toInt() ?? 1,
       unit:            data['unit']          as String? ?? firstItem?['unit'] as String? ?? 'kg',
       totalPrice:      (data['totalPrice']   as num?)?.toDouble() ?? (data['total'] as num?)?.toDouble() ?? 0,

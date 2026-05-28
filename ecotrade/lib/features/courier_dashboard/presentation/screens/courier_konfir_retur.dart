@@ -248,17 +248,17 @@ class _DetailBarangCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Thumbnail item
+                // Thumbnail item — ikon sesuai kategori
                 Container(
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCD34D),
+                    color: _categoryColor(itemCategory),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.eco_rounded,
-                    color: Color(0xFF92400E),
+                  child: Icon(
+                    _categoryIcon(itemCategory),
+                    color: Colors.white,
                     size: 30,
                   ),
                 ),
@@ -436,4 +436,25 @@ class _SerahkanButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category helpers — icon & color berdasarkan commodityType
+// ─────────────────────────────────────────────────────────────────────────────
+IconData _categoryIcon(String type) {
+  final t = type.toLowerCase();
+  if (t.contains('serat'))                              return Icons.grass_rounded;
+  if (t.contains('biomassa') || t.contains('energi'))  return Icons.local_fire_department_rounded;
+  if (t.contains('pupuk') || t.contains('pertanian'))  return Icons.eco_rounded;
+  if (t.contains('industri'))                          return Icons.factory_rounded;
+  return Icons.inventory_2_rounded;
+}
+
+Color _categoryColor(String type) {
+  final t = type.toLowerCase();
+  if (t.contains('serat'))                              return const Color(0xFF8B6914);
+  if (t.contains('biomassa') || t.contains('energi'))  return const Color(0xFF2E7D32);
+  if (t.contains('pupuk') || t.contains('pertanian'))  return const Color(0xFF558B2F);
+  if (t.contains('industri'))                          return const Color(0xFF1565C0);
+  return const Color(0xFF005DA7);
 }
