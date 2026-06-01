@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/product_repository.dart';
 import '../../data/seller_order_repository.dart';
 import '../../domain/product_model.dart';
@@ -42,14 +43,9 @@ class SellerDashboardScreen extends ConsumerWidget {
           'EcoTrade',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () {},
-            ),
-          ),
+        actions: const [
+          NotificationBadge(),
+          SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
@@ -102,44 +98,48 @@ class SellerDashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TOTAL PENDAPATAN',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      Text(
-                        'Pesanan Terkonfirmasi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TOTAL PENDAPATAN',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          Text(
+                            'Pesanan Terkonfirmasi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               // Badge jumlah order selesai
               Container(
@@ -184,11 +184,13 @@ class SellerDashboardScreen extends ConsumerWidget {
                 size: 13,
               ),
               const SizedBox(width: 5),
-              Text(
-                'Hanya mencakup pesanan yang dikonfirmasi buyer',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  fontSize: 11,
+              Expanded(
+                child: Text(
+                  'Hanya mencakup pesanan yang dikonfirmasi buyer',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],

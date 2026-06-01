@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/domain/auth_providers.dart';
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/courier_application_repository.dart';
 import '../../domain/models/courier_application_model.dart';
 import '../../../../features/orders/domain/order_model.dart';
@@ -151,12 +152,9 @@ class _HomeTab extends StatelessWidget {
                 color: colorScheme.onSurface,
               ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.notifications_outlined,
-                    color: colorScheme.onSurface),
-                onPressed: () {},
-              ),
+            actions: const [
+              NotificationBadge(),
+              SizedBox(width: 4),
             ],
           ),
 

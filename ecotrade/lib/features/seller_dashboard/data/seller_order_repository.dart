@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import '../../../../features/buyer_dashboard/data/order_model.dart';
 import '../../../../features/buyer_dashboard/data/return_model.dart';
 
@@ -315,6 +316,23 @@ class SellerOrderRepository {
       'updatedAt':         FieldValue.serverTimestamp(),
     });
     await batch.commit();
+
+    // 🔔 Notifikasi ke buyer bahwa retur disetujui
+    final orderSnap2 = await _orders.doc(orderId).get();
+    final buyerId    = orderSnap2.data()?['buyerId'] as String? ?? '';
+    unawaited(NotificationTrigger.returnApproved(
+      buyerId: buyerId,
+      orderId: orderId,
+    ));
+    // 🔔 Notifikasi ke kurir yang ditugaskan
+    if (courierId.isNotEmpty) {
+      final buyerAddress = orderSnap2.data()?['buyerAddress'] as String? ?? '';
+      unawaited(NotificationTrigger.returnTaskAssigned(
+        courierId:    courierId,
+        orderId:      orderId,
+        buyerAddress: buyerAddress,
+      ));
+    }
   }
 
   // ── Seller tolak return ───────────────────────────────────────────────────
@@ -335,14 +353,47 @@ class SellerOrderRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
-  }
 
-  // ── Seller terima order → processing ─────────────────────────────────────
+    // 🔔 Notifikasi ke buyer bahwa retur ditolak
+    final orderSnap2 = await _orders.doc(orderId).get();
+    final buyerId    = orderSnap2.data()?['buyerId'] as String? ?? '';
+    unawaited(NotificationTrigger.returnRejected(
+      buyerId: buyerId,
+      orderId: orderId,
+      reason:  note,
+    ));
+  }
   Future<void> acceptOrder(String orderId) async {
+    // Ambil data order terlebih dahulu agar bisa mengirim notifikasi
+    final orderSnap = await _orders.doc(orderId).get();
+    final data      = orderSnap.data();
+    final buyerId   = data?['buyerId']  as String? ?? '';
+    final sellerIds = (data?['sellerIds'] as List<dynamic>? ?? []).cast<String>();
+    final items     = (data?['items']   as List<dynamic>? ?? []);
+    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final productTitle = firstItem?['productTitle'] as String? ?? 'pesanan';
+
     await _orders.doc(orderId).update({
       'status':    'processing',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 🔔 Notifikasi ke buyer
+    unawaited(NotificationTrigger.orderProcessing(
+      buyerId:      buyerId,
+      orderId:      orderId,
+      productTitle: productTitle,
+    ));
+
+    // 🔔 Notifikasi ke semua seller yang terlibat (jika multi-seller)
+    for (final sid in sellerIds) {
+      unawaited(NotificationTrigger.newOrderForSeller(
+        sellerId:     sid,
+        orderId:      orderId,
+        productTitle: productTitle,
+        buyerName:    data?['buyerName'] as String? ?? 'Pembeli',
+      ));
+    }
   }
 
   // ── Seller tolak order → rejected ────────────────────────────────────────
@@ -440,6 +491,23 @@ class SellerOrderRepository {
       'courierName': courierName,
       'updatedAt':   FieldValue.serverTimestamp(),
     });
+
+    // 🔔 Notifikasi ke buyer
+    final orderSnap2 = await _orders.doc(orderId).get();
+    final buyerId    = orderSnap2.data()?['buyerId']     as String? ?? '';
+    final buyerAddr  = orderSnap2.data()?['buyerAddress'] as String? ?? '';
+    unawaited(NotificationTrigger.courierAssigned(
+      buyerId:     buyerId,
+      orderId:     orderId,
+      courierName: courierName,
+    ));
+    // 🔔 Notifikasi ke kurir
+    unawaited(NotificationTrigger.courierTaskAssigned(
+      courierId:   courierId,
+      orderId:     orderId,
+      sellerCity:  targetCity,
+      buyerAddress: buyerAddr,
+    ));
   }
 
   // ── Re-assign ke kurir lain (dipanggil saat kurir tolak tugas) ───────────

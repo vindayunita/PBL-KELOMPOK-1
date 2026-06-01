@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import '../../user/data/user_repository.dart';
 import '../domain/order_model.dart';
 
@@ -122,19 +125,42 @@ class OrderRepository {
   }
 
   // ── Kurir: ambil barang di seller (assigned → picked_up) ─────────────────
-  Future<void> markPickedUp(String orderId) {
-    return _orders.doc(orderId).update({
+  Future<void> markPickedUp(String orderId) async {
+    // Baca data order untuk notifikasi sebelum update
+    final snap   = await _orders.doc(orderId).get();
+    final data   = snap.data();
+    final buyerId      = data?['buyerId']     as String? ?? '';
+    final courierName  = data?['courierName'] as String? ?? 'Kurir';
+
+    await _orders.doc(orderId).update({
       'status':    OrderStatus.pickedUp.toJson(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 🔔 Notifikasi ke buyer: pesanan sedang dalam perjalanan
+    unawaited(NotificationTrigger.orderPickedUp(
+      buyerId:     buyerId,
+      orderId:     orderId,
+      courierName: courierName,
+    ));
   }
 
   // ── Kurir: selesaikan pengiriman (picked_up → delivered) ─────────────────
-  Future<void> markDelivered(String orderId) {
-    return _orders.doc(orderId).update({
+  Future<void> markDelivered(String orderId) async {
+    // Baca buyerId sebelum update untuk notifikasi
+    final snap   = await _orders.doc(orderId).get();
+    final buyerId = snap.data()?['buyerId'] as String? ?? '';
+
+    await _orders.doc(orderId).update({
       'status':    OrderStatus.delivered.toJson(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 🔔 Notifikasi ke buyer: pesanan sudah tiba
+    unawaited(NotificationTrigger.orderDelivered(
+      buyerId: buyerId,
+      orderId: orderId,
+    ));
   }
 
   // ── Kurir: ambil barang retur dari buyer (return_approved → return_picked_up) ──
@@ -260,5 +286,16 @@ class OrderRepository {
         }, SetOptions(merge: true));
       }
     });
+
+    // 🔔 Notifikasi ke seller: barang retur sudah kembali
+    // Ambil sellerId dari order (sellerIds field)
+    final orderSnap2 = await _orders.doc(orderId).get();
+    final sellerIds  = (orderSnap2.data()?['sellerIds'] as List<dynamic>? ?? []).cast<String>();
+    for (final sid in sellerIds) {
+      unawaited(NotificationTrigger.returnCompleted(
+        sellerId: sid,
+        orderId:  orderId,
+      ));
+    }
   }
 }

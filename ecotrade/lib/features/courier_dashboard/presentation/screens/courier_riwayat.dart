@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../features/orders/domain/order_model.dart';
 import '../../../../features/orders/domain/order_providers.dart';
+import '../../../../shared/widgets/notification_badge.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
@@ -53,10 +54,7 @@ class _CourierRiwayatScreenState extends ConsumerState<CourierRiwayatScreen> {
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: Icon(Icons.notifications_outlined, color: cs.onSurface),
-                  onPressed: () {},
-                ),
+                const NotificationBadge(),
               ],
             ),
           ),
