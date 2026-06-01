@@ -37,6 +37,10 @@ dependencies:
   image_picker: ^1.0.7
   intl: ^0.20.2
 
+  # Push Notifications (FCM)
+  firebase_messaging: ^16.2.0
+  flutter_local_notifications: ^18.0.1
+
   # Native Splash Screen
   flutter_native_splash: ^2.4.1
 

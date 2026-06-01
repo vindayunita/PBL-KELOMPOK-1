@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/domain/auth_providers.dart';
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/courier_application_repository.dart';
 import '../../../../features/orders/domain/order_providers.dart';
 import 'courier_status_verif.dart';
@@ -93,12 +94,9 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
                 color: cs.onSurface,
               ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.notifications_outlined,
-                    color: cs.onSurface),
-                onPressed: () {},
-              ),
+            actions: const [
+              NotificationBadge(),
+              SizedBox(width: 4),
             ],
           ),
 

@@ -5,6 +5,7 @@ import '../../../../features/auth/domain/auth_providers.dart';
 import '../../../../features/buyer_dashboard/data/admin_order_repository.dart';
 import '../../../../features/courier_dashboard/domain/courier_application_providers.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/payout_model.dart';
 import '../../domain/payout_providers.dart';
 import 'admin_alerts_screen.dart';
@@ -86,7 +87,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   color: colorScheme.onSurface,
                 ),
               ),
-              actions: const [],
+              actions: const [
+                NotificationBadge(),
+                SizedBox(width: 4),
+              ],
             ),
 
             SliverToBoxAdapter(
@@ -128,7 +132,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
-                      childAspectRatio: 1.3,
+                      childAspectRatio: 1.0,
                       children: [
                         // Biru — Verify Courier
                         _AdminStatCard(

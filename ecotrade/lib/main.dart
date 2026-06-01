@@ -5,9 +5,15 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_options.dart';
+import 'core/notifications/notification_repository.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'features/auth/domain/auth_providers.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
+
+/// GlobalKey untuk Navigator — dibutuhkan oleh NotificationService
+/// agar bisa melakukan navigasi saat app di background/terminated.
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -86,7 +92,6 @@ class EcoTradeApp extends ConsumerWidget {
       themeMode: ThemeMode.system,
       routerConfig: router,
 
-      // ── Splash overlay — shown ONLY when user is NOT already logged in ──
       builder: (context, child) {
         return _SplashOverlay(child: child ?? const SizedBox.shrink());
       },
@@ -110,6 +115,7 @@ class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
 
   bool _visible = true;  // show immediately — no delay
   bool _fading  = false; // fading out
+  String? _prevUserId;   // guard untuk re-init hanya saat user benar-benar berubah
 
   static const _kSplashDuration = Duration(milliseconds: 3200);
   static const _kFadeDuration   = Duration(milliseconds: 500);
@@ -117,6 +123,22 @@ class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
   @override
   void initState() {
     super.initState();
+
+    // ── Inisialisasi NotificationService saat widget pertama kali dibuat ──────
+    // Menggunakan Future.microtask agar ref.read aman dipanggil setelah frame.
+    Future.microtask(() {
+      if (!mounted) return;
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        _prevUserId = user.uid;
+        final repo = ref.read(notificationRepositoryProvider);
+        NotificationService.instance.initialize(
+          repository:   repo,
+          userId:       user.uid,
+          navigatorKey: navigatorKey,
+        );
+      }
+    });
 
     // Already shown this session → skip entirely
     if (_sessionSplashDone) {
@@ -139,6 +161,18 @@ class _SplashOverlayState extends ConsumerState<_SplashOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // ── Pantau perubahan auth state di build() — tempat yang benar untuk ref.listen
+    ref.listen(currentUserProvider, (_, newUser) {
+      if (newUser?.uid == _prevUserId) return; // tidak ada perubahan user
+      _prevUserId = newUser?.uid;
+      final repo = ref.read(notificationRepositoryProvider);
+      NotificationService.instance.initialize(
+        repository:   repo,
+        userId:       newUser?.uid,
+        navigatorKey: navigatorKey,
+      );
+    });
+
     return Stack(
       children: [
         widget.child,

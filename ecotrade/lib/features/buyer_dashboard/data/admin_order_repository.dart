@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import 'order_model.dart';
 
 part 'admin_order_repository.g.dart';
@@ -107,6 +110,28 @@ class AdminOrderRepository {
     }
 
     await batch.commit();
+
+    // 🔔 Notifikasi ke buyer: pembayaran diverifikasi
+    final buyerId      = data['buyerId']   as String? ?? '';
+    final buyerName    = data['buyerName'] as String? ?? 'Pembeli';
+    final firstItem    = rawItems.isNotEmpty ? rawItems.first as Map<String, dynamic> : null;
+    final productTitle = firstItem?['productTitle'] as String? ?? 'pesanan';
+    unawaited(NotificationTrigger.paymentVerified(
+      buyerId:      buyerId,
+      orderId:      orderId,
+      productTitle: productTitle,
+    ));
+
+    // 🔔 Notifikasi ke semua seller yang terlibat
+    final sellerIds = (data['sellerIds'] as List<dynamic>? ?? []).cast<String>();
+    for (final sid in sellerIds) {
+      unawaited(NotificationTrigger.newOrderForSeller(
+        sellerId:     sid,
+        orderId:      orderId,
+        productTitle: productTitle,
+        buyerName:    buyerName,
+      ));
+    }
   }
 
   // ── Tolak pembayaran → status: 'rejected' ────────────────────────────────
@@ -132,5 +157,14 @@ class AdminOrderRepository {
     }
 
     await batch.commit();
+
+    // 🔔 Notifikasi ke buyer: pembayaran ditolak
+    final orderSnap2 = await _orders.doc(orderId).get();
+    final buyerId    = orderSnap2.data()?['buyerId'] as String? ?? '';
+    unawaited(NotificationTrigger.paymentRejected(
+      buyerId: buyerId,
+      orderId: orderId,
+      reason:  reason,
+    ));
   }
 }

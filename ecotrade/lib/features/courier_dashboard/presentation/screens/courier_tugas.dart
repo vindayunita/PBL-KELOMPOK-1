@@ -7,6 +7,7 @@ import '../../../../features/orders/data/order_repository.dart';
 import '../../../../features/orders/domain/order_model.dart';
 import '../../../../features/orders/domain/order_providers.dart';
 import '../../../../features/seller_dashboard/data/seller_order_repository.dart';
+import '../../../../shared/widgets/notification_badge.dart';
 import 'courier_retur.dart';
 import 'courier_tolak.dart';
 
@@ -81,10 +82,7 @@ class _CourierTugasScreenState extends ConsumerState<CourierTugasScreen>
                         color: cs.primary,
                         letterSpacing: 0.2)),
                 const Spacer(),
-                IconButton(
-                  icon: Icon(Icons.notifications_outlined, color: cs.onSurface),
-                  onPressed: () {},
-                ),
+                const NotificationBadge(),
               ],
             ),
           ),

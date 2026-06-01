@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../../seller_dashboard/domain/product_model.dart';
 import 'buyer_order_screen.dart';
 import 'buyer_profile_screen.dart';
@@ -471,6 +472,10 @@ class _MarketPageState extends ConsumerState<_MarketPage> {
               letterSpacing: -0.3,
             ),
           ),
+          actions: const [
+            NotificationBadge(),
+            SizedBox(width: 4),
+          ],
         ),
 
         // ── Search + Filter ───────────────────────────────────────────────
@@ -1417,7 +1422,6 @@ class _HeroBanner extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        height: 180,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.centerLeft,

@@ -9,8 +9,10 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/buyer_dashboard/presentation/screens/buyer_dashboard_screen.dart';
 import '../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/courier_dashboard/presentation/screens/courier_dashboard_screen.dart';
+import '../../features/notifications/presentation/screens/notification_screen.dart';
 import '../../features/seller_dashboard/presentation/screens/seller_shell.dart';
 import '../../features/user/domain/user_providers.dart';
+import '../../main.dart' show navigatorKey;
 
 part 'app_router.g.dart';
 
@@ -22,6 +24,7 @@ abstract class AppRoutes {
   static const adminDashboard   = '/admin';
   static const courierDashboard = '/courier';
   static const sellerDashboard  = '/seller';
+  static const notifications    = '/notifications';
 }
 
 // ── Router provider ───────────────────────────────────────────────────────────
@@ -34,6 +37,7 @@ GoRouter appRouter(Ref ref) {
   final activeRole = ref.watch(activeRoleProvider);
 
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: AppRoutes.login,
     debugLogDiagnostics: true,
 
@@ -114,6 +118,11 @@ GoRouter appRouter(Ref ref) {
         path: AppRoutes.sellerDashboard,
         name: 'sellerDashboard',
         builder: (context, state) => const SellerShell(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        name: 'notifications',
+        builder: (context, state) => const NotificationScreen(),
       ),
     ],
 
