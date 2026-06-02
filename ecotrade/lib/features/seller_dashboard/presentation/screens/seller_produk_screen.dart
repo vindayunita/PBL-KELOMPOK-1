@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/product_repository.dart';
 import '../../domain/product_model.dart';
 import 'seller_edit_komoditi_screen.dart';
@@ -29,14 +30,9 @@ class SellerProdukScreen extends ConsumerWidget {
           'EcoTrade',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () {},
-            ),
-          ),
+        actions: const [
+          NotificationBadge(),
+          SizedBox(width: 8),
         ],
       ),
       body: Column(

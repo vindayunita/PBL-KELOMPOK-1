@@ -11,6 +11,7 @@ import 'seller_bank_edit_screen.dart';
 import 'seller_kyc_completion_screen.dart';
 import '../../../../features/admin_dashboard/data/payout_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
+import '../../../../core/notifications/notification_providers.dart';
 
 class SellerProfilScreen extends ConsumerStatefulWidget {
   const SellerProfilScreen({super.key});
@@ -26,8 +27,7 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
   static const Color greyText      = Color(0xFF888888);
   static const Color appBackground = Color(0xFFF5F5F5);
 
-  // Data diisi dari backend — kosong = tampil empty state
-  final List<Map<String, dynamic>> _activities = [];
+  // (aktivitas terkini sekarang diambil dari notificationStreamProvider)
 
   @override
   Widget build(BuildContext context) {
@@ -422,27 +422,54 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
     );
   }
 
-  // ── Aktivitas Terkini ──────────────────────────────────────────────────────
+  // ── Aktivitas Terkini (dari notifikasi real-time) ──────────────────────────
   Widget _buildAktivitasTerkini() {
+    final notifAsync = ref.watch(notificationStreamProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 4, height: 22,
-              decoration: BoxDecoration(color: darkGreen, borderRadius: BorderRadius.circular(4)),
-            ),
-            const SizedBox(width: 10),
-            const Text('Aktivitas Terkini',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-          ],
+        // ── Header: bisa diklik → ke halaman notifikasi ──
+        GestureDetector(
+          onTap: () => context.push('/notifications'),
+          child: Row(
+            children: [
+              Container(
+                width: 4, height: 22,
+                decoration: BoxDecoration(color: darkGreen, borderRadius: BorderRadius.circular(4)),
+              ),
+              const SizedBox(width: 10),
+              const Text('Aktivitas Terkini',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+              const Spacer(),
+              const Row(
+                children: [
+                  Text('Lihat semua',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: darkGreen)),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 12, color: darkGreen),
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 
-        // Konten dinamis: list aktivitas atau empty state
-        if (_activities.isEmpty)
-          Container(
+        // ── Konten: loading / error / kosong / daftar notif ──
+        notifAsync.when(
+          loading: () => Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, __) => Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
             decoration: BoxDecoration(
@@ -453,65 +480,171 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
               ],
             ),
             child: const Center(
-              child: Text(
-                'Belum ada aktivitas',
-                style: TextStyle(fontSize: 14, color: Color(0xFFAAAAAA), fontWeight: FontWeight.w500),
-              ),
-            ),
-          )
-        else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Column(
-              children: List.generate(_activities.length, (i) {
-                final a = _activities[i];
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 38, height: 38,
-                            decoration: BoxDecoration(
-                              color: primaryGreen.withValues(alpha: 0.4),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(a['icon'] as IconData, size: 18, color: darkGreen),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(a['title'] as String,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87)),
-                                const SizedBox(height: 2),
-                                Text(a['subtitle'] as String,
-                                    style: const TextStyle(fontSize: 12, color: greyText)),
-                              ],
-                            ),
-                          ),
-                          Text(a['time'] as String,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: greyText)),
-                        ],
-                      ),
-                    ),
-                    if (i < _activities.length - 1)
-                      const Divider(height: 1, indent: 66, endIndent: 16),
-                  ],
-                );
-              }),
+              child: Text('Gagal memuat aktivitas',
+                  style: TextStyle(fontSize: 14, color: Color(0xFFAAAAAA))),
             ),
           ),
+          data: (notifications) {
+            // Tampilkan maks 3 notifikasi terbaru
+            final items = notifications.take(3).toList();
+
+            if (items.isEmpty) {
+              return GestureDetector(
+                onTap: () => context.push('/notifications'),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Belum ada aktivitas',
+                      style: TextStyle(fontSize: 14, color: Color(0xFFAAAAAA), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: Column(
+                children: List.generate(items.length, (i) {
+                  final n = items[i];
+                  final icon  = _iconFromNotifType(n.type);
+                  final color = _colorFromNotifType(n.type);
+                  final timeStr = _formatRelativeTime(n.createdAt);
+
+                  return Column(
+                    children: [
+                      InkWell(
+                        onTap: () => context.push('/notifications'),
+                        borderRadius: BorderRadius.vertical(
+                          top:    i == 0 ? const Radius.circular(16) : Radius.zero,
+                          bottom: i == items.length - 1 ? const Radius.circular(16) : Radius.zero,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              // Ikon + dot belum-dibaca
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Container(
+                                    width: 38, height: 38,
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(icon, size: 18, color: color),
+                                  ),
+                                  if (!n.isRead)
+                                    Positioned(
+                                      right: -2, top: -2,
+                                      child: Container(
+                                        width: 10, height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              // Judul + isi
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      n.title,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: n.isRead ? FontWeight.w500 : FontWeight.w700,
+                                        color: Colors.black87,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      n.body,
+                                      style: const TextStyle(fontSize: 12, color: greyText),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Waktu relatif
+                              Text(timeStr,
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: greyText)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (i < items.length - 1)
+                        const Divider(height: 1, indent: 66, endIndent: 16),
+                    ],
+                  );
+                }),
+              ),
+            );
+          },
+        ),
       ],
     );
+  }
+
+  // ── Helper: ikon berdasarkan tipe notifikasi ────────────────────────────────
+  IconData _iconFromNotifType(String type) {
+    switch (type) {
+      case 'order_new':        return Icons.shopping_bag_outlined;
+      case 'order_confirmed':  return Icons.check_circle_outline_rounded;
+      case 'order_rejected':   return Icons.cancel_outlined;
+      case 'order_assigned':   return Icons.local_shipping_outlined;
+      case 'order_picked_up':  return Icons.directions_bike_outlined;
+      case 'order_delivered':  return Icons.home_outlined;
+      case 'return_requested': return Icons.assignment_return_outlined;
+      case 'return_approved':  return Icons.assignment_turned_in_outlined;
+      case 'return_picked_up': return Icons.directions_bike_outlined;
+      case 'return_completed': return Icons.done_all_rounded;
+      case 'payout_requested': return Icons.account_balance_wallet_outlined;
+      case 'payout_processed': return Icons.payments_outlined;
+      default:                 return Icons.notifications_outlined;
+    }
+  }
+
+  // ── Helper: warna berdasarkan tipe notifikasi ───────────────────────────────
+  Color _colorFromNotifType(String type) {
+    if (type.startsWith('order_')) return primaryBlue;
+    if (type.startsWith('return_')) return const Color(0xFFE65100);
+    if (type.startsWith('payout_')) return darkGreen;
+    return greyText;
+  }
+
+  // ── Helper: format waktu relatif ───────────────────────────────────────────
+  String _formatRelativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return 'Baru saja';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24)   return '${diff.inHours}j';
+    if (diff.inDays < 7)     return '${diff.inDays}h';
+    return DateFormat('d MMM', 'id').format(dt);
   }
 
   // ── Tombol Tambah Produk ───────────────────────────────────────────────────
