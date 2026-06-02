@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../shared/widgets/notification_badge.dart';
 import '../../../../features/buyer_dashboard/data/order_model.dart';
 import '../../../../features/buyer_dashboard/data/return_model.dart';
 import '../../data/seller_order_repository.dart';
@@ -49,14 +50,9 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
           'EcoTrade',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () {},
-            ),
-          ),
+        actions: const [
+          NotificationBadge(),
+          SizedBox(width: 8),
         ],
       ),
 

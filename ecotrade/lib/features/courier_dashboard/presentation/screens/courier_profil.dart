@@ -3,31 +3,14 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../auth/domain/auth_providers.dart';
 import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/courier_application_repository.dart';
 import '../../../../features/orders/domain/order_providers.dart';
+import '../../../../core/notifications/notification_providers.dart';
 import 'courier_status_verif.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Data model placeholder for activity history
-// ─────────────────────────────────────────────────────────────────────────────
-// ignore: unused_field
-enum _ActivityStatus { selesai, dibatalkan }
-
-class _ActivityItem {
-  const _ActivityItem({
-    required this.title,
-    required this.date,
-    required this.amount,
-    required this.status,
-  });
-  final String title;
-  final String date;
-  final String amount;
-  final _ActivityStatus status;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Courier Profile Screen
@@ -41,8 +24,6 @@ class CourierProfilScreen extends ConsumerStatefulWidget {
 }
 
 class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
-  // Empty list — ganti dengan data Firestore nantinya
-  static const List<_ActivityItem> _activities = [];
 
   @override
   Widget build(BuildContext context) {
@@ -133,39 +114,8 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
 
                   const SizedBox(height: 24),
 
-                  // ── Riwayat Aktivitas ─────────────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Riwayat Aktivitas',
-                        style: tt.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'Lihat Semua',
-                          style: tt.labelMedium?.copyWith(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  _activities.isEmpty
-                      ? _EmptyActivity()
-                      : Column(
-                          children: _activities
-                              .map((a) => _ActivityRow(item: a))
-                              .toList(),
-                        ),
+                  // ── Riwayat Aktivitas (dari notifikasi) ───────────────────
+                  _RiwayatAktivitasSection(),
 
                   const SizedBox(height: 24),
 
@@ -776,173 +726,279 @@ class _TasksDoneCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Empty Activity State
+// Riwayat Aktivitas Section — real-time dari notificationStreamProvider
 // ─────────────────────────────────────────────────────────────────────────────
-class _EmptyActivity extends StatelessWidget {
+class _RiwayatAktivitasSection extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifAsync = ref.watch(notificationStreamProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.history_rounded,
-              size: 26,
-              color: cs.primary.withValues(alpha: 0.6),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Belum Ada Aktivitas',
-            style: tt.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Riwayat pengantaranmu akan\nmuncul di sini.',
-            textAlign: TextAlign.center,
-            style: tt.bodySmall?.copyWith(
-              color: cs.onSurface.withValues(alpha: 0.5),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Activity Row Item
-// ─────────────────────────────────────────────────────────────────────────────
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.item});
-  final _ActivityItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final isSelesai = item.status == _ActivityStatus.selesai;
-    final badgeColor =
-        isSelesai ? const Color(0xFF10B981) : cs.error;
-    final badgeLabel = isSelesai ? 'SELESAI' : 'DIBATALKAN';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Icon
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isSelesai
-                  ? const Color(0xFFD1FAE5)
-                  : cs.errorContainer.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isSelesai
-                  ? Icons.local_shipping_rounded
-                  : Icons.cancel_outlined,
-              color: isSelesai ? const Color(0xFF10B981) : cs.error,
-              size: 22,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Title + date
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: tt.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  item.date,
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.45),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 10),
-
-          // Badge + Amount
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header: bisa diklik → ke halaman notifikasi ──────────────────
+        GestureDetector(
+          onTap: () => context.push('/notifications'),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badgeLabel,
-                  style: tt.labelSmall?.copyWith(
-                    color: badgeColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 9,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
               Text(
-                item.amount,
-                style: tt.bodySmall?.copyWith(
+                'Riwayat Aktivitas',
+                style: tt.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: cs.onSurface,
                 ),
               ),
+              Row(
+                children: [
+                  Text(
+                    'Lihat Semua',
+                    style: tt.labelMedium?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: cs.primary,
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ── Konten: loading / error / kosong / daftar notif ─────────────
+        notifAsync.when(
+          loading: () => Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+            ),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, __) => Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+            ),
+            child: Center(
+              child: Text(
+                'Gagal memuat aktivitas',
+                style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.45)),
+              ),
+            ),
+          ),
+          data: (notifications) {
+            final items = notifications.take(3).toList();
+
+            if (items.isEmpty) {
+              // Empty state — bisa diklik menuju notifikasi
+              return GestureDetector(
+                onTap: () => context.push('/notifications'),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.history_rounded,
+                          size: 26,
+                          color: cs.primary.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Belum Ada Aktivitas',
+                        style: tt.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Notifikasi tugasmu akan\nmuncul di sini.',
+                        textAlign: TextAlign.center,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            // Daftar notifikasi — setiap baris bisa diklik → ke /notifications
+            return Container(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: List.generate(items.length, (i) {
+                  final n = items[i];
+                  final icon  = _iconFromType(n.type);
+                  final color = _colorFromType(n.type, cs);
+                  final timeStr = _formatRelativeTime(n.createdAt);
+
+                  return Column(
+                    children: [
+                      InkWell(
+                        onTap: () => context.push('/notifications'),
+                        borderRadius: BorderRadius.vertical(
+                          top:    i == 0 ? const Radius.circular(16) : Radius.zero,
+                          bottom: i == items.length - 1 ? const Radius.circular(16) : Radius.zero,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              // Ikon + dot belum-dibaca
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.13),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(icon, size: 19, color: color),
+                                  ),
+                                  if (!n.isRead)
+                                    Positioned(
+                                      right: -2,
+                                      top: -2,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              // Judul + body
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      n.title,
+                                      style: tt.bodyMedium?.copyWith(
+                                        fontWeight: n.isRead ? FontWeight.w500 : FontWeight.w700,
+                                        color: cs.onSurface,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      n.body,
+                                      style: tt.bodySmall?.copyWith(
+                                        color: cs.onSurface.withValues(alpha: 0.55),
+                                        height: 1.4,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Waktu relatif
+                              Text(
+                                timeStr,
+                                style: tt.labelSmall?.copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.45),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (i < items.length - 1)
+                        Divider(height: 1, indent: 66, endIndent: 14, color: cs.outlineVariant.withValues(alpha: 0.35)),
+                    ],
+                  );
+                }),
+              ),
+            );
+          },
+        ),
+      ],
     );
+  }
+
+  // ── Helper: ikon berdasarkan tipe notifikasi kurir ────────────────────────
+  IconData _iconFromType(String type) {
+    switch (type) {
+      case 'courier_task':         return Icons.assignment_outlined;
+      case 'courier_return_task':  return Icons.assignment_return_outlined;
+      case 'order_delivered':      return Icons.verified_outlined;
+      case 'order_picked_up':      return Icons.directions_bike_outlined;
+      case 'courier_assigned':     return Icons.local_shipping_outlined;
+      case 'return_approved':      return Icons.approval_outlined;
+      case 'return_completed':     return Icons.price_check_rounded;
+      default:                     return Icons.notifications_outlined;
+    }
+  }
+
+  // ── Helper: warna berdasarkan tipe notifikasi ─────────────────────────────
+  Color _colorFromType(String type, ColorScheme cs) {
+    if (type.startsWith('courier_')) return const Color(0xFFF97316); // orange
+    if (type.startsWith('return_'))  return const Color(0xFFEF4444); // red
+    if (type.startsWith('order_'))   return cs.primary;
+    return const Color(0xFF6B7280); // grey fallback
+  }
+
+  // ── Helper: format waktu relatif ──────────────────────────────────────────
+  String _formatRelativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return 'Baru saja';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours   < 24) return '${diff.inHours}j';
+    if (diff.inDays    < 7)  return '${diff.inDays}h';
+    return DateFormat('d MMM', 'id').format(dt);
   }
 }
 
