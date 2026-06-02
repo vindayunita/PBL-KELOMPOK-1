@@ -42,6 +42,39 @@ final class AuthStateChangesProvider
 
 String _$authStateChangesHash() => r'f95512f3016c4609549bf37ef775d5ac547a7179';
 
+@ProviderFor(userChanges)
+const userChangesProvider = UserChangesProvider._();
+
+final class UserChangesProvider
+    extends $FunctionalProvider<AsyncValue<User?>, User?, Stream<User?>>
+    with $FutureModifier<User?>, $StreamProvider<User?> {
+  const UserChangesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'userChangesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$userChangesHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<User?> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<User?> create(Ref ref) {
+    return userChanges(ref);
+  }
+}
+
+String _$userChangesHash() => r'b7cb827f6bdb5c482b4c03fb883057a4c2fc6798';
+
 @ProviderFor(currentUser)
 const currentUserProvider = CurrentUserProvider._();
 

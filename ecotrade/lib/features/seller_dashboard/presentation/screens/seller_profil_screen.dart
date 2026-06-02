@@ -10,8 +10,11 @@ import 'seller_withdrawal_screen.dart';
 import 'seller_bank_edit_screen.dart';
 import 'seller_kyc_completion_screen.dart';
 import '../../../../features/admin_dashboard/data/payout_repository.dart';
+import '../../../../features/auth/data/auth_repository.dart';
+import '../../../../features/user/data/user_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
 import '../../../../core/notifications/notification_providers.dart';
+import '../../../../shared/services/profile_photo_service.dart';
 
 class SellerProfilScreen extends ConsumerStatefulWidget {
   const SellerProfilScreen({super.key});
@@ -27,7 +30,44 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
   static const Color greyText      = Color(0xFF888888);
   static const Color appBackground = Color(0xFFF5F5F5);
 
-  // (aktivitas terkini sekarang diambil dari notificationStreamProvider)
+  bool _uploadingPhoto = false;
+
+  // ── Ganti foto profil ───────────────────────────────────────────────────────────────────
+  Future<void> _changePhoto() async {
+    final doc = ref.read(currentUserDocProvider).value;
+    if (doc == null) return;
+
+    final bytes = await ProfilePhotoService.pickImage(context);
+    if (bytes == null || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await ProfilePhotoService.uploadProfilePhoto(
+        uid: doc.uid,
+        bytes: bytes,
+      );
+      await Future.wait([
+        ref.read(userRepositoryProvider).updateProfile(uid: doc.uid, photoUrl: url),
+        ref.read(authRepositoryProvider).updatePhotoUrl(url),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil diperbarui'),
+            backgroundColor: Color(0xFF27AE60),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal upload foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +89,9 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDashboardHeader(),
+            const SizedBox(height: 20),
+            // ── Avatar Profil + Tombol Ganti Foto ──
+            _buildProfileAvatar(),
             // ── KYC Banner untuk seller lama yang belum verifikasi ──
             _buildKycBanner(),
             const SizedBox(height: 20),
@@ -64,6 +107,127 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Avatar Profil dengan tombol ganti foto ───────────────────────────────────────
+  Widget _buildProfileAvatar() {
+    final userAsync = ref.watch(currentUserDocProvider);
+    final user = userAsync.value;
+    final photoUrl = user?.photoUrl;
+    final name = user?.name ?? 'S';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'S';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          GestureDetector(
+            onTap: _uploadingPhoto ? null : _changePhoto,
+            child: Stack(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF005DA7), Color(0xFF27AE60)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: _uploadingPhoto
+                          ? Container(
+                              color: Colors.black26,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              ),
+                            )
+                          : photoUrl != null
+                              ? Image.network(
+                                  photoUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _SellerAvatarFallback(
+                                      initial: initial),
+                                )
+                              : _SellerAvatarFallback(initial: initial),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: primaryBlue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt_rounded,
+                        color: Colors.white, size: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.name ?? 'Seller',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user?.email ?? '',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _uploadingPhoto ? null : _changePhoto,
+            style: TextButton.styleFrom(
+              foregroundColor: primaryBlue,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            child: Text(
+              _uploadingPhoto ? '...' : 'Ganti Foto',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -760,6 +924,30 @@ class _KycStatusBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seller Avatar Fallback (inisial nama)
+// ─────────────────────────────────────────────────────────────────────────────
+class _SellerAvatarFallback extends StatelessWidget {
+  const _SellerAvatarFallback({required this.initial});
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFD4E3FF),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF005DA7),
+        ),
       ),
     );
   }

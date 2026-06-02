@@ -26,9 +26,9 @@ class BuyerProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync  = ref.watch(currentUserDocProvider);
+    final userAsync   = ref.watch(currentUserDocProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme  = Theme.of(context).textTheme;
+    final textTheme   = Theme.of(context).textTheme;
 
     return CustomScrollView(
       slivers: [
@@ -341,8 +341,10 @@ class _AddressSummaryCard extends StatelessWidget {
 // Avatar with gradient border + verified badge
 // ─────────────────────────────────────────────────────────────────────────────
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar(
-      {required this.photoUrl, required this.displayName});
+  const _ProfileAvatar({
+    required this.photoUrl,
+    required this.displayName,
+  });
 
   final String? photoUrl;
   final String displayName;
@@ -350,7 +352,6 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-
       width: 120,
       height: 120,
       child: Stack(

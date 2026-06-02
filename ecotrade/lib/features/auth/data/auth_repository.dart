@@ -21,6 +21,9 @@ class AuthRepository {
   // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // User changes stream (emits on profile update as well)
+  Stream<User?> get userChanges => _auth.userChanges();
+
   User? get currentUser => _auth.currentUser;
 
   // Sign in with email & password
@@ -40,6 +43,12 @@ class AuthRepository {
   // Update display name after registration
   Future<void> updateDisplayName(String name) async {
     await _auth.currentUser?.updateDisplayName(name);
+    await _auth.currentUser?.reload();
+  }
+
+  // Update photo URL on Firebase Auth profile
+  Future<void> updatePhotoUrl(String? photoUrl) async {
+    await _auth.currentUser?.updatePhotoURL(photoUrl);
     await _auth.currentUser?.reload();
   }
 

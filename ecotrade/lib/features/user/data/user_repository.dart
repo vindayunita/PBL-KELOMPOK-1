@@ -65,6 +65,14 @@ class UserRepository {
     });
   }
 
+  /// Removes the photoUrl field entirely from Firestore (sets it to null).
+  Future<void> removePhoto(String uid) {
+    return _users.doc(uid).update({
+      'photoUrl': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> setActiveRole(String uid, String role) {
     return _users.doc(uid).update({
       'activeRole': role,

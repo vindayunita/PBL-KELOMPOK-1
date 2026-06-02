@@ -12,9 +12,17 @@ Stream<User?> authStateChanges(Ref ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 }
 
+// ── User changes stream (emits on profile changes too) ────────────────────────
+@riverpod
+Stream<User?> userChanges(Ref ref) {
+  return ref.watch(authRepositoryProvider).userChanges;
+}
+
 // ── Current user convenience provider ────────────────────────────────────────
 @riverpod
 User? currentUser(Ref ref) {
+  // PENTING: gunakan authStateChanges (bukan userChanges) agar tidak terjadi
+  // brief null emission saat profil diupdate, yang bisa men-trigger redirect logout.
   return ref.watch(authStateChangesProvider).value;
 }
 

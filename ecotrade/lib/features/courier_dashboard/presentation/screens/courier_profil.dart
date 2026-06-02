@@ -6,10 +6,14 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../auth/domain/auth_providers.dart';
+import '../../../auth/data/auth_repository.dart';
 import '../../../../shared/widgets/notification_badge.dart';
 import '../../data/courier_application_repository.dart';
 import '../../../../features/orders/domain/order_providers.dart';
 import '../../../../core/notifications/notification_providers.dart';
+import '../../../../features/user/data/user_repository.dart';
+import '../../../../features/user/domain/user_providers.dart';
+import '../../../../shared/services/profile_photo_service.dart';
 import 'courier_status_verif.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,16 +28,56 @@ class CourierProfilScreen extends ConsumerStatefulWidget {
 }
 
 class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
+  bool _uploadingPhoto = false;
+
+  Future<void> _changePhoto() async {
+    final doc = ref.read(currentUserDocProvider).value;
+    if (doc == null) return;
+
+    final bytes = await ProfilePhotoService.pickImage(context);
+    if (bytes == null || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await ProfilePhotoService.uploadProfilePhoto(
+        uid: doc.uid,
+        bytes: bytes,
+      );
+      await Future.wait([
+        ref.read(userRepositoryProvider).updateProfile(uid: doc.uid, photoUrl: url),
+        ref.read(authRepositoryProvider).updatePhotoUrl(url),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil diperbarui'),
+            backgroundColor: Color(0xFF27AE60),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal upload foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Gunakan AsyncValue agar tidak null saat loading awal auth
     final authAsync = ref.watch(authStateChangesProvider);
     final user      = ref.watch(currentUserProvider);
+    final userDoc   = ref.watch(currentUserDocProvider).value;
     final cs        = Theme.of(context).colorScheme;
     final tt        = Theme.of(context).textTheme;
-    final name      = user?.displayName ?? user?.email ?? 'Kurir';
+    final name      = userDoc?.name ?? user?.displayName ?? user?.email ?? 'Kurir';
     final initials  = name.isNotEmpty ? name[0].toUpperCase() : 'K';
+    // Gunakan HANYA Firestore sebagai sumber foto agar hapus foto langsung reaktif.
+    final photoUrl  = userDoc?.photoUrl;
 
     // Ambil UID dari AsyncValue — null hanya jika benar-benar belum login
     final uid = authAsync.when(
@@ -46,6 +90,7 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
     final completedTasksCount = tasksAsync.value?.where((t) => t.isDelivered || t.isCompleted).length ?? 0;
 
     return SafeArea(
+
       child: CustomScrollView(
         slivers: [
           // ── App Bar ──────────────────────────────────────────────────────
@@ -56,15 +101,38 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
             leadingWidth: 56,
             leading: Padding(
               padding: const EdgeInsets.only(left: 16),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: cs.primaryContainer,
-                child: Text(
-                  initials,
-                  style: tt.labelLarge?.copyWith(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
+              child: GestureDetector(
+                onTap: _uploadingPhoto ? null : _changePhoto,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: cs.primaryContainer,
+                      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                      child: photoUrl == null
+                          ? Text(
+                              initials,
+                              style: tt.labelLarge?.copyWith(
+                                color: cs.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : null,
+                    ),
+                    if (_uploadingPhoto)
+                      Positioned.fill(
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.black26,
+                          child: const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -90,7 +158,12 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
                   const SizedBox(height: 8),
 
                   // ── Hero Identity Card ────────────────────────────────────
-                  _HeroCard(name: name),
+                  _HeroCard(
+                    name: name,
+                    photoUrl: photoUrl,
+                    isUploading: _uploadingPhoto,
+                    onChangeTap: _changePhoto,
+                  ),
 
                   const SizedBox(height: 14),
 
@@ -540,16 +613,25 @@ class _StatusNotFoundCard extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hero Identity Card (blue gradient)
+// Hero Identity Card (blue gradient) — now with photo
 // ─────────────────────────────────────────────────────────────────────────────
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.name});
+  const _HeroCard({
+    required this.name,
+    required this.photoUrl,
+    required this.isUploading,
+    required this.onChangeTap,
+  });
   final String name;
+  final String? photoUrl;
+  final bool isUploading;
+  final VoidCallback onChangeTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'K';
 
     return Container(
       width: double.infinity,
@@ -568,22 +650,102 @@ class _HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Badge
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'MITRA KURIR',
-              style: tt.labelSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
+          Row(
+            children: [
+              // Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'MITRA KURIR',
+                  style: tt.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              // Avatar dengan tombol kamera
+              GestureDetector(
+                onTap: isUploading ? null : onChangeTap,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+                      ),
+                      child: ClipOval(
+                        child: isUploading
+                            ? Container(
+                                color: Colors.black38,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20, height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
+                                  ),
+                                ),
+                              )
+                            : photoUrl != null
+                                ? Image.network(
+                                    photoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: Colors.white.withValues(alpha: 0.25),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        initial,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: cs.primary, width: 1.5),
+                        ),
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          size: 11,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 10),

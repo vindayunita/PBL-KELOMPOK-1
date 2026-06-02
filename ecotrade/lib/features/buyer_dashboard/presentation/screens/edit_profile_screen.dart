@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +6,7 @@ import '../../../../features/auth/data/auth_repository.dart';
 import '../../../../features/auth/domain/auth_providers.dart';
 import '../../../../features/user/data/user_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
+import '../../../../shared/services/profile_photo_service.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -19,6 +20,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
   bool _saving = false;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -36,6 +38,74 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
+  // ── Upload & save photo ──────────────────────────────────────────────────────
+  Future<void> _changePhoto() async {
+    final doc = ref.read(currentUserDocProvider).value;
+    if (doc == null) return;
+
+    final bytes = await ProfilePhotoService.pickImage(context);
+    if (bytes == null || !mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final url = await ProfilePhotoService.uploadProfilePhoto(
+        uid: doc.uid,
+        bytes: bytes,
+      );
+      await Future.wait([
+        ref.read(userRepositoryProvider).updateProfile(uid: doc.uid, photoUrl: url),
+        ref.read(authRepositoryProvider).updatePhotoUrl(url),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil diperbarui'),
+            backgroundColor: Color(0xFF27AE60),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal upload foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  // ── Delete photo ─────────────────────────────────────────────────────────────
+  Future<void> _deletePhoto() async {
+    final doc = ref.read(currentUserDocProvider).value;
+    if (doc == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      await Future.wait([
+        ref.read(userRepositoryProvider).removePhoto(doc.uid),
+        ref.read(authRepositoryProvider).updatePhotoUrl(null),
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil dihapus'),
+            backgroundColor: Color(0xFF27AE60),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal hapus foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  // ── Save profile info ────────────────────────────────────────────────────────
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final doc = ref.read(currentUserDocProvider).value;
@@ -73,8 +143,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs   = Theme.of(context).colorScheme;
-    final auth = ref.watch(currentUserProvider);
+    final cs        = Theme.of(context).colorScheme;
+    final auth      = ref.watch(currentUserProvider);
+    final userAsync = ref.watch(currentUserDocProvider);
+    // Gunakan HANYA Firestore sebagai sumber foto — jangan fallback ke
+    // auth?.photoURL karena Firebase Auth bisa cache URL lama setelah dihapus.
+    final photoUrl  = userAsync.value?.photoUrl;
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
@@ -105,59 +179,123 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // ── Avatar ──────────────────────────────────────────────────
+            // ── Avatar with change button ────────────────────────────────
             Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 96, height: 96,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF27AE60), Color(0xFF1565C0)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              child: GestureDetector(
+                onTap: _uploadingPhoto ? null : _changePhoto,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF27AE60), Color(0xFF1565C0)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(17),
-                        child: Container(
-                          color: cs.primaryContainer,
-                          alignment: Alignment.center,
-                          child: Text(
-                            _nameCtrl.text.isNotEmpty
-                                ? _nameCtrl.text[0].toUpperCase()
-                                : 'U',
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                              color: cs.primary,
-                            ),
-                          ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(19),
+                          child: _uploadingPhoto
+                              ? Container(
+                                  color: cs.primaryContainer,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                )
+                              : photoUrl != null
+                                  ? Image.network(
+                                      photoUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _AvatarFallback(
+                                              initial: _nameCtrl.text,
+                                              cs: cs),
+                                    )
+                                  : _AvatarFallback(
+                                      initial: _nameCtrl.text, cs: cs),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: 0, bottom: 0,
-                    child: Container(
-                      width: 28, height: 28,
-                      decoration: BoxDecoration(
-                        color: cs.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                    // Camera badge
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded,
+                            color: Colors.white, size: 15),
                       ),
-                      child: const Icon(Icons.camera_alt_rounded,
-                          color: Colors.white, size: 14),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 8),
+
+            const SizedBox(height: 8),
+
+            // Tap to change/delete label
+            if (photoUrl != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: _uploadingPhoto ? null : _changePhoto,
+                    icon: const Icon(Icons.photo_library_outlined, size: 16),
+                    label: Text(
+                      _uploadingPhoto ? 'Mengunggah...' : 'Ganti Foto',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: cs.primary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: _uploadingPhoto ? null : _deletePhoto,
+                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                    label: const Text(
+                      'Hapus Foto',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Center(
+                child: TextButton.icon(
+                  onPressed: _uploadingPhoto ? null : _changePhoto,
+                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  label: Text(
+                    _uploadingPhoto ? 'Mengunggah...' : 'Tambah Foto Profil',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 16),
 
             // ── Email (read-only) ────────────────────────────────────────
             _SectionLabel(label: 'Email'),
@@ -233,6 +371,30 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.initial, required this.cs});
+  final String initial;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: cs.primaryContainer,
+      alignment: Alignment.center,
+      child: Text(
+        initial.isNotEmpty ? initial[0].toUpperCase() : 'U',
+        style: TextStyle(
+          fontSize: 36,
+          fontWeight: FontWeight.w800,
+          color: cs.primary,
         ),
       ),
     );
