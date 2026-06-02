@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/cart_repository.dart';
@@ -1235,67 +1236,10 @@ class _ReviewCard extends StatelessWidget {
             ),
           ],
 
-          // Video thumbnail
-          if (review.videoUrl != null) ...[
+          // Video player inline
+          if (review.videoUrl != null && review.videoUrl!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text(
-                        'Video review tersedia — gunakan browser untuk memutarnya'),
-                    backgroundColor: cs.secondary,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              },
-              child: Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: cs.primary.withValues(alpha: 0.3), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(
-                        color: cs.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.play_arrow_rounded,
-                          color: cs.onPrimary, size: 22),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('Video Ulasan',
-                              style: tt.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface,
-                              )),
-                          Text('Ketuk untuk info',
-                              style: tt.labelSmall?.copyWith(
-                                fontSize: 10,
-                                color: cs.onSurface.withValues(alpha: 0.4),
-                              )),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.videocam_rounded,
-                        color: cs.primary.withValues(alpha: 0.6), size: 18),
-                  ],
-                ),
-              ),
-            ),
+            _VideoPlayerWidget(videoUrl: review.videoUrl!, cs: cs, tt: tt),
           ],
         ],
       ),
@@ -1338,6 +1282,204 @@ class _ReviewCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Inline Video Player Widget ───────────────────────────────────────────────
+class _VideoPlayerWidget extends StatefulWidget {
+  const _VideoPlayerWidget({
+    required this.videoUrl,
+    required this.cs,
+    required this.tt,
+  });
+  final String videoUrl;
+  final ColorScheme cs;
+  final TextTheme tt;
+
+  @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+  bool _hasError = false;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
+      await _controller.initialize();
+      _controller.addListener(_onPlayerStateChanged);
+      if (mounted) setState(() => _initialized = true);
+    } catch (_) {
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  void _onPlayerStateChanged() {
+    if (!mounted) return;
+    final playing = _controller.value.isPlaying;
+    if (playing != _isPlaying) setState(() => _isPlaying = playing);
+  }
+
+  void _togglePlay() {
+    if (!_initialized) return;
+    if (_controller.value.isPlaying) {
+      _controller.pause();
+    } else {
+      // Restart jika sudah selesai
+      if (_controller.value.position >= _controller.value.duration) {
+        _controller.seekTo(Duration.zero);
+      }
+      _controller.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onPlayerStateChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final tt = widget.tt;
+
+    if (_hasError) {
+      return Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.errorContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline_rounded, color: cs.error, size: 20),
+            const SizedBox(width: 10),
+            Text('Gagal memuat video',
+                style: tt.labelSmall?.copyWith(color: cs.error)),
+          ],
+        ),
+      );
+    }
+
+    if (!_initialized) {
+      return Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: cs.primary),
+          ),
+        ),
+      );
+    }
+
+    // Hitung aspect ratio dengan fallback 16:9
+    final aspectRatio = _controller.value.aspectRatio > 0
+        ? _controller.value.aspectRatio
+        : 16 / 9;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AspectRatio(
+                aspectRatio: aspectRatio,
+                child: VideoPlayer(_controller),
+              ),
+              // Overlay play/pause
+              GestureDetector(
+                onTap: _togglePlay,
+                child: AnimatedOpacity(
+                  opacity: _isPlaying ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+              // Tap anywhere jika sedang play
+              if (_isPlaying)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _togglePlay,
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              // Label "Video Ulasan" di kanan atas
+              Positioned(
+                top: 8, left: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.videocam_rounded,
+                          color: Colors.white, size: 12),
+                      const SizedBox(width: 4),
+                      Text('Video Ulasan',
+                          style: tt.labelSmall?.copyWith(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Progress bar
+        const SizedBox(height: 4),
+        VideoProgressIndicator(
+          _controller,
+          allowScrubbing: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          colors: VideoProgressColors(
+            playedColor: cs.primary,
+            bufferedColor: cs.primary.withValues(alpha: 0.25),
+            backgroundColor: cs.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+      ],
     );
   }
 }
