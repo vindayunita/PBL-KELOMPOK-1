@@ -64,6 +64,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             backgroundColor: colorScheme.error,
           ),
         );
+      } else if (next is AsyncData) {
+        // Akun berhasil dibuat — arahkan ke halaman login
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Akun berhasil dibuat! Silakan masuk dengan akun Anda.',
+            ),
+            backgroundColor: colorScheme.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.go(AppRoutes.login);
       }
     });
 

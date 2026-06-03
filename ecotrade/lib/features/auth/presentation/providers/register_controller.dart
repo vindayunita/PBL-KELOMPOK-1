@@ -45,8 +45,15 @@ class RegisterController extends _$RegisterController {
         ),
       );
 
-      // Registrasi selesai — router otomatis redirect via auth state stream.
-      // Tidak perlu set AsyncData karena provider mungkin sudah di-dispose.
+      // 4. Sign out agar user tidak langsung masuk — diarahkan ke login
+      await authRepo.signOut();
+
+      // Registrasi selesai — set AsyncData agar UI tahu sukses.
+      try {
+        state = const AsyncData(null);
+      } catch (_) {
+        // Provider sudah di-dispose — abaikan.
+      }
     } catch (e, st) {
       // Kalau error, tampilkan ke UI (jika provider masih hidup)
       try {

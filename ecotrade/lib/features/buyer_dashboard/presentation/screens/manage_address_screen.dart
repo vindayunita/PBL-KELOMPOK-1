@@ -41,7 +41,8 @@ class ManageAddressScreen extends ConsumerWidget {
               return _AddressCard(
                 address: addr,
                 onEdit: () => _showAddressSheet(context, ref, addr, i),
-                onDelete: () => _deleteAddress(context, ref, user!.uid, addresses, i),
+                onDelete: () =>
+                    _deleteAddress(context, ref, user!.uid, addresses, i),
                 onSetDefault: addr['isDefault'] == true
                     ? null
                     : () => _setDefault(ref, user!.uid, addresses, i),
@@ -53,48 +54,67 @@ class ManageAddressScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteAddress(BuildContext context, WidgetRef ref,
-      String uid, List<Map<String, dynamic>> addresses, int index) async {
+  Future<void> _deleteAddress(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    List<Map<String, dynamic>> addresses,
+    int index,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus Alamat?'),
         content: const Text('Alamat ini akan dihapus permanen.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Hapus')),
         ],
       ),
     );
     if (confirm != true) return;
+
     final updated = [...addresses]..removeAt(index);
     // Jika yang dihapus adalah default dan masih ada alamat lain, set yang pertama jadi default
     if (addresses[index]['isDefault'] == true && updated.isNotEmpty) {
       updated[0] = {...updated[0], 'isDefault': true};
     }
     await ref.read(userRepositoryProvider).updateAddresses(uid, updated);
+    // Force immediate refresh
+    ref.invalidate(currentUserDocProvider);
   }
 
-  Future<void> _setDefault(WidgetRef ref, String uid,
-      List<Map<String, dynamic>> addresses, int index) async {
+  Future<void> _setDefault(
+    WidgetRef ref,
+    String uid,
+    List<Map<String, dynamic>> addresses,
+    int index,
+  ) async {
     final updated = addresses
         .asMap()
         .entries
         .map((e) => {...e.value, 'isDefault': e.key == index})
         .toList();
     await ref.read(userRepositoryProvider).updateAddresses(uid, updated);
+    // Force immediate refresh
+    ref.invalidate(currentUserDocProvider);
   }
 
-  void _showAddressSheet(BuildContext context, WidgetRef ref,
-      Map<String, dynamic>? existing, int index) {
+  void _showAddressSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic>? existing,
+    int index,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddressFormSheet(
-        ref: ref,
         existing: existing,
         index: index,
       ),
@@ -116,13 +136,13 @@ class _EmptyAddressState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 80, height: 80,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               color: cs.primaryContainer,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.location_off_outlined,
-                size: 38, color: cs.primary),
+            child: Icon(Icons.location_off_outlined, size: 38, color: cs.primary),
           ),
           const SizedBox(height: 20),
           Text('Belum ada alamat',
@@ -160,10 +180,10 @@ class _AddressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDefault = address['isDefault'] == true;
-    final label   = address['label']      as String? ?? 'Alamat';
-    final detail  = address['detail']     as String? ?? '';
-    final city    = address['city']       as String? ?? '';
-    final postal  = address['postalCode'] as String? ?? '';
+    final label = address['label'] as String? ?? 'Alamat';
+    final detail = address['detail'] as String? ?? '';
+    final city = address['city'] as String? ?? '';
+    final postal = address['postalCode'] as String? ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -176,8 +196,9 @@ class _AddressCard extends StatelessWidget {
             : Border.all(color: cs.outline.withValues(alpha: 0.15)),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.05),
-            blurRadius: 10, offset: const Offset(0, 3)),
+              color: cs.shadow.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -187,7 +208,8 @@ class _AddressCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF27AE60).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -201,7 +223,8 @@ class _AddressCard extends StatelessWidget {
               if (isDefault) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1565C0).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -222,8 +245,7 @@ class _AddressCard extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onDelete,
-                icon: Icon(Icons.delete_outline,
-                    size: 18, color: cs.error),
+                icon: Icon(Icons.delete_outline, size: 18, color: cs.error),
                 visualDensity: VisualDensity.compact,
                 tooltip: 'Hapus',
               ),
@@ -231,8 +253,8 @@ class _AddressCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(detail,
-              style: TextStyle(
-                  fontSize: 14, color: cs.onSurface, height: 1.4)),
+              style:
+                  TextStyle(fontSize: 14, color: cs.onSurface, height: 1.4)),
           if (city.isNotEmpty || postal.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -273,12 +295,10 @@ class _AddressCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _AddressFormSheet extends ConsumerStatefulWidget {
   const _AddressFormSheet({
-    required this.ref,
     required this.existing,
     required this.index,
   });
 
-  final WidgetRef ref;
   final Map<String, dynamic>? existing;
   final int index;
 
@@ -303,9 +323,10 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
     final e = widget.existing;
     _selectedLabel = e?['label'] as String? ?? 'Rumah';
     _detailCtrl = TextEditingController(text: e?['detail'] as String? ?? '');
-    _cityCtrl   = TextEditingController(text: e?['city']   as String? ?? '');
-    _postalCtrl = TextEditingController(text: e?['postalCode'] as String? ?? '');
-    _isDefault  = e?['isDefault'] as bool? ?? false;
+    _cityCtrl = TextEditingController(text: e?['city'] as String? ?? '');
+    _postalCtrl =
+        TextEditingController(text: e?['postalCode'] as String? ?? '');
+    _isDefault = e?['isDefault'] as bool? ?? false;
   }
 
   @override
@@ -318,39 +339,39 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final user = widget.ref.read(currentUserDocProvider).value;
+    final user = ref.read(currentUserDocProvider).value;
     if (user == null) return;
 
     setState(() => _saving = true);
     try {
-      final repo = widget.ref.read(userRepositoryProvider);
+      final repo = ref.read(userRepositoryProvider);
       final addresses = List<Map<String, dynamic>>.from(user.addresses);
 
       final newAddr = {
         'id': widget.existing?['id'] as String? ??
             '${DateTime.now().millisecondsSinceEpoch}',
-        'label':      _selectedLabel,
-        'detail':     _detailCtrl.text.trim(),
-        'city':       _cityCtrl.text.trim(),
+        'label': _selectedLabel,
+        'detail': _detailCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
         'postalCode': _postalCtrl.text.trim(),
-        'isDefault':  _isDefault,
+        'isDefault': _isDefault,
       };
 
       // Jika set sebagai default, reset semua isDefault dulu
       List<Map<String, dynamic>> updated;
       if (_isDefault) {
-        updated = addresses
-            .map((a) => {...a, 'isDefault': false})
-            .toList();
+        updated = addresses.map((a) => {...a, 'isDefault': false}).toList();
       } else {
         updated = List.from(addresses);
       }
 
       if (widget.index >= 0) {
+        // Edit existing
         updated[widget.index] = newAddr;
       } else {
-        // Jika ini alamat pertama, otomatis jadikan default
+        // Add new
         if (updated.isEmpty) {
+          // Alamat pertama — otomatis jadikan default
           updated.add({...newAddr, 'isDefault': true});
         } else {
           updated.add(newAddr);
@@ -358,12 +379,15 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
       }
 
       await repo.updateAddresses(user.uid, updated);
+      // Force immediate refresh of the address list
+      ref.invalidate(currentUserDocProvider);
 
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Gagal: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -382,7 +406,9 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
-        left: 24, right: 24, top: 16,
+        left: 24,
+        right: 24,
+        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Form(
@@ -395,7 +421,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
               // Handle bar
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: cs.outline.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
@@ -437,7 +464,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                 controller: _detailCtrl,
                 maxLines: 2,
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Alamat tidak boleh kosong' : null,
+                    ? 'Alamat tidak boleh kosong'
+                    : null,
                 decoration: InputDecoration(
                   hintText: 'Jl. Merdeka No. 1, RT 01/RW 02...',
                   border: OutlineInputBorder(
@@ -459,8 +487,10 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _cityCtrl,
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Wajib diisi' : null,
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty)
+                                  ? 'Wajib diisi'
+                                  : null,
                           decoration: InputDecoration(
                             hintText: 'Jakarta',
                             border: OutlineInputBorder(
@@ -505,7 +535,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                 onChanged: (v) => setState(() => _isDefault = v),
                 title: const Text('Jadikan Alamat Utama',
                     style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Alamat ini akan digunakan sebagai default'),
+                subtitle:
+                    const Text('Alamat ini akan digunakan sebagai default'),
               ),
 
               const SizedBox(height: 20),
@@ -521,10 +552,12 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                   ),
                   child: _saving
                       ? const SizedBox(
-                          width: 20, height: 20,
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : Text(isEdit ? 'Simpan Perubahan' : 'Tambah Alamat',
+                      : Text(
+                          isEdit ? 'Simpan Perubahan' : 'Tambah Alamat',
                           style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
@@ -539,9 +572,6 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
   TextStyle _labelStyle(BuildContext context) => TextStyle(
         fontWeight: FontWeight.w600,
         fontSize: 13,
-        color: Theme.of(context)
-            .colorScheme
-            .onSurface
-            .withValues(alpha: 0.6),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       );
 }

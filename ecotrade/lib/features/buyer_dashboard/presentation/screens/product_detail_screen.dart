@@ -9,6 +9,7 @@ import '../../data/review_model.dart';
 import '../../../seller_dashboard/domain/product_model.dart';
 import '../../../user/domain/user_providers.dart';
 import 'checkout_screen.dart';
+import 'manage_address_screen.dart';
 
 /// Provider stream review untuk satu produk
 final _productReviewsProvider =
@@ -587,6 +588,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Future<void> _addToCart(BuildContext context, ColorScheme cs, String buyerCity) async {
     final p = widget.product;
+
+    // Check address first
+    final userAsync = ref.read(currentUserDocProvider);
+    final addresses = userAsync.value?.addresses ?? [];
+    if (addresses.isEmpty) {
+      _showNoAddressDialog(context, cs);
+      return;
+    }
+
     if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
       _showLocationError(context, cs);
       return;
@@ -634,6 +644,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   void _buyNow(BuildContext context, ColorScheme cs, TextTheme tt, String buyerCity) {
     final p = widget.product;
+
+    // Check address first
+    final userAsync = ref.read(currentUserDocProvider);
+    final addresses = userAsync.value?.addresses ?? [];
+    if (addresses.isEmpty) {
+      _showNoAddressDialog(context, cs);
+      return;
+    }
+
     if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
       _showLocationError(context, cs);
       return;
@@ -662,6 +681,73 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     // Standard — show quantity picker bottom sheet
     _showQuantitySheet(context, cs, tt, p);
+  }
+
+  void _showNoAddressDialog(BuildContext context, ColorScheme cs) {
+    final tt = Theme.of(context).textTheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.all(28),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.location_off_rounded,
+                  color: cs.onErrorContainer, size: 36),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Alamat Belum Diatur',
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Silakan tambahkan alamat pengiriman terlebih dahulu sebelum melakukan pembelian.',
+              textAlign: TextAlign.center,
+              style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ManageAddressScreen()));
+                },
+                child: const Text('Atur Alamat Sekarang',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Nanti Saja',
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showQuantitySheet(

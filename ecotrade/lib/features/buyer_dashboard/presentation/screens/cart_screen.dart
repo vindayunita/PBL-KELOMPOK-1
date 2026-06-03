@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../features/user/domain/user_providers.dart';
 import '../../data/cart_item_model.dart';
 import '../../data/cart_repository.dart';
 import 'checkout_screen.dart';
+import 'manage_address_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cart Screen
@@ -314,12 +316,88 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       BuildContext context, ColorScheme cs, int count, double total,
       List<CartItemModel> selectedItems) {
     if (selectedItems.isEmpty) return;
+
+    // Check if buyer has at least one saved address
+    final userAsync = ref.read(currentUserDocProvider);
+    final addresses = userAsync.value?.addresses ?? [];
+    if (addresses.isEmpty) {
+      _showNoAddressDialog(context, cs);
+      return;
+    }
+
     final orderItems = cartItemsToOrderItems(selectedItems);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CheckoutScreen(
           items: orderItems,
           clearCartAfterOrder: true, // clear cart on success
+        ),
+      ),
+    );
+  }
+
+  void _showNoAddressDialog(BuildContext context, ColorScheme cs) {
+    final tt = Theme.of(context).textTheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.all(28),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.location_off_rounded,
+                  color: cs.onErrorContainer, size: 36),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Alamat Belum Diatur',
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Silakan tambahkan alamat pengiriman terlebih dahulu sebelum melanjutkan ke checkout.',
+              textAlign: TextAlign.center,
+              style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ManageAddressScreen()));
+                },
+                child: const Text('Atur Alamat Sekarang',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Nanti Saja',
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ],
         ),
       ),
     );
