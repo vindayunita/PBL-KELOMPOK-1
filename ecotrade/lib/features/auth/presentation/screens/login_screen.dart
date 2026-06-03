@@ -178,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             isDense: true,
                             contentPadding:
-                                const EdgeInsets.only(bottom: 10),
+                                const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ],

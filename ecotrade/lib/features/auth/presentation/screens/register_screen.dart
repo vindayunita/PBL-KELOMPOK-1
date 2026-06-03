@@ -324,7 +324,7 @@ class _PasswordField extends StatelessWidget {
               borderSide: BorderSide(color: colorScheme.error, width: 2),
             ),
             isDense: true,
-            contentPadding: const EdgeInsets.only(bottom: 10),
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
       ],
