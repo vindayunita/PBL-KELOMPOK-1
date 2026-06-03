@@ -1189,57 +1189,127 @@ class _ReviewCard extends StatelessWidget {
             ),
           ],
 
-          // Grid foto
-          if (review.photoUrls.isNotEmpty) ...[
+          // Grid foto + thumbnail video dalam satu baris horizontal
+          if (review.photoUrls.isNotEmpty ||
+              (review.videoUrl != null && review.videoUrl!.isNotEmpty)) ...[
             const SizedBox(height: 10),
             SizedBox(
               height: 80,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                children: review.photoUrls.map((url) {
-                  return GestureDetector(
-                    onTap: () => _showFullImage(context, url),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      width: 80, height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: cs.outlineVariant, width: 1),
+                children: [
+                  // Thumbnail foto
+                  ...review.photoUrls.map((url) {
+                    return GestureDetector(
+                      onTap: () => _showFullImage(context, url),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.outlineVariant, width: 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (ctx, child, prog) =>
+                                prog == null ? child : Container(
+                                  color: cs.surfaceContainerHigh,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 18, height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 1.5, color: cs.primary),
+                                    ),
+                                  ),
+                                ),
+                            errorBuilder: (_, __, ___) => Container(
+                              color: cs.surfaceContainerHigh,
+                              child: Icon(Icons.broken_image_outlined,
+                                  color: cs.onSurfaceVariant, size: 24),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
-                        child: Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (ctx, child, prog) =>
-                              prog == null ? child : Container(
-                                color: cs.surfaceContainerHigh,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 18, height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 1.5, color: cs.primary),
+                    );
+                  }),
+                  // Thumbnail video (sama ukuran 80×80 dengan foto)
+                  if (review.videoUrl != null && review.videoUrl!.isNotEmpty)
+                    GestureDetector(
+                      onTap: () =>
+                          _showVideoPlayer(context, review.videoUrl!, cs, tt),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: cs.primary.withValues(alpha: 0.5),
+                              width: 1.5),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              // Background gelap
+                              Container(
+                                color: const Color(0xFF1A1A2E),
+                              ),
+                              // Ikon play di tengah
+                              Center(
+                                child: Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withValues(alpha: 0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: cs.primary.withValues(alpha: 0.4),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: Colors.white,
+                                    size: 22,
                                   ),
                                 ),
                               ),
-                          errorBuilder: (_, __, ___) => Container(
-                            color: cs.surfaceContainerHigh,
-                            child: Icon(Icons.broken_image_outlined,
-                                color: cs.onSurfaceVariant, size: 24),
+                              // Badge "VIDEO" di kiri bawah
+                              Positioned(
+                                bottom: 5, left: 5,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'VIDEO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 7,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                ],
               ),
             ),
-          ],
-
-          // Video player inline
-          if (review.videoUrl != null && review.videoUrl!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _VideoPlayerWidget(videoUrl: review.videoUrl!, cs: cs, tt: tt),
           ],
         ],
       ),
@@ -1282,6 +1352,84 @@ class _ReviewCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Membuka fullscreen video player dialog
+  void _showVideoPlayer(
+    BuildContext context,
+    String videoUrl,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (dialogContext) {
+        // Gunakan MediaQuery untuk batasi tinggi maksimum dialog
+        final screenH = MediaQuery.of(dialogContext).size.height;
+        final maxH    = screenH * 0.75;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                color: Colors.black,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header bar
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+                      color: const Color(0xFF1A1A2E),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.videocam_rounded,
+                              color: Colors.white70, size: 18),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Video Ulasan',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(dialogContext),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close,
+                                  color: Colors.white, size: 18),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Video player — Expanded memberi bounded height ke widget
+                    Expanded(
+                      child: _VideoPlayerWidget(
+                        videoUrl: videoUrl,
+                        cs: cs,
+                        tt: tt,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1347,8 +1495,10 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
 
   @override
   void dispose() {
-    _controller.removeListener(_onPlayerStateChanged);
-    _controller.dispose();
+    if (_initialized) {
+      _controller.removeListener(_onPlayerStateChanged);
+      _controller.dispose();
+    }
     super.dispose();
   }
 
@@ -1393,93 +1543,127 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
       );
     }
 
-    // Hitung aspect ratio dengan fallback 16:9
+    // Aspect ratio asli dari video; fallback 16:9 jika belum ready
     final aspectRatio = _controller.value.aspectRatio > 0
         ? _controller.value.aspectRatio
         : 16 / 9;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: aspectRatio,
-                child: VideoPlayer(_controller),
-              ),
-              // Overlay play/pause
-              GestureDetector(
-                onTap: _togglePlay,
-                child: AnimatedOpacity(
-                  opacity: _isPlaying ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: Container(
-                    width: 52, height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                ),
-              ),
-              // Tap anywhere jika sedang play
-              if (_isPlaying)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: _togglePlay,
-                    behavior: HitTestBehavior.opaque,
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              // Label "Video Ulasan" di kanan atas
-              Positioned(
-                top: 8, left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.videocam_rounded,
-                          color: Colors.white, size: 12),
-                      const SizedBox(width: 4),
-                      Text('Video Ulasan',
-                          style: tt.labelSmall?.copyWith(
+    // Gunakan LayoutBuilder untuk mendapat KEDUA bounded constraint:
+    // maxWidth (dari dialog width) dan maxHeight (dari Expanded).
+    // Hitung ukuran video yang masuk dalam kedua dimensi (shrink-to-fit).
+    const progressBarH = 28.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availW = constraints.maxWidth;
+        final availH = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : availW / aspectRatio + progressBarH;
+
+        // Hitung ukuran video agar tidak melebihi availW maupun (availH - progressBarH)
+        double videoW = availW;
+        double videoH = videoW / aspectRatio;
+        if (videoH > availH - progressBarH) {
+          videoH = availH - progressBarH;
+          videoW = videoH * aspectRatio;
+          // Pastikan tidak melebihi lebar container
+          if (videoW > availW) {
+            videoW = availW;
+            videoH = videoW / aspectRatio;
+          }
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Video dengan ukuran yang sudah dihitung — tidak akan overflow
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: videoW,
+                height: videoH,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    VideoPlayer(_controller),
+                    // Overlay play/pause
+                    GestureDetector(
+                      onTap: _togglePlay,
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedOpacity(
+                        opacity: _isPlaying ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 250),
+                        child: Center(
+                          child: Container(
+                            width: 56, height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
                               color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                  ),
+                              size: 34,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Tap seluruh area saat sedang play
+                    if (_isPlaying)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          onTap: _togglePlay,
+                          behavior: HitTestBehavior.opaque,
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    // Badge label
+                    Positioned(
+                      top: 8, left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.videocam_rounded,
+                                color: Colors.white, size: 12),
+                            const SizedBox(width: 4),
+                            Text('Video Ulasan',
+                                style: tt.labelSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-        // Progress bar
-        const SizedBox(height: 4),
-        VideoProgressIndicator(
-          _controller,
-          allowScrubbing: true,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          colors: VideoProgressColors(
-            playedColor: cs.primary,
-            bufferedColor: cs.primary.withValues(alpha: 0.25),
-            backgroundColor: cs.outlineVariant.withValues(alpha: 0.4),
-          ),
-        ),
-      ],
+            ),
+            // Progress bar & scrubbing — tinggi tetap
+            SizedBox(
+              height: progressBarH,
+              child: VideoProgressIndicator(
+                _controller,
+                allowScrubbing: true,
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                colors: VideoProgressColors(
+                  playedColor: cs.primary,
+                  bufferedColor: cs.primary.withValues(alpha: 0.25),
+                  backgroundColor: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
