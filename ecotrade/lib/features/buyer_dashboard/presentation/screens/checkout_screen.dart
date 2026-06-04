@@ -43,7 +43,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       .toStringAsFixed(0)
       .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
 
-  double get _total => widget.items.fold(0.0, (s, i) => s + i.subtotal);
+  double get _subtotal => widget.items.fold(0.0, (s, i) => s + i.subtotal);
+  double get _serviceFee => _subtotal * 0.11;
+  double get _grandTotal => _subtotal + _serviceFee;
+
+  // Alias untuk backward-compat
+  double get _total => _grandTotal;
 
   // ── Pick image from gallery ────────────────────────────────────────────────
   Future<void> _pickProof() async {
@@ -86,7 +91,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       await repo.placeOrder(
         items: widget.items,
         buyerAddress: deliveryAddress,
-        total: _total,
+        total: _grandTotal,
         paymentProofUrl: proofUrl,
       );
 
@@ -260,15 +265,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       Divider(color: cs.outlineVariant, height: 1),
                       const SizedBox(height: 12),
                       _summaryRow(
-                          'Subtotal', 'Rp ${_fmt(_total)}', cs, tt),
-                      const SizedBox(height: 8),
+                          'Biaya Layanan', 'Rp ${_fmt(_serviceFee)}', cs, tt),
+                      const SizedBox(height: 4),
+                      _summaryRow(
+                          'Subtotal', 'Rp ${_fmt(_subtotal)}', cs, tt),
+                      const SizedBox(height: 10),
+                      Divider(color: cs.outlineVariant, height: 1),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Total Pembayaran',
                               style: tt.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w800)),
-                          Text('Rp ${_fmt(_total)}',
+                          Text('Rp ${_fmt(_grandTotal)}',
                               style: tt.headlineSmall?.copyWith(
                                   color: cs.primary,
                                   fontWeight: FontWeight.w800,
