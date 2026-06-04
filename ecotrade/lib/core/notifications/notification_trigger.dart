@@ -138,6 +138,21 @@ abstract class NotificationTrigger {
         referenceId: orderId,
       );
 
+  /// Notifikasi ke Seller: ada permintaan retur dari buyer.
+  static Future<void> returnRequested({
+    required String sellerId,
+    required String orderId,
+    required String productTitle,
+    required String buyerName,
+  }) => _send(
+        recipientId: sellerId,
+        title: '⚠️ Permintaan Retur Baru',
+        body: '$buyerName mengajukan retur untuk "$productTitle". '
+            'Silakan cek detail dan berikan keputusan.',
+        type: 'return_requested',
+        referenceId: orderId,
+      );
+
   /// Notifikasi ke Seller: retur selesai, barang sudah kembali.
   static Future<void> returnCompleted({
     required String sellerId,
@@ -180,6 +195,108 @@ abstract class NotificationTrigger {
         type: 'courier_return_task',
         referenceId: orderId,
       );
+
+  // ── Saldo & Penarikan (Refund / Payout) ────────────────────────────────────
+
+  /// Notifikasi ke Buyer: Dana refund telah ditambahkan ke saldo.
+  static Future<void> refundBalanceAdded({
+    required String buyerId,
+    required double amount,
+  }) {
+    // Format nominal ke ribuan, misal Rp 50.000 (secara sederhana)
+    final amtStr = 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\\B(?=(\\d{3})+(?!\\d))'), (m) => '.')}';
+    return _send(
+      recipientId: buyerId,
+      title: '💰 Dana Refund Masuk!',
+      body: 'Dana refund sebesar $amtStr telah ditambahkan ke Saldo Refund Anda.',
+      type: 'refund_balance_added',
+      referenceId: buyerId,
+    );
+  }
+
+  /// Notifikasi ke User (Buyer/Seller): Penarikan dana berhasil diproses admin.
+  static Future<void> payoutApproved({
+    required String userId,
+    required double amount,
+    required String bankName,
+  }) {
+    final amtStr = 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\\B(?=(\\d{3})+(?!\\d))'), (m) => '.')}';
+    return _send(
+      recipientId: userId,
+      title: '💸 Penarikan Berhasil',
+      body: 'Penarikan dana Anda sebesar $amtStr ke rekening $bankName telah berhasil diproses oleh Admin.',
+      type: 'payout_approved',
+      referenceId: userId,
+    );
+  }
+
+  /// Notifikasi ke User (Buyer/Seller): Penarikan dana ditolak admin.
+  static Future<void> payoutRejected({
+    required String userId,
+    required double amount,
+    required String reason,
+  }) {
+    final amtStr = 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\\B(?=(\\d{3})+(?!\\d))'), (m) => '.')}';
+    return _send(
+      recipientId: userId,
+      title: '❌ Penarikan Ditolak',
+      body: 'Permintaan penarikan dana sebesar $amtStr ditolak: "$reason". Saldo Anda telah dikembalikan.',
+      type: 'payout_rejected',
+      referenceId: userId,
+    );
+  }
+
+  // ── Admin (Multicast Push via ADMIN_ALL) ───────────────────────────────────
+
+  static Future<void> adminNewCourierApplication(String uid, String name) {
+    return _send(
+      recipientId: 'ADMIN_ALL',
+      title: 'Pendaftaran Kurir Baru',
+      body: 'Kurir baru ($name) mendaftar dan menunggu verifikasi Anda.',
+      type: 'admin_verify_courier',
+      referenceId: uid,
+    );
+  }
+
+  static Future<void> adminNewSellerApplication(String uid, String name) {
+    return _send(
+      recipientId: 'ADMIN_ALL',
+      title: 'Pendaftaran Seller Baru',
+      body: 'Seller baru ($name) mendaftar dan menunggu verifikasi Anda.',
+      type: 'admin_verify_seller',
+      referenceId: uid,
+    );
+  }
+
+  static Future<void> adminNewPaymentVerification(String orderId) {
+    return _send(
+      recipientId: 'ADMIN_ALL',
+      title: 'Verifikasi Pembayaran Baru',
+      body: 'Pesanan baru ($orderId) telah dibayar. Silakan cek bukti transfer.',
+      type: 'admin_verify_payment',
+      referenceId: orderId,
+    );
+  }
+
+  static Future<void> adminNewRefundRequest(String payoutId) {
+    return _send(
+      recipientId: 'ADMIN_ALL',
+      title: 'Permintaan Pencairan Refund',
+      body: 'Ada permintaan pencairan dana refund baru dari Buyer.',
+      type: 'admin_payout_refund',
+      referenceId: payoutId,
+    );
+  }
+
+  static Future<void> adminNewPayoutRequest(String payoutId) {
+    return _send(
+      recipientId: 'ADMIN_ALL',
+      title: 'Permintaan Pencairan Pendapatan',
+      body: 'Ada permintaan pencairan pendapatan baru dari Seller.',
+      type: 'admin_payout_seller',
+      referenceId: payoutId,
+    );
+  }
 
   // ── Internal ───────────────────────────────────────────────────────────────
 

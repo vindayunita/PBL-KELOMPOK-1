@@ -41,15 +41,41 @@ exports.sendPushNotification = onDocumentCreated(
 
     try {
       // 1. Ambil dokumen user penerima untuk mendapatkan fcmTokens
-      const userDoc = await db.collection("users").doc(recipientId).get();
+      let tokens = []; // Array of objects: { token: string, userId: string }
 
-      if (!userDoc.exists) {
-        console.log(`User ${recipientId} tidak ditemukan di Firestore.`);
-        return null;
+      if (recipientId === "ADMIN_ALL") {
+        const adminSnaps = await db
+          .collection("users")
+          .where("roles", "array-contains", "admin")
+          .get();
+          
+        if (adminSnaps.empty) {
+          console.log("Tidak ada user admin ditemukan. Push dilewati.");
+          return null;
+        }
+
+        adminSnaps.forEach((doc) => {
+          const userData = doc.data();
+          if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
+            userData.fcmTokens.forEach((t) => {
+              tokens.push({ token: t, userId: doc.id });
+            });
+          }
+        });
+      } else {
+        const userDoc = await db.collection("users").doc(recipientId).get();
+
+        if (!userDoc.exists) {
+          console.log(`User ${recipientId} tidak ditemukan di Firestore.`);
+          return null;
+        }
+
+        const userData = userDoc.data();
+        const userTokens = userData.fcmTokens || [];
+        userTokens.forEach((t) => {
+          tokens.push({ token: t, userId: recipientId });
+        });
       }
-
-      const userData = userDoc.data();
-      const tokens = userData.fcmTokens || [];
 
       if (tokens.length === 0) {
         console.log(
@@ -58,6 +84,7 @@ exports.sendPushNotification = onDocumentCreated(
         return null;
       }
 
+      const tokensArray = tokens.map((t) => t.token);
       console.log(
         `Mengirim notifikasi ke ${tokens.length} perangkat milik user ${recipientId}...`
       );
@@ -84,7 +111,7 @@ exports.sendPushNotification = onDocumentCreated(
             defaultVibrateTimings: true,
           },
         },
-        tokens: tokens,
+        tokens: tokensArray,
       };
 
       // 3. Kirim notifikasi ke semua perangkat (multicast)
@@ -115,15 +142,21 @@ exports.sendPushNotification = onDocumentCreated(
         });
 
         if (tokensToRemove.length > 0) {
-          console.log(
-            `Menghapus ${tokensToRemove.length} token tidak valid dari user ${recipientId}...`
-          );
-          await db
-            .collection("users")
-            .doc(recipientId)
-            .update({
-              fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove),
-            });
+          console.log(`Menghapus token tidak valid...`);
+          
+          // Group tokens to remove by userId
+          const tokensByUser = {};
+          tokensToRemove.forEach(obj => {
+            if (!tokensByUser[obj.userId]) tokensByUser[obj.userId] = [];
+            tokensByUser[obj.userId].push(obj.token);
+          });
+          
+          // Remove from each user
+          for (const uid of Object.keys(tokensByUser)) {
+             await db.collection("users").doc(uid).update({
+               fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensByUser[uid]),
+             });
+          }
         }
       }
 

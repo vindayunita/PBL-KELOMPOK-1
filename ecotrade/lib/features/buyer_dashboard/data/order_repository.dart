@@ -1,9 +1,12 @@
-﻿import 'dart:typed_data';
+import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../../../core/notifications/notification_trigger.dart';
 
 import 'order_item_model.dart';
 import 'order_model.dart';
@@ -83,6 +86,9 @@ class OrderRepository {
     });
 
     await batch.commit();
+    
+    unawaited(NotificationTrigger.adminNewPaymentVerification(ref.id));
+    
     return ref.id;
   }
 
@@ -199,6 +205,25 @@ class OrderRepository {
       'returnReason': reason,
       'updatedAt':    FieldValue.serverTimestamp(),
     });
+
+    // Ambil data order untuk notifikasi (asumsi fallback jika method ini masih dipakai)
+    try {
+      final doc = await _db.collection('orders').doc(orderId).get();
+      final data = doc.data() ?? {};
+      final sellerIds = (data['sellerIds'] as List<dynamic>? ?? []).map((e) => e as String).toList();
+      final buyerName = data['buyerName'] as String? ?? 'Pembeli';
+      final rawItems = data['items'] as List<dynamic>? ?? [];
+      final productTitle = rawItems.isNotEmpty ? (rawItems.first['productTitle'] as String? ?? 'Produk') : 'Produk';
+      
+      for (final sellerId in sellerIds) {
+        unawaited(NotificationTrigger.returnRequested(
+          sellerId: sellerId,
+          orderId: orderId,
+          productTitle: productTitle,
+          buyerName: buyerName,
+        ));
+      }
+    } catch (_) {}
   }
 
   // ── Request return dengan foto kondisi produk ─────────────────────────────
@@ -267,6 +292,19 @@ class OrderRepository {
     });
 
     await batch.commit();
+
+    // 5. Kirim notifikasi ke seller
+    final buyerName = orderData['buyerName'] as String? ?? user.displayName ?? 'Pembeli';
+    final productTitle = firstItem['productTitle'] as String? ?? 'Produk';
+    
+    for (final sellerId in sellerIds) {
+      unawaited(NotificationTrigger.returnRequested(
+        sellerId: sellerId,
+        orderId: orderId,
+        productTitle: productTitle,
+        buyerName: buyerName,
+      ));
+    }
   }
 
   // ── Confirm order received ───────────────────────────────────────────────

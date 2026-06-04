@@ -117,9 +117,11 @@ class NotificationScreen extends ConsumerWidget {
   Future<void> _markAllAsRead(WidgetRef ref) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
-    await ref
-        .read(notificationRepositoryProvider)
-        .markAllAsRead(user.uid);
+    final repo = ref.read(notificationRepositoryProvider);
+    // Tandai notifikasi personal sebagai dibaca
+    await repo.markAllAsRead(user.uid);
+    // Jika admin, tandai juga notifikasi ADMIN_ALL sebagai dibaca
+    await repo.markAllAsRead('ADMIN_ALL');
   }
 
   void _onNotificationTap(
@@ -271,9 +273,17 @@ class _NotifIcon extends StatelessWidget {
         return (Icons.approval_outlined, Colors.blue);
       case 'return_rejected':
         return (Icons.cancel_outlined, Colors.red);
+      case 'refund_balance_added':
+        return (Icons.account_balance_wallet_rounded, Colors.teal);
+      case 'payout_approved':
+        return (Icons.check_circle_outline_rounded, Colors.green);
+      case 'payout_rejected':
+        return (Icons.highlight_off_rounded, Colors.red);
       // ── Seller ─────────────────────────────────────────────────────────────
       case 'new_order':
         return (Icons.shopping_bag_outlined, Colors.blue);
+      case 'return_requested':
+        return (Icons.warning_amber_rounded, Colors.deepOrange);
       case 'return_completed':
         return (Icons.price_check_rounded, Colors.green);
       // ── Kurir ──────────────────────────────────────────────────────────────
@@ -281,6 +291,17 @@ class _NotifIcon extends StatelessWidget {
         return (Icons.assignment_outlined, Colors.orange);
       case 'courier_return_task':
         return (Icons.assignment_return_outlined, Colors.deepOrange);
+      // ── Admin ──────────────────────────────────────────────────────────────
+      case 'admin_verify_payment':
+        return (Icons.receipt_long_outlined, Colors.indigo);
+      case 'admin_verify_seller':
+        return (Icons.store_outlined, Colors.purple);
+      case 'admin_verify_courier':
+        return (Icons.delivery_dining_outlined, Colors.deepOrange);
+      case 'admin_payout_seller':
+        return (Icons.account_balance_outlined, Colors.green);
+      case 'admin_payout_refund':
+        return (Icons.currency_exchange_rounded, Colors.teal);
       // ── Fallback ───────────────────────────────────────────────────────────
       default:
         return (Icons.notifications_outlined, Colors.blueGrey);

@@ -37,23 +37,24 @@ class NotificationRepository {
   }
 
   // ── Stream notifikasi real-time milik user (belum dibaca & semua) ─────────
-  Stream<List<NotificationModel>> watchNotifications(String userId) {
+  Stream<List<NotificationModel>> watchNotifications(String userId, {bool isAdmin = false}) {
+    print('watchNotifications called with userId: $userId, isAdmin: $isAdmin');
     return _notifications
-        .where('recipientId', isEqualTo: userId)
-        .limit(50)
+        .where('recipientId', whereIn: [userId, if (isAdmin) 'ADMIN_ALL'])
         .snapshots()
         .map((snap) {
-          final list = snap.docs.map(NotificationModel.fromFirestore).toList();
-          // Sort client-side agar tidak butuh composite index Firestore
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
-        });
+      print('watchNotifications received ${snap.docs.length} docs for userId: $userId, isAdmin: $isAdmin');
+      final list = snap.docs.map(NotificationModel.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (list.length > 50) return list.sublist(0, 50);
+      return list;
+    });
   }
 
   // ── Hitung notifikasi yang belum dibaca ───────────────────────────────────
-  Stream<int> watchUnreadCount(String userId) {
+  Stream<int> watchUnreadCount(String userId, {bool isAdmin = false}) {
     return _notifications
-        .where('recipientId', isEqualTo: userId)
+        .where('recipientId', whereIn: [userId, if (isAdmin) 'ADMIN_ALL'])
         .where('isRead', isEqualTo: false)
         .snapshots()
         .map((snap) => snap.docs.length);

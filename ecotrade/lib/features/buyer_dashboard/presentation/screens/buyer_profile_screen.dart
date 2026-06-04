@@ -1037,6 +1037,60 @@ class _LogoutButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Refund Wallet Card & Withdrawal Form
 // ─────────────────────────────────────────────────────────────────────────────
+
+const _bankIndonesiaList = [
+  'Bank BCA (Bank Central Asia)',
+  'Bank Mandiri',
+  'Bank BRI (Bank Rakyat Indonesia)',
+  'Bank BNI (Bank Negara Indonesia)',
+  'Bank CIMB Niaga',
+  'Bank Danamon',
+  'Bank Permata',
+  'Bank Maybank Indonesia',
+  'Bank OCBC NISP',
+  'Bank Panin',
+  'Bank BTN (Bank Tabungan Negara)',
+  'Bank BSI (Bank Syariah Indonesia)',
+  'Bank Muamalat',
+  'Bank BTPN',
+  'Bank Mega',
+  'Bank Commonwealth',
+  'Bank Sinarmas',
+  'Bank DBS Indonesia',
+  'Bank HSBC Indonesia',
+  'Bank Standard Chartered Indonesia',
+  'Bank Citibank Indonesia',
+  'Bank ANZ Indonesia',
+  'Bank BPD Jawa Timur (Bank Jatim)',
+  'Bank BPD Jawa Tengah (Bank Jateng)',
+  'Bank BPD Jawa Barat (Bank BJB)',
+  'Bank BPD DKI Jakarta',
+  'Bank BPD Bali',
+  'Bank BPD Sulselbar',
+  'Bank BPD Kaltim',
+  'Bank BPD Sumatera Utara',
+  'Bank BPD Sumatera Barat',
+  'Bank BPD Sumatera Selatan',
+  'Bank BPD Riau Kepri',
+  'Bank BPD Kalimantan Barat',
+  'Bank BPD Sulawesi Utara',
+  'Bank BPD NTB',
+  'Bank BPD NTT',
+  'Bank BPD Papua',
+  'Bank Ina Perdana',
+  'Bank Neo Commerce',
+  'Allo Bank',
+  'SeaBank (Bank Seabank Indonesia)',
+  'Bank Jago',
+  'Blu by BCA Digital',
+  'Bank Raya (BRI Agro)',
+  'Bank Saqu (TMRW by UOB)',
+  'GoPay Later (Bank Jago)',
+  'OVO (Bank Nobu)',
+  'Dana (Bank Allo)',
+  'Jenius (BTPN)',
+];
+
 class _RefundWalletCard extends ConsumerWidget {
   const _RefundWalletCard({required this.user});
   final UserModel user;
@@ -1114,7 +1168,11 @@ class _RefundWalletCard extends ConsumerWidget {
   }
 
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref, double amount) {
-    final bankNameCtrl = TextEditingController(text: user.bankName ?? '');
+    String? selectedBank;
+    if (user.bankName != null && _bankIndonesiaList.contains(user.bankName)) {
+      selectedBank = user.bankName;
+    }
+    
     final accountNameCtrl = TextEditingController(text: user.bankAccountName ?? '');
     final accountNumCtrl = TextEditingController(text: user.bankAccountNumber ?? '');
     final formKey = GlobalKey<FormState>();
@@ -1140,10 +1198,23 @@ class _RefundWalletCard extends ConsumerWidget {
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: bankNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Nama Bank (contoh: BCA, Mandiri)', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Wajib diisi' : null,
+                    DropdownButtonFormField<String>(
+                      value: selectedBank,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Bank',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      hint: const Text('Pilih bank'),
+                      items: _bankIndonesiaList.map((bank) {
+                        return DropdownMenuItem<String>(
+                          value: bank,
+                          child: Text(bank, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setState(() => selectedBank = v),
+                      validator: (v) => v == null ? 'Pilih bank terlebih dahulu' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1178,7 +1249,7 @@ class _RefundWalletCard extends ConsumerWidget {
                                 userId: user.uid,
                                 userName: user.name,
                                 amount: amount,
-                                bankName: bankNameCtrl.text.trim(),
+                                bankName: selectedBank!,
                                 bankAccountName: accountNameCtrl.text.trim(),
                                 bankAccountNumber: accountNumCtrl.text.trim(),
                               );

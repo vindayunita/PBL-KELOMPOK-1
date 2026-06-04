@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import 'payout_model.dart';
 
 part 'payout_repository.g.dart';
@@ -89,6 +91,8 @@ class PayoutRepository {
 
       tx.set(payoutRef, payoutData);
     });
+    
+    unawaited(NotificationTrigger.adminNewRefundRequest(payoutRef.id));
   }
 
   // ── Seller: Request Payout (Bank diambil dari profil, bukan input UI) ──
@@ -162,14 +166,36 @@ class PayoutRepository {
 
       tx.set(payoutRef, payoutData);
     });
+    
+    unawaited(NotificationTrigger.adminNewPayoutRequest(payoutRef.id));
   }
 
   // ── Admin: Approve Payout ──
   Future<void> approvePayout(String payoutId, {String? note}) async {
-    await _payouts.doc(payoutId).update({
-      'status': PayoutStatus.approved.name,
-      'processedAt': FieldValue.serverTimestamp(),
-      if (note != null) 'adminNote': note,
+    final payoutRef = _payouts.doc(payoutId);
+    
+    await _db.runTransaction((tx) async {
+      final payoutSnap = await tx.get(payoutRef);
+      if (!payoutSnap.exists) return;
+      
+      tx.update(payoutRef, {
+        'status': PayoutStatus.approved.name,
+        'processedAt': FieldValue.serverTimestamp(),
+        if (note != null) 'adminNote': note,
+      });
+      
+      final data = payoutSnap.data()!;
+      final userId = data['userId'] as String? ?? '';
+      final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+      final bankName = data['bankName'] as String? ?? 'Bank';
+      
+      if (userId.isNotEmpty) {
+        unawaited(NotificationTrigger.payoutApproved(
+          userId: userId,
+          amount: amount,
+          bankName: bankName,
+        ));
+      }
     });
   }
 
@@ -201,5 +227,11 @@ class PayoutRepository {
         }, SetOptions(merge: true));
       }
     });
+    
+    unawaited(NotificationTrigger.payoutRejected(
+      userId: userId,
+      amount: amount,
+      reason: note ?? 'Penarikan tidak memenuhi syarat',
+    ));
   }
 }

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import '../../user/data/user_repository.dart';
 import '../domain/models/seller_application_model.dart';
 
@@ -19,12 +21,17 @@ class SellerApplicationRepository {
   CollectionReference<Map<String, dynamic>> get _apps => _db.collection(_col);
 
   // ── Buyer: ajukan pendaftaran ─────────────────────────────────────────────
-  Future<void> submitApplication(SellerApplicationModel app) {
-    return _apps.doc(app.uid).set({
+  Future<void> submitApplication(SellerApplicationModel app) async {
+    await _apps.doc(app.uid).set({
       ...app.toJson(),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    
+    unawaited(NotificationTrigger.adminNewSellerApplication(
+      app.uid,
+      app.name,
+    ));
   }
 
   // ── Seller Lama: Upload KYC tanpa mendaftar ulang ─────────────────────────

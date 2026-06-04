@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/notifications/notification_trigger.dart';
 import '../../user/data/user_repository.dart';
 import '../domain/models/courier_application_model.dart';
 
@@ -19,12 +21,17 @@ class CourierApplicationRepository {
   CollectionReference<Map<String, dynamic>> get _apps => _db.collection(_col);
 
   // ── User: submit aplikasi ──────────────────────────────────────────────────
-  Future<void> submitApplication(CourierApplicationModel app) {
-    return _apps.doc(app.uid).set({
+  Future<void> submitApplication(CourierApplicationModel app) async {
+    await _apps.doc(app.uid).set({
       ...app.toJson(),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    
+    unawaited(NotificationTrigger.adminNewCourierApplication(
+      app.uid,
+      app.fullName,
+    ));
   }
 
   // ── User: watch status aplikasi miliknya ──────────────────────────────────

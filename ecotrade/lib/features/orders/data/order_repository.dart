@@ -284,6 +284,11 @@ class OrderRepository {
         tx.set(userRef, {
           'refundBalance': FieldValue.increment(total),
         }, SetOptions(merge: true));
+        
+        unawaited(NotificationTrigger.refundBalanceAdded(
+          buyerId: buyerId,
+          amount: total,
+        ));
       }
     });
 
