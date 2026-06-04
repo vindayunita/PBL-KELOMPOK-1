@@ -22,4 +22,11 @@ class LoginController extends _$LoginController {
           ),
     );
   }
+
+  Future<void> resetPassword(String email) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(authRepositoryProvider).sendPasswordResetEmail(email.trim()),
+    );
+  }
 }

@@ -38,6 +38,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(text: _emailController.text);
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+          title: const Text('Reset Password'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter your email address and we will send you a link to reset your password.',
+                ),
+                const SizedBox(height: 16),
+                EcoTextField(
+                  controller: emailController,
+                  label: 'EMAIL',
+                  hint: 'curator@ecotrade.com',
+                  prefixIcon: Icons.alternate_email_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Email is required';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final email = emailController.text;
+                  Navigator.pop(context);
+                  await ref.read(loginControllerProvider.notifier).resetPassword(email);
+                  if (mounted && ref.read(loginControllerProvider).hasError == false) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('If the email is registered, a password reset link has been sent.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Send Link'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(loginControllerProvider);
@@ -113,7 +177,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () {},
+                              onTap: _showForgotPasswordDialog,
                               child: Text(
                                 'FORGOT?',
                                 style: textTheme.labelSmall?.copyWith(

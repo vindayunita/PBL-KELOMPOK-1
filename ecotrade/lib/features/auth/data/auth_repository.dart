@@ -52,6 +52,10 @@ class AuthRepository {
     await _auth.currentUser?.reload();
   }
 
+  // Send password reset email
+  Future<void> sendPasswordResetEmail(String email) =>
+      _auth.sendPasswordResetEmail(email: email);
+
   // Sign out
   Future<void> signOut() => _auth.signOut();
 }
