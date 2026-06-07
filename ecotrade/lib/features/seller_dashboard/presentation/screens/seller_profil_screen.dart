@@ -440,14 +440,21 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
     final userAsync = ref.watch(currentUserDocProvider);
     final user = userAsync.value;
 
-    final withdrawn   = user?.sellerWithdrawnAmount ?? 0.0;
-    final withdrawable = totalRevenue - withdrawn;
+    // Gunakan total payout yang sudah di-APPROVE oleh admin (bukan pending)
+    // agar angka tidak berkurang sebelum admin konfirmasi
+    final approvedPayout = ref.watch(sellerApprovedPayoutTotalProvider).value ?? 0.0;
+    final withdrawable = (totalRevenue - approvedPayout).clamp(0.0, double.infinity);
     final kycStatus   = user?.kycStatus ?? 'unverified';
     final isVerified  = kycStatus == 'verified';
     final isPending   = kycStatus == 'pending';
 
+    // Untuk validasi request baru: pakai sellerWithdrawnAmount agar tidak bisa
+    // request melebihi saldo (sudah termasuk payout pending yang belum diapprove)
+    final alreadyRequested = user?.sellerWithdrawnAmount ?? 0.0;
+    final actualWithdrawable = (totalRevenue - alreadyRequested).clamp(0.0, double.infinity);
+
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final canWithdraw = isVerified && withdrawable >= kMinWithdrawalAmount;
+    final canWithdraw = isVerified && actualWithdrawable >= kMinWithdrawalAmount;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -474,13 +481,8 @@ class _SellerProfilScreenState extends ConsumerState<SellerProfilScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      rupiah.format(totalRevenue),
+                      rupiah.format(withdrawable < 0 ? 0 : withdrawable),
                       style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF3F6D38)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Bisa ditarik: ${rupiah.format(withdrawable)}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF005DA7), fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),

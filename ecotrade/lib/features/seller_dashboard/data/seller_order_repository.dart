@@ -73,6 +73,27 @@ final sellerTotalRevenueProvider = Provider<double>((ref) {
       .fold(0.0, (sum, o) => sum + o.total);
 });
 
+/// Stream total payout yang sudah di-APPROVE admin untuk seller yang login.
+/// Dipakai di UI agar saldo hanya berkurang setelah admin konfirmasi,
+/// bukan langsung berkurang saat seller mengajukan request.
+final sellerApprovedPayoutTotalProvider = StreamProvider<double>((ref) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return Stream.value(0.0);
+  return FirebaseFirestore.instance
+      .collection('payouts')
+      .where('userId', isEqualTo: uid)
+      .where('userRole', isEqualTo: 'seller')
+      .where('status', isEqualTo: 'approved')
+      .snapshots()
+      .map((snap) => snap.docs.fold<double>(
+            0.0,
+            (sum, doc) =>
+                sum + ((doc.data()['amount'] as num?)?.toDouble() ?? 0.0),
+          ));
+});
+
+
+
 // ── Repository ────────────────────────────────────────────────────────────────
 class SellerOrderRepository {
   SellerOrderRepository(this._db);
@@ -81,6 +102,44 @@ class SellerOrderRepository {
 
   CollectionReference<Map<String, dynamic>> get _orders =>
       _db.collection('orders');
+
+  /// Ambil kota seller dengan prioritas:
+  /// 1. `seller_applications/{sellerId}.city`  ← disimpan saat registrasi seller
+  /// 2. `users/{sellerId}/addresses[0].city`   ← fallback jika seller_applications kosong
+  /// 3. Default `'Malang'`
+  /// Hasil selalu dinormalisasi ke Title Case agar cocok dengan field `area` kurir.
+  Future<String> _getSellerCity(String sellerId) async {
+    // Prioritas 1: seller_applications
+    final appDoc = await _db.collection('seller_applications').doc(sellerId).get();
+    if (appDoc.exists) {
+      final city = appDoc.data()?['city'] as String?;
+      if (city != null && city.trim().isNotEmpty) {
+        return _normalizeCity(city);
+      }
+    }
+    // Prioritas 2: users.addresses
+    final userDoc = await _db.collection('users').doc(sellerId).get();
+    if (userDoc.exists) {
+      final addresses = userDoc.data()?['addresses'] as List<dynamic>? ?? [];
+      if (addresses.isNotEmpty) {
+        final city = addresses.first['city'] as String?;
+        if (city != null && city.trim().isNotEmpty) {
+          return _normalizeCity(city);
+        }
+      }
+    }
+    return 'Malang'; // default
+  }
+
+  /// Normalisasi nama kota ke Title Case.
+  /// Contoh: "malang" → "Malang", "KOTA BATU" → "Kota Batu"
+  static String _normalizeCity(String city) {
+    if (city.trim().isEmpty) return city;
+    return city.trim().split(RegExp(r'\s+')).map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1).toLowerCase();
+    }).join(' ');
+  }
 
   // ── Order masuk: semua order seller yang masih aktif ──────────────────────
   // Filter status dilakukan di sisi client agar tidak perlu composite index
@@ -255,16 +314,9 @@ class SellerOrderRepository {
     final orderSnap = await _orders.doc(orderId).get();
     final sellerIds = orderSnap.data()?['sellerIds'] as List<dynamic>? ?? [];
 
-    String targetCity = 'Malang';
-    if (sellerIds.isNotEmpty) {
-      final sellerDoc = await _db.collection('users').doc(sellerIds.first).get();
-      if (sellerDoc.exists) {
-        final addresses = sellerDoc.data()?['addresses'] as List<dynamic>? ?? [];
-        if (addresses.isNotEmpty) {
-          targetCity = addresses.first['city'] as String? ?? 'Malang';
-        }
-      }
-    }
+    final targetCity = sellerIds.isNotEmpty
+        ? await _getSellerCity(sellerIds.first as String)
+        : 'Malang';
 
     // 1. Cari kurir aktif yang tersedia di kota yang sama
     String courierId = '';
@@ -438,16 +490,9 @@ class SellerOrderRepository {
     final orderSnap = await _orders.doc(orderId).get();
     final sellerIds = orderSnap.data()?['sellerIds'] as List<dynamic>? ?? [];
 
-    String targetCity = 'Malang';
-    if (sellerIds.isNotEmpty) {
-      final sellerDoc = await _db.collection('users').doc(sellerIds.first).get();
-      if (sellerDoc.exists) {
-        final addresses = sellerDoc.data()?['addresses'] as List<dynamic>? ?? [];
-        if (addresses.isNotEmpty) {
-          targetCity = addresses.first['city'] as String? ?? 'Malang';
-        }
-      }
-    }
+    final targetCity = sellerIds.isNotEmpty
+        ? await _getSellerCity(sellerIds.first as String)
+        : 'Malang';
 
     // 1. Cari kurir yang AKTIF (isActive == true) di kota yang sama
     final activeSnap = await _db
@@ -526,16 +571,9 @@ class SellerOrderRepository {
     final orderSnap = await _orders.doc(orderId).get();
     final sellerIds = orderSnap.data()?['sellerIds'] as List<dynamic>? ?? [];
 
-    String targetCity = 'Malang';
-    if (sellerIds.isNotEmpty) {
-      final sellerDoc = await _db.collection('users').doc(sellerIds.first).get();
-      if (sellerDoc.exists) {
-        final addresses = sellerDoc.data()?['addresses'] as List<dynamic>? ?? [];
-        if (addresses.isNotEmpty) {
-          targetCity = addresses.first['city'] as String? ?? 'Malang';
-        }
-      }
-    }
+    final targetCity = sellerIds.isNotEmpty
+        ? await _getSellerCity(sellerIds.first as String)
+        : 'Malang';
 
     // Cari kurir aktif baru (kecualikan yang menolak)
     String courierId = '';

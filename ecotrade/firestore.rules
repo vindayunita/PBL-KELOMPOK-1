@@ -23,6 +23,9 @@ service cloud.firestore {
       // Admin: bisa baca semua aplikasi kurir
       allow read:   if request.auth != null
                     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+      // Seller: bisa baca semua (untuk proses assign kurir otomatis)
+      allow read:   if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['seller']);
     }
 
     // ── Seller Applications ───────────────────────────────────────────
@@ -62,7 +65,7 @@ service cloud.firestore {
     }
 
     // ── Orders ─────────────────────────────────────────────────────────
-    // Buyers  : buat order milik sendiri; baca milik sendiri
+    // Buyers  : buat order milik sendiri; baca & update (review/konfirmasi) milik sendiri
     // Sellers : baca & update (confirm/assign) order milik tokonya
     // Couriers: baca & update status (picked_up/delivered) tugas miliknya
     // Admins  : baca & update semua
@@ -71,14 +74,18 @@ service cloud.firestore {
                     && request.resource.data.buyerId == request.auth.uid;
 
       allow read: if request.auth != null
-                  && (resource.data.buyerId   == request.auth.uid
+                  && (resource.data.buyerId    == request.auth.uid
                       || resource.data.sellerId  == request.auth.uid
                       || resource.data.courierId == request.auth.uid
-                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin'])
+                      // Seller bisa baca semua order di tokonya (via sellerIds array)
+                      || resource.data.sellerIds.hasAny([request.auth.uid]));
 
       allow update: if request.auth != null
-                    && (resource.data.sellerId  == request.auth.uid
+                    && (resource.data.buyerId   == request.auth.uid   // buyer: konfirmasi / submit review
+                        || resource.data.sellerId  == request.auth.uid
                         || resource.data.courierId == request.auth.uid
+                        || resource.data.sellerIds.hasAny([request.auth.uid]) // seller via sellerIds
                         || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
     }
 
@@ -105,9 +112,9 @@ service cloud.firestore {
                               || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
     }
 
-    // ── Fallback: authenticated users ─────────────────────────────────
+    // ── Fallback: authenticated users (read-only untuk koleksi lain) ────
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
     }
   }
 }
