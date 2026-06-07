@@ -508,7 +508,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: const Border(left: BorderSide(color: Color(0xFFE65100), width: 4)),
+        border: const Border(left: BorderSide(color: primaryBlue, width: 4)),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -519,17 +519,17 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: const Color(0xFFE3F2FD),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.assignment_return_rounded, size: 12, color: Color(0xFFE65100)),
+                  Icon(Icons.assignment_return_rounded, size: 12, color: primaryBlue),
                   SizedBox(width: 4),
                   Text('PERMINTAAN RETUR',
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                          color: Color(0xFFE65100), letterSpacing: 0.6)),
+                          color: primaryBlue, letterSpacing: 0.6)),
                 ],
               ),
             ),
@@ -586,19 +586,19 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0).withValues(alpha: 0.7),
+              color: const Color(0xFFE3F2FD).withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.2)),
+              border: Border.all(color: primaryBlue.withValues(alpha: 0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('ALASAN RETUR',
                     style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
-                        color: Color(0xFFBF360C), letterSpacing: 0.8)),
+                        color: primaryBlue, letterSpacing: 0.8)),
                 const SizedBox(height: 4),
                 Text(ret.reason,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037), height: 1.4),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF1A237E), height: 1.4),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -625,7 +625,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                   width: 70, height: 70,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
+                    border: Border.all(color: primaryBlue.withValues(alpha: 0.3)),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Image.network(
@@ -693,19 +693,19 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: const Color(0xFFE3F2FD),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
+                border: Border.all(color: primaryBlue.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFE65100)),
+                  Icon(Icons.warning_amber_rounded, size: 14, color: primaryBlue),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Kurir menolak tugas. Tugaskan kurir lain.',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                          color: Color(0xFFE65100)),
+                          color: primaryBlue),
                     ),
                   ),
                 ],
@@ -720,7 +720,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 label: const Text('Cari & Tugaskan Kurir Lain',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE65100),
+                  backgroundColor: primaryBlue,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -777,7 +777,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     required bool isCompleted,
   }) {
     const activeColor   = Color(0xFF2E7D32);
-    const pendingColor  = Color(0xFFF59E0B); // amber = menunggu
+    const blueColor     = Color(0xFF005DA7); // biru = menunggu konfirmasi (sama dengan order)
     const inactiveColor = Color(0xFFBDBDBD);
 
     final courierSubLabel = courierName != null && courierName.isNotEmpty
@@ -792,10 +792,14 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
         color: activeColor,
       ),
       (
+        // Saat isWaitingCourier: nama kurir tidak ditampilkan (belum konfirmasi)
+        // Setelah konfirmasi (isPickedUp/isCompleted): tampilkan info kurir
         label: 'Menunggu Konfirmasi Kurir',
-        sublabel: isWaitingCourier ? courierSubLabel : (isPickedUp || isCompleted ? 'Kurir mengkonfirmasi' : ''),
+        sublabel: isWaitingCourier
+            ? 'Menunggu konfirmasi kurir'
+            : (isPickedUp || isCompleted ? 'Kurir mengkonfirmasi' : ''),
         icon: Icons.hourglass_top_rounded,
-        color: isWaitingCourier ? pendingColor : (isPickedUp || isCompleted ? activeColor : inactiveColor),
+        color: isWaitingCourier ? blueColor : (isPickedUp || isCompleted ? activeColor : inactiveColor),
       ),
       (
         label: 'Kurir Menjemput',
@@ -815,11 +819,11 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isWaitingCourier ? const Color(0xFFFFFDE7) : const Color(0xFFE8F5E9),
+        color: isWaitingCourier ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isWaitingCourier
-              ? pendingColor.withValues(alpha: 0.35)
+              ? blueColor.withValues(alpha: 0.35)
               : activeColor.withValues(alpha: 0.25),
         ),
       ),
@@ -830,7 +834,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
             isWaitingCourier ? 'MENUNGGU KONFIRMASI KURIR' : 'PROGRESS RETUR',
             style: TextStyle(
               fontSize: 9, fontWeight: FontWeight.w800,
-              color: isWaitingCourier ? pendingColor : activeColor,
+              color: isWaitingCourier ? blueColor : activeColor,
               letterSpacing: 0.8,
             ),
           ),
@@ -912,10 +916,10 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
 
     final courierLabel = courierName.isNotEmpty ? courierName : 'Kurir';
 
-    // Tentukan warna & sublabel step "Kurir Ditugaskan"
-    final courierStepColor = isWaitingCourier
-        ? pendingColor
-        : (isPickedUp || isDelivered ? activeColor : inactiveColor);
+    // Tentukan warna step "Kurir Ditugaskan"
+    final courierStepColor = isWaitingCourier || isPickedUp || isDelivered
+        ? activeColor
+        : inactiveColor;
 
     final steps = [
       (
@@ -927,7 +931,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
       (
         label: 'Kurir Ditugaskan',
         sublabel: isWaitingCourier
-            ? 'Menunggu konfirmasi: $courierLabel'
+            ? 'Menunggu konfirmasi kurir'
             : (isPickedUp || isDelivered
                 ? '$courierLabel mengkonfirmasi'
                 : 'Menunggu konfirmasi kurir'),
@@ -963,25 +967,15 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
 
     final headerColor = isDelivered
         ? doneColor
-        : isPickedUp
-            ? activeColor
-            : isWaitingCourier
-                ? pendingColor
-                : activeColor;
+        : activeColor;
 
-    final bgColor = isWaitingCourier
-        ? const Color(0xFFFFFDE7)
-        : isPickedUp
-            ? const Color(0xFFE3F2FD)
-            : isDelivered
-                ? const Color(0xFFE8F5E9)
-                : const Color(0xFFE3F2FD);
+    final bgColor = isDelivered
+        ? const Color(0xFFE8F5E9)
+        : const Color(0xFFE3F2FD);
 
-    final borderColor = isWaitingCourier
-        ? pendingColor.withValues(alpha: 0.35)
-        : isDelivered
-            ? doneColor.withValues(alpha: 0.3)
-            : activeColor.withValues(alpha: 0.25);
+    final borderColor = isDelivered
+        ? doneColor.withValues(alpha: 0.3)
+        : activeColor.withValues(alpha: 0.25);
 
     return Container(
       width: double.infinity,
@@ -1122,11 +1116,11 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3E0),
+                      color: const Color(0xFFE3F2FD),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.assignment_return_rounded,
-                        color: Color(0xFFE65100), size: 20),
+                        color: primaryBlue, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1161,19 +1155,19 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               // Alasan retur
               const Text('ALASAN RETUR',
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                      color: Color(0xFFBF360C), letterSpacing: 0.8)),
+                      color: primaryBlue, letterSpacing: 0.8)),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0).withValues(alpha: 0.7),
+                  color: const Color(0xFFE3F2FD).withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.2)),
+                  border: Border.all(color: primaryBlue.withValues(alpha: 0.2)),
                 ),
                 child: Text(
                   ret.reason.isNotEmpty ? ret.reason : 'Tidak ada deskripsi.',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037), height: 1.5),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E), height: 1.5),
                 ),
               ),
 
@@ -1505,7 +1499,7 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                                         Row(children: List.generate(5, (i) => Icon(
                                           i < avg.round() ? Icons.star_rounded : Icons.star_outline_rounded,
                                           color: const Color(0xFFFFC107), size: 18))),
-                                        Text('\ ulasan',
+                                        Text('${reviews.length} ulasan',
                                             style: const TextStyle(fontSize: 12, color: Color(0xFF717783))),
                                       ],
                                     ),

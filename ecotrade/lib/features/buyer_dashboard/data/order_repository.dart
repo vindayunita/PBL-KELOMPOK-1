@@ -152,7 +152,15 @@ class OrderRepository {
 
     final batch = _db.batch();
 
-    // 3. Simpan ke koleksi `reviews` agar bisa dibaca buyer & seller
+    // 3. Ambil sellerId dari order untuk disimpan di review
+    String sellerId = '';
+    try {
+      final orderDoc = await _db.collection('orders').doc(orderId).get();
+      final sellerIds = (orderDoc.data()?['sellerIds'] as List<dynamic>? ?? []).cast<String>();
+      sellerId = sellerIds.isNotEmpty ? sellerIds.first : '';
+    } catch (_) {}
+
+    // 4. Simpan ke koleksi `reviews` agar bisa dibaca buyer & seller
     final reviewRef = _db.collection('reviews').doc();
     batch.set(reviewRef, {
       'reviewId':     reviewRef.id,
@@ -160,6 +168,7 @@ class OrderRepository {
       'orderId':      orderId,
       'buyerId':      user.uid,
       'buyerName':    user.displayName ?? user.email?.split('@').first ?? 'Pembeli',
+      'sellerId':     sellerId,    // ← agar seller bisa query by sellerId
       'rating':       rating,
       'reviewText':   reviewText,
       'photoUrls':    photoUrls,
@@ -168,13 +177,12 @@ class OrderRepository {
       'createdAt':    FieldValue.serverTimestamp(),
     });
 
-    // 4. Update dokumen order (untuk cek status reviewed)
+    // 5. Update dokumen order: cukup flag hasReview (hindari duplikasi data)
     batch.update(_db.collection('orders').doc(orderId), {
-      'rating':           rating,
-      'reviewText':       reviewText,
-      'reviewPhotoUrls':  photoUrls,
-      'reviewVideoUrl':   videoUrl,
-      'updatedAt':        FieldValue.serverTimestamp(),
+      'hasReview':    true,
+      'rating':       rating,
+      'reviewText':   reviewText,
+      'updatedAt':    FieldValue.serverTimestamp(),
     });
 
     await batch.commit();

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../shared/widgets/notification_badge.dart';
+import '../../../../features/user/domain/user_providers.dart';
 import '../../data/product_repository.dart';
 import '../../data/seller_order_repository.dart';
 import '../../domain/product_model.dart';
@@ -27,6 +28,9 @@ class SellerDashboardScreen extends ConsumerWidget {
     final incomingAsync    = ref.watch(sellerIncomingOrdersProvider);
     final completedAsync   = ref.watch(sellerCompletedOrdersProvider);
     final totalRevenue     = ref.watch(sellerTotalRevenueProvider);
+    // Gunakan approvedPayout agar saldo hanya berkurang setelah admin konfirmasi
+    final approvedPayout   = ref.watch(sellerApprovedPayoutTotalProvider).value ?? 0.0;
+    final withdrawable     = (totalRevenue - approvedPayout).clamp(0.0, double.infinity);
     final incomingOrders   = incomingAsync.value ?? [];
     final completedOrders  = completedAsync.value ?? [];
     final pendingCount     = incomingOrders
@@ -54,7 +58,7 @@ class SellerDashboardScreen extends ConsumerWidget {
           children: [
             _buildWelcomeBanner(),
             const SizedBox(height: 16),
-            _buildRevenueCard(context, totalRevenue, totalCompleted),
+            _buildRevenueCard(context, totalRevenue, withdrawable, approvedPayout, totalCompleted),
             const SizedBox(height: 16),
             _buildKatalogCard(context, productsAsync, onSelectTab),
             const SizedBox(height: 16),
@@ -70,6 +74,8 @@ class SellerDashboardScreen extends ConsumerWidget {
   Widget _buildRevenueCard(
     BuildContext context,
     double totalRevenue,
+    double withdrawable,
+    double withdrawn,
     int totalCompleted,
   ) {
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -119,7 +125,7 @@ class SellerDashboardScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'TOTAL PENDAPATAN',
+                            'SALDO TERSEDIA',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 10,
@@ -160,9 +166,9 @@ class SellerDashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Angka pendapatan
+          // Angka saldo
           Text(
-            rupiah.format(totalRevenue),
+            rupiah.format(withdrawable),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
@@ -179,14 +185,14 @@ class SellerDashboardScreen extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                Icons.info_outline_rounded,
+                Icons.account_balance_wallet_rounded,
                 color: Colors.white.withValues(alpha: 0.6),
                 size: 13,
               ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Hanya mencakup pesanan yang dikonfirmasi buyer',
+                  'Saldo yang tersedia untuk dicairkan',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.65),
                     fontSize: 11,
