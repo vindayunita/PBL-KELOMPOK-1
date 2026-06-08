@@ -10,6 +10,7 @@ import '../../../seller_dashboard/domain/product_model.dart';
 import '../../../user/domain/user_providers.dart';
 import 'checkout_screen.dart';
 import 'manage_address_screen.dart';
+import 'buyer_store_view_screen.dart';
 
 /// Provider stream review untuk satu produk
 final _productReviewsProvider =
@@ -260,49 +261,71 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildSeller(ProductModel p, ColorScheme cs, TextTheme tt) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: cs.primaryContainer,
-            child: Icon(Icons.store_rounded, color: cs.onPrimaryContainer, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p.sellerName.isNotEmpty ? p.sellerName : 'EcoTrade Seller',
-                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Icon(Icons.location_on_outlined, size: 12, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 3),
-                    Text(p.sellerCity,
-                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                  ],
-                ),
-              ],
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => BuyerStoreViewScreen(
+          sellerId: p.sellerId,
+          sellerName: p.sellerName.isNotEmpty ? p.sellerName : 'EcoTrade Seller',
+          sellerCity: p.sellerCity,
+        ),
+      )),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: cs.primary.withValues(alpha: 0.15), width: 1),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: cs.primaryContainer,
+              child: Icon(Icons.store_rounded,
+                  color: cs.onPrimaryContainer, size: 22),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: cs.secondaryContainer,
-              shape: BoxShape.circle,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.sellerName.isNotEmpty ? p.sellerName : 'EcoTrade Seller',
+                    style: tt.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined,
+                          size: 12, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 3),
+                      Text(p.sellerCity,
+                          style: tt.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lihat toko →',
+                    style: tt.labelSmall?.copyWith(
+                        color: cs.primary, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
             ),
-            child: Icon(Icons.verified_rounded, size: 16, color: cs.onSecondaryContainer),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: cs.onPrimaryContainer),
+            ),
+          ],
+        ),
       ),
     );
   }
