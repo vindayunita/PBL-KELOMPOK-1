@@ -16,6 +16,9 @@ class ProductModel {
     required this.sellerCity,
     required this.status,
     this.createdAt,
+    this.avgRating = 0.0,
+    this.soldCount = 0,
+    this.ratingCount = 0,
   });
 
   final String id;
@@ -32,6 +35,9 @@ class ProductModel {
   final String sellerCity;
   final String status; // 'active' | 'inactive'
   final DateTime? createdAt;
+  final double avgRating;  // rata-rata rating produk ini
+  final int soldCount;     // jumlah unit terjual produk ini
+  final int ratingCount;   // jumlah ulasan produk ini
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -50,6 +56,9 @@ class ProductModel {
       sellerCity: data['sellerCity'] as String? ?? 'Malang',
       status: data['status'] as String? ?? 'active',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      avgRating: (data['avgRating'] as num?)?.toDouble() ?? 0.0,
+      soldCount: (data['soldCount'] as num?)?.toInt() ?? 0,
+      ratingCount: (data['ratingCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -67,6 +76,9 @@ class ProductModel {
         'sellerCity': sellerCity,
         'status': status,
         'createdAt': FieldValue.serverTimestamp(),
+        'avgRating': avgRating,
+        'soldCount': soldCount,
+        'ratingCount': ratingCount,
       };
 
   ProductModel copyWith({

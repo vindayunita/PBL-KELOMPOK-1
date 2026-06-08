@@ -23,42 +23,47 @@ final _sellerProductsProvider =
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider: statistik rating toko
+// Cara: ambil semua produk seller → query reviews per productId → rata-rata
 // ─────────────────────────────────────────────────────────────────────────────
 final _buyerStoreReviewStatsProvider =
     FutureProvider.autoDispose.family<({double avg, int total}), String>(
         (ref, sellerId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('reviews')
+  // 1. Ambil semua produk milik seller ini
+  final productSnap = await FirebaseFirestore.instance
+      .collection('products')
       .where('sellerId', isEqualTo: sellerId)
       .get();
-  if (snap.docs.isEmpty) return (avg: 0.0, total: 0);
-  final ratings = snap.docs
-      .map((d) => (d.data()['rating'] as num?)?.toDouble() ?? 0.0)
-      .toList();
-  return (
-    avg: ratings.fold(0.0, (a, b) => a + b) / ratings.length,
-    total: snap.docs.length,
-  );
+  if (productSnap.docs.isEmpty) return (avg: 0.0, total: 0);
+
+  // 2. Untuk setiap produk, ambil review berdasarkan productId
+  final allRatings = <double>[];
+  for (final productDoc in productSnap.docs) {
+    final reviewSnap = await FirebaseFirestore.instance
+        .collection('reviews')
+        .where('productId', isEqualTo: productDoc.id)
+        .get();
+    for (final r in reviewSnap.docs) {
+      final rating = (r.data()['rating'] as num?)?.toDouble();
+      if (rating != null) allRatings.add(rating);
+    }
+  }
+
+  if (allRatings.isEmpty) return (avg: 0.0, total: 0);
+  final avg = allRatings.fold(0.0, (a, b) => a + b) / allRatings.length;
+  return (avg: avg, total: allRatings.length);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provider: total produk terjual dari toko (completed orders)
+// Provider: total produk aktif di toko
 // ─────────────────────────────────────────────────────────────────────────────
 final _buyerStoreSoldProvider =
     FutureProvider.autoDispose.family<int, String>((ref, sellerId) async {
   final snap = await FirebaseFirestore.instance
-      .collection('orders')
+      .collection('products')
       .where('sellerId', isEqualTo: sellerId)
-      .where('status', isEqualTo: 'completed')
+      .where('status', isEqualTo: 'active')
       .get();
-  int total = 0;
-  for (final doc in snap.docs) {
-    final items = doc.data()['items'] as List<dynamic>? ?? [];
-    for (final item in items) {
-      total += (item['quantity'] as num?)?.toInt() ?? 0;
-    }
-  }
-  return total;
+  return snap.docs.length;
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,8 +204,8 @@ class BuyerStoreViewScreen extends ConsumerWidget {
                               style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.4))),
                           const SizedBox(width: 10),
-                          // Total terjual
-                          const Icon(Icons.shopping_bag_outlined,
+                          // Total produk
+                          const Icon(Icons.inventory_2_outlined,
                               color: Colors.white70, size: 13),
                           const SizedBox(width: 4),
                           soldAsync.when(
@@ -210,7 +215,7 @@ class BuyerStoreViewScreen extends ConsumerWidget {
                                     strokeWidth: 2, color: Colors.white70)),
                             error: (_, __) => const SizedBox.shrink(),
                             data: (sold) => Text(
-                              '$sold terjual',
+                              '$sold produk',
                               style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.85),
                                   fontSize: 12,
@@ -252,18 +257,23 @@ class BuyerStoreViewScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (ctx, i) =>
-                      _BuyerProductCard(product: products[i]),
+                return LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final w = (constraints.maxWidth - 16 - 16 - 12) / 2;
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: products
+                            .map((p) => SizedBox(
+                                  width: w,
+                                  child: _BuyerProductCard(product: p),
+                                ))
+                            .toList(),
+                      ),
+                    );
+                  },
                 );
               },
             ),
