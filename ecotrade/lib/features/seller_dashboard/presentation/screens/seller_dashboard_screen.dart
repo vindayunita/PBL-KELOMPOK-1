@@ -35,7 +35,6 @@ class SellerDashboardScreen extends ConsumerWidget {
     final completedOrders  = completedAsync.value ?? [];
     final pendingCount     = incomingOrders
         .where((o) => o.status == OrderStatus.verified).length;
-    final totalCompleted   = completedOrders.where((o) => o.status == OrderStatus.completed).length;
 
     return Scaffold(
       backgroundColor: appBackground,
@@ -58,7 +57,7 @@ class SellerDashboardScreen extends ConsumerWidget {
           children: [
             _buildWelcomeBanner(),
             const SizedBox(height: 16),
-            _buildRevenueCard(context, totalRevenue, withdrawable, approvedPayout, totalCompleted),
+            _buildRevenueCard(context, totalRevenue, withdrawable, approvedPayout),
             const SizedBox(height: 16),
             _buildKatalogCard(context, productsAsync, onSelectTab),
             const SizedBox(height: 16),
@@ -76,7 +75,6 @@ class SellerDashboardScreen extends ConsumerWidget {
     double totalRevenue,
     double withdrawable,
     double withdrawn,
-    int totalCompleted,
   ) {
     final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
@@ -102,65 +100,27 @@ class SellerDashboardScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'SALDO TERSEDIA',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          Text(
-                            'Pesanan Terkonfirmasi',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-              // Badge jumlah order selesai
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$totalCompleted order',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
+              const SizedBox(width: 10),
+              const Text(
+                'SALDO TERSEDIA',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
@@ -440,7 +400,8 @@ class SellerDashboardScreen extends ConsumerWidget {
     final qty          = firstItem?.quantity ?? 0;
     final unit         = firstItem?.unit ?? 'kg';
     final purchaseType = firstItem?.purchaseType ?? '';
-    final price        = fmt.format(order.total);
+    // Harga BERSIH = total / 1.11 (tanpa biaya layanan 11% milik platform)
+    final price        = fmt.format(order.total / 1.11);
 
     final isVerified   = order.status == OrderStatus.verified;
     final isProcessing = order.status == OrderStatus.processing;

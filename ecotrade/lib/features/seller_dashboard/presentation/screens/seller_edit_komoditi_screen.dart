@@ -26,6 +26,7 @@ class _SellerEditKomoditiScreenState
 
   late final TextEditingController _stokCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _hargaCtrl;
 
   // ── Image state ──
   XFile?     _newImageFile;
@@ -45,14 +46,21 @@ class _SellerEditKomoditiScreenState
       text: widget.product.stock > 0 ? '${widget.product.stock}' : '',
     );
     _descCtrl = TextEditingController(text: widget.product.description);
+    _hargaCtrl = TextEditingController(
+      text: widget.product.price > 0
+          ? widget.product.price.toStringAsFixed(0)
+          : '',
+    );
     _stokCtrl.addListener(() => setState(() {}));
     _descCtrl.addListener(() => setState(() {}));
+    _hargaCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _stokCtrl.dispose();
     _descCtrl.dispose();
+    _hargaCtrl.dispose();
     super.dispose();
   }
 
@@ -106,6 +114,14 @@ class _SellerEditKomoditiScreenState
       return;
     }
 
+    final hargaBaru = double.tryParse(_hargaCtrl.text.trim());
+    if (hargaBaru == null || hargaBaru <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Harga harus berupa angka lebih dari 0')),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       // Tentukan imageUrl akhir
@@ -123,6 +139,7 @@ class _SellerEditKomoditiScreenState
 
       final updateData = <String, dynamic>{
         'stock':       stokBaru,
+        'price':       hargaBaru,
         'description': _descCtrl.text.trim(),
         if (imageUrl != null) 'imageUrl': imageUrl,
       };
@@ -213,6 +230,10 @@ class _SellerEditKomoditiScreenState
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]}.',
     );
+    final formattedHarga = widget.product.price.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
     final descLen = _descCtrl.text.length;
     final isBusy  = _isSaving || _isDeleting;
 
@@ -276,42 +297,93 @@ class _SellerEditKomoditiScreenState
             _buildFotoSection(),
             const SizedBox(height: 28),
 
-            // ── Stok Tersedia Sekarang ───────────────────────────────────────
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF4FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44, height: 44,
+            // ── Info Sekarang: Stok & Harga ──────────────────────────────────
+            Row(
+              children: [
+                // Stok card
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFFEEF4FF),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.inventory_2_outlined,
-                        color: primaryBlue, size: 22),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38, height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(Icons.inventory_2_outlined,
+                              color: primaryBlue, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Stok Saat Ini',
+                                  style: TextStyle(fontSize: 11, color: greyText)),
+                              Text(
+                                '$formattedStok ${widget.product.unit}',
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Stok Tersedia',
-                          style: TextStyle(fontSize: 12, color: greyText)),
-                      Text(
-                        '$formattedStok ${widget.product.unit}',
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87),
-                      ),
-                    ],
+                ),
+                const SizedBox(width: 10),
+                // Harga card
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDF7ED),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38, height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(Icons.sell_outlined,
+                              color: Color(0xFF3B6934), size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Harga Saat Ini',
+                                  style: TextStyle(fontSize: 11, color: greyText)),
+                              Text(
+                                'Rp ${formattedHarga}/${widget.product.unit}',
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF3B6934)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 28),
 
@@ -332,6 +404,8 @@ class _SellerEditKomoditiScreenState
               decoration: const InputDecoration(
                 hintText: '0',
                 hintStyle: TextStyle(color: Color(0xFFBBBBBB)),
+                prefixIcon: Icon(Icons.inventory_2_outlined,
+                    color: primaryBlue, size: 20),
                 enabledBorder: UnderlineInputBorder(
                   borderSide:
                       BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
@@ -342,7 +416,43 @@ class _SellerEditKomoditiScreenState
                 contentPadding: EdgeInsets.symmetric(vertical: 8),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
+
+            // ── Input: Update Harga ──────────────────────────────────────────
+            const Text(
+              'Update Harga (Rp / Kg)',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _hargaCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+              decoration: const InputDecoration(
+                hintText: '0',
+                hintStyle: TextStyle(color: Color(0xFFBBBBBB)),
+                prefixText: 'Rp ',
+                prefixStyle: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF3B6934)),
+                prefixIcon: Icon(Icons.sell_outlined,
+                    color: Color(0xFF3B6934), size: 20),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide:
+                      BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF3B6934), width: 2),
+                ),
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // ── Input: Deskripsi ─────────────────────────────────────────────
             const Text(

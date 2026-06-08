@@ -63,14 +63,15 @@ Stream<List<OrderModel>> sellerReturnOrders(Ref ref) {
   });
 }
 
-/// Provider total pendapatan seller — hanya dari pesanan berstatus `completed`.
-/// Otomatis diperbarui setiap kali buyer mengonfirmasi penerimaan barang.
+/// Provider total pendapatan BERSIH seller — hanya dari pesanan berstatus `completed`.
+/// Biaya layanan 11% TIDAK dimasukkan ke pendapatan seller (milik platform).
+/// Nilai bersih = order.total / 1.11 (kebalikan dari subtotal * 1.11 saat checkout).
 final sellerTotalRevenueProvider = Provider<double>((ref) {
   final completedAsync = ref.watch(sellerCompletedOrdersProvider);
   final completed = completedAsync.value ?? [];
   return completed
       .where((o) => o.status == OrderStatus.completed)
-      .fold(0.0, (sum, o) => sum + o.total);
+      .fold(0.0, (sum, o) => sum + (o.total / 1.11));
 });
 
 /// Stream total payout yang sudah di-APPROVE admin untuk seller yang login.
