@@ -10,6 +10,7 @@ import '../../domain/product_model.dart';
 import '../../../buyer_dashboard/data/order_model.dart';
 import 'seller_order_screen.dart';
 import 'seller_produk_screen.dart';
+import 'seller_store_view_screen.dart';
 
 class SellerDashboardScreen extends ConsumerWidget {
   const SellerDashboardScreen({super.key, this.onSelectTab});
@@ -59,11 +60,78 @@ class SellerDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _buildRevenueCard(context, totalRevenue, withdrawable, approvedPayout),
             const SizedBox(height: 16),
+            _buildStoreBannerButton(context),
+            const SizedBox(height: 16),
             _buildKatalogCard(context, productsAsync, onSelectTab),
             const SizedBox(height: 16),
             _buildTransaksiCard(context, onSelectTab, incomingOrders, pendingCount),
             const SizedBox(height: 16),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── Widget: Tampilan Toko Button ──────────────────────────────────────────────
+  Widget _buildStoreBannerButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SellerStoreViewScreen(),
+          ),
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF3B6934), Color(0xFF2E7D32)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3B6934).withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.storefront_rounded,
+                    color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tampilan Toko',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800)),
+                    SizedBox(height: 2),
+                    Text('Lihat toko Anda seperti tampilan pembeli',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.white70, size: 16),
+            ],
+          ),
         ),
       ),
     );
