@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,14 @@ void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   // Keep native splash visible until we explicitly remove it
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  // Muat variabel lingkungan dari .env (opsional — tidak crash jika file belum ada)
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // File .env belum dibuat di komputer ini.
+    // Salin dari .env.example dan isi API key untuk mengaktifkan fitur Maps.
+    debugPrint('[EcoTrade] File .env tidak ditemukan. Fitur Maps tidak akan berfungsi.');
+  }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // Remove native splash — Flutter splash takes over immediately
   FlutterNativeSplash.remove();

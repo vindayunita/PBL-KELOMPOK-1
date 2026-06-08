@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -23,6 +25,14 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // Baca MAPS_API_KEY dari local.properties (tidak di-commit ke git)
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { localProperties.load(it) }
+    }
+    val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY", "")
+
     defaultConfig {
         applicationId = "com.example.ecotrade"
         // flutter_local_notifications requires minSdk >= 21 for core library desugaring
@@ -30,6 +40,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Inject key ke AndroidManifest sebagai placeholder
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {

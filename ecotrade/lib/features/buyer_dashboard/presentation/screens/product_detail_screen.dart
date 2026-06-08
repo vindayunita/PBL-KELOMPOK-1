@@ -54,7 +54,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final user = userAsync.value;
     String buyerCity = '';
     if (user != null && user.addresses.isNotEmpty) {
-      buyerCity = user.addresses.first['city'] as String? ?? '';
+      // Cari alamat default terlebih dahulu; fallback ke address pertama
+      final defaultAddr = user.addresses.firstWhere(
+        (a) => a['isDefault'] == true,
+        orElse: () => user.addresses.first,
+      );
+      buyerCity = defaultAddr['city'] as String? ?? '';
     }
 
     return Scaffold(
@@ -485,6 +490,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         child: Divider(color: cs.outlineVariant, thickness: 1, height: 1),
       );
 
+  /// Bandingkan dua nama kota secara robust.
+  /// Menghapus prefix "Kota", "Kabupaten", "Kab." sebelum membandingkan
+  /// sehingga "Kota Surabaya" == "Surabaya", "Kabupaten Malang" == "Malang", dst.
+  bool _isSameCity(String buyerCity, String sellerCity) {
+    String normalize(String city) => city
+        .toLowerCase()
+        .replaceFirst(RegExp(r'^(kota|kabupaten|kab\.)\s*'), '')
+        .trim();
+    return normalize(buyerCity) == normalize(sellerCity);
+  }
+
   Widget _buildReviews(ProductModel p, ColorScheme cs, TextTheme tt) {
     final reviewsAsync = ref.watch(_productReviewsProvider(p.id));
 
@@ -640,7 +656,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       return;
     }
 
-    if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
+    if (!_isSameCity(buyerCity, p.sellerCity)) {
       _showLocationError(context, cs);
       return;
     }
@@ -697,7 +713,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       return;
     }
 
-    if (buyerCity.toLowerCase() != p.sellerCity.toLowerCase()) {
+    if (!_isSameCity(buyerCity, p.sellerCity)) {
       _showLocationError(context, cs);
       return;
     }

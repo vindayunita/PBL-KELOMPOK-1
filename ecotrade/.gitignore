@@ -47,3 +47,9 @@ app.*.map.json
 # Firebase Admin SDK — JANGAN di-commit!
 scripts/serviceAccountKey.json
 scripts/node_modules/
+
+# ── API Keys & Secrets — JANGAN di-commit! ────────────────────────────────
+# File .env.example BOLEH di-commit (berisi template tanpa nilai asli)
+.env
+web/env.js
+android/local.properties
