@@ -49,6 +49,79 @@ class UserRepository {
     };
   }
 
+  // ── Username utilities ────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> get _usernames =>
+      _db.collection('usernames');
+
+  /// Cek apakah username sudah digunakan (baca koleksi publik /usernames).
+  Future<bool> isUsernameAvailable(String username) async {
+    final snap = await _usernames.doc(username.toLowerCase()).get();
+    return !snap.exists;
+  }
+
+  /// Lookup email berdasarkan username (untuk login via username).
+  Future<String?> getEmailByUsername(String username) async {
+    final snap = await _usernames.doc(username.toLowerCase()).get();
+    if (!snap.exists) return null;
+    return snap.data()?['email'] as String?;
+  }
+
+  /// Lookup user berdasarkan username (untuk login via username).
+  Future<UserModel?> getUserByUsername(String username) async {
+    final email = await getEmailByUsername(username.toLowerCase());
+    if (email == null) return null;
+    final snap = await _users.where('email', isEqualTo: email).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return UserModel.fromJson(_sanitize(doc.data(), doc.id));
+  }
+
+  /// Simpan klaim username ke koleksi /usernames/{username}.
+  /// Dipanggil setelah createUser agar username ter-index.
+  Future<void> saveUsername(String username, String uid, String email) {
+    return _usernames.doc(username.toLowerCase()).set({
+      'uid': uid,
+      'email': email,
+    });
+  }
+
+  /// Generate username unik dari [name].
+  /// Contoh: "John Doe" → "johndoe", kalau sudah ada → "johndoe1", dst.
+  static String _toBaseUsername(String name) {
+    return name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), ''); // hanya huruf & angka
+  }
+
+  /// Mengambil username unik. Cek koleksi /usernames dan tambahkan angka suffix jika perlu.
+  Future<String> generateUniqueUsername(String name) async {
+    final base = _toBaseUsername(name);
+    if (base.isEmpty) return 'user${DateTime.now().millisecondsSinceEpoch}';
+
+    // Cek base username dulu
+    if (await isUsernameAvailable(base)) return base;
+
+    // Tambah suffix angka hingga ditemukan yang kosong
+    for (int i = 1; i <= 9999; i++) {
+      final candidate = '$base$i';
+      if (await isUsernameAvailable(candidate)) return candidate;
+    }
+
+    // Fallback dengan timestamp (sangat jarang terjadi)
+    return '$base${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Update field username di dokumen user (untuk akun lama yang belum punya username).
+  Future<void> updateUsername({required String uid, required String username}) {
+    return _users.doc(uid).update({
+      'username': username,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+
   Future<void> updateProfile({
     required String uid,
     String? name,
@@ -95,3 +168,4 @@ class UserRepository {
     });
   }
 }
+

@@ -24,11 +24,11 @@ service firebase.storage {
 
     // ── Profile Photos ──────────────────────────────────────────────────────
     // /profile_photos/{uid}.jpg
-    match /profile_photos/{uid} {
+    match /profile_photos/{fileName} {
       // User bisa read foto profil siapa saja (untuk ditampilkan di app)
       allow read: if isAuthenticated();
       // Hanya pemilik yang bisa upload/replace fotonya sendiri
-      allow write: if isOwner(uid) && isValidImage();
+      allow write: if isAuthenticated() && fileName == request.auth.uid + '.jpg' && isValidImage();
     }
 
     // ── Product Images ──────────────────────────────────────────────────────

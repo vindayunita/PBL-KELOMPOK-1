@@ -5,6 +5,7 @@ class UserModel {
     required this.email,
     required this.roles,
     required this.activeRole,
+    this.username,
     this.photoUrl,
     this.phoneNumber,
     this.addresses = const [],
@@ -23,6 +24,8 @@ class UserModel {
   final String email;
   final List<String> roles;
   final String activeRole;
+  /// Username unik (auto-generate dari name saat registrasi, lowercase tanpa spasi)
+  final String? username;
   final String? photoUrl;
   final String? phoneNumber;
   final List<Map<String, dynamic>> addresses;
@@ -54,6 +57,7 @@ class UserModel {
       email:      json['email']       as String,
       roles:      List<String>.from(json['roles'] as List? ?? ['buyer']),
       activeRole: json['activeRole']  as String? ?? 'buyer',
+      username:   json['username']    as String?,
       photoUrl:   json['photoUrl']    as String?,
       phoneNumber:json['phoneNumber'] as String?,
       addresses:  (json['addresses'] as List<dynamic>?)
@@ -76,6 +80,7 @@ class UserModel {
         'email':      email,
         'roles':      roles,
         'activeRole': activeRole,
+        if (username    != null) 'username':    username,
         if (photoUrl    != null) 'photoUrl':    photoUrl,
         if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (addresses.isNotEmpty) 'addresses':  addresses,
@@ -94,6 +99,7 @@ class UserModel {
     String? email,
     List<String>? roles,
     String? activeRole,
+    String? username,
     String? photoUrl,
     String? phoneNumber,
     List<Map<String, dynamic>>? addresses,
@@ -111,6 +117,7 @@ class UserModel {
         email:      email      ?? this.email,
         roles:      roles      ?? this.roles,
         activeRole: activeRole ?? this.activeRole,
+        username:   username   ?? this.username,
         photoUrl:   photoUrl   ?? this.photoUrl,
         phoneNumber:phoneNumber ?? this.phoneNumber,
         addresses:  addresses  ?? this.addresses,

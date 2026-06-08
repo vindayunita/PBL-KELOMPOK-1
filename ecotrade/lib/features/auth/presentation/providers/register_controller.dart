@@ -25,27 +25,40 @@ class RegisterController extends _$RegisterController {
     final userRepo = ref.read(userRepositoryProvider);
 
     try {
-      // 1. Buat akun di Firebase Auth
+      // 1. Generate username unik dari nama lengkap.
+      //    Koleksi /usernames bisa dibaca publik, jadi aman tanpa auth.
+      //    Contoh: "John Doe" → "johndoe", jika sudah ada → "johndoe1", dst.
+      final username = await userRepo.generateUniqueUsername(name.trim());
+
+      // 2. Buat akun di Firebase Auth
       final credential = await authRepo.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
-      // 2. Set display name di Firebase Auth
+      // 3. Set display name di Firebase Auth
       await authRepo.updateDisplayName(name.trim());
 
-      // 3. Simpan dokumen user ke Firestore
+      // 4. Simpan dokumen user ke Firestore
       await userRepo.createUser(
         UserModel(
           uid: credential.user!.uid,
           name: name.trim(),
           email: email.trim().toLowerCase(),
+          username: username,
           roles: const ['buyer'],
           activeRole: 'buyer',
         ),
       );
 
-      // 4. Sign out agar user tidak langsung masuk — diarahkan ke login
+      // 5. Simpan klaim username ke koleksi /usernames (index lookup)
+      await userRepo.saveUsername(
+        username,
+        credential.user!.uid,
+        email.trim().toLowerCase(),
+      );
+
+      // 6. Sign out agar user tidak langsung masuk — diarahkan ke login
       await authRepo.signOut();
 
       // Registrasi selesai — set AsyncData agar UI tahu sukses.

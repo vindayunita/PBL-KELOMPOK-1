@@ -121,6 +121,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         name: _nameCtrl.text.trim(),
         phoneNumber: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       );
+
+      // ── Auto-generate username untuk akun lama yang belum punya username ──
+      if (doc.username == null || doc.username!.isEmpty) {
+        final username = await userRepo.generateUniqueUsername(doc.name);
+        // Simpan ke field username di dokumen user
+        await userRepo.updateUsername(uid: doc.uid, username: username);
+        // Simpan index ke koleksi /usernames
+        await userRepo.saveUsername(username, doc.uid, doc.email);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -140,6 +150,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +328,43 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.55),
                         fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Username (read-only, auto-generated) ─────────────────────
+            _SectionLabel(label: 'Username'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.alternate_email_rounded, size: 18,
+                      color: cs.onSurface.withValues(alpha: 0.45)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: userAsync.value?.username != null
+                        ? Text(
+                            '@${userAsync.value!.username}',
+                            style: TextStyle(
+                                color: cs.onSurface.withValues(alpha: 0.55),
+                                fontSize: 15),
+                          )
+                        : Text(
+                            'Akan dibuat otomatis saat menyimpan profil',
+                            style: TextStyle(
+                                color: cs.onSurface.withValues(alpha: 0.35),
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic),
+                          ),
                   ),
                 ],
               ),

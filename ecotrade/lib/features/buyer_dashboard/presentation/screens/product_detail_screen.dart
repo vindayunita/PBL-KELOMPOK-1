@@ -370,6 +370,48 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context, ColorScheme cs, TextTheme tt, String buyerCity) {
+    if (widget.product.stock <= 0) {
+      return Container(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 14,
+          bottom: MediaQuery.of(context).padding.bottom + 14,
+        ),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: cs.errorContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.error.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inventory_2_outlined, color: cs.error),
+              const SizedBox(width: 8),
+              Text(
+                'Maaf, stok produk ini sedang kosong',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 14,
@@ -588,6 +630,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Future<void> _addToCart(BuildContext context, ColorScheme cs, String buyerCity) async {
     final p = widget.product;
+    if (p.stock <= 0) return;
 
     // Check address first
     final userAsync = ref.read(currentUserDocProvider);
@@ -644,6 +687,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   void _buyNow(BuildContext context, ColorScheme cs, TextTheme tt, String buyerCity) {
     final p = widget.product;
+    if (p.stock <= 0) return;
 
     // Check address first
     final userAsync = ref.read(currentUserDocProvider);

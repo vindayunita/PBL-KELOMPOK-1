@@ -49,7 +49,7 @@ final class NotificationStreamProvider
 }
 
 String _$notificationStreamHash() =>
-    r'dc0004e93bd0b78a5d20be9492127c31df47410a';
+    r'ee8d0b4422617834191f739e9b309f31c0c047fc';
 
 @ProviderFor(unreadNotificationCount)
 const unreadNotificationCountProvider = UnreadNotificationCountProvider._();
@@ -83,4 +83,4 @@ final class UnreadNotificationCountProvider
 }
 
 String _$unreadNotificationCountHash() =>
-    r'5a1e840378acc680876d61c9f83c3f84a9ac8ddd';
+    r'dd96e95416ba2b7ded7780d2f6635d45465e2d8e';

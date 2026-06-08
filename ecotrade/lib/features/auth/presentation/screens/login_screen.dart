@@ -33,7 +33,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     await ref.read(loginControllerProvider.notifier).signIn(
-          email: _emailController.text,
+          emailOrUsername: _emailController.text,
           password: _passwordController.text,
         );
   }
@@ -143,17 +143,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     const SizedBox(height: 40),
 
-                    // ── Email field ──
+                    // ── Email / Username field ──
                     EcoTextField(
                       controller: _emailController,
-                      label: 'EMAIL OR USERNAME',
-                      hint: 'curator@ecotrade.com',
+                      label: 'EMAIL ATAU USERNAME',
+                      hint: 'email@example.com atau username',
                       prefixIcon: Icons.alternate_email_rounded,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
-                          return 'Email is required';
+                          return 'Email atau username harus diisi';
                         }
                         return null;
                       },
