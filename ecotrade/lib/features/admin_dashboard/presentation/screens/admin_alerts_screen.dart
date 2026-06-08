@@ -45,13 +45,9 @@ class AdminAlertsScreen extends ConsumerWidget {
             ?.where((p) => p.status == PayoutStatus.pending)
             .length ?? 0;
 
-    // Placeholder — replace when refund-claim model is wired
-    const pendingRefunds = 0;
-
     final totalPending = pendingSellers +
         pendingCouriers +
         pendingPayments +
-        pendingRefunds +
         pendingPayoutSellers +
         pendingRefundProcess;
 
@@ -88,16 +84,6 @@ class AdminAlertsScreen extends ConsumerWidget {
         tag:             'VERIFY',
         screenIndex:     1,
         tabIndex:        1,
-      ),
-      _AlertItem(
-        category:        'Verify Refund',
-        description:     'Klaim refund dari buyer menunggu review',
-        count:           pendingRefunds,
-        icon:            Icons.assignment_return_rounded,
-        color:           const Color(0xFFBF360C),
-        tag:             'VERIFY',
-        screenIndex:     1,
-        tabIndex:        2,
       ),
       _AlertItem(
         category:        'Payout Seller',

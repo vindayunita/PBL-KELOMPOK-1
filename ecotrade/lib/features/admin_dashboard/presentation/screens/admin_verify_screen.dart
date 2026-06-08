@@ -10,6 +10,8 @@ import '../../../../features/courier_dashboard/domain/models/courier_application
 import '../../../../features/seller_registration/data/seller_application_repository.dart';
 import '../../../../features/seller_registration/domain/models/seller_application_model.dart';
 import '../../../../features/seller_registration/domain/seller_application_providers.dart';
+import '../../data/admin_return_repository.dart';
+import '../../data/return_model.dart';
 
 // ── Main Widget (now ConsumerStatefulWidget) ─────────────────────────────────
 class AdminVerifyScreen extends ConsumerStatefulWidget {
@@ -33,7 +35,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   bool _isPaymentExpanded = false;
 
   final List<String> _tabs = [
-    'Courier', 'Payment', 'Refund', 'Seller',
+    'Courier', 'Payment', 'Seller',
   ];
   final List<String> _sellerFilterLabels  = ['Pending', 'Approved', 'Rejected', 'KYC Review'];
   final List<String> _courierFilterLabels = ['Pending', 'Approved', 'Rejected'];
@@ -62,10 +64,9 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   Widget build(BuildContext context) {
     final cs        = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final isSellerTab  = _selectedTab == 3;
+    final isSellerTab  = _selectedTab == 2;
     final isCourierTab = _selectedTab == 0;
     final isPaymentTab = _selectedTab == 1;
-    final isRefundTab  = _selectedTab == 2;
 
     // ── Seller stream ──
     final sellerAsync = ref.watch(allSellerApplicationsProvider(null));
@@ -130,11 +131,11 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                     child: Row(
                       children: List.generate(_tabs.length, (i) {
                         final sel = _selectedTab == i;
-                        // Badge pada tab Seller (index 3) dan Courier (index 0) jika ada pending
-                        final isPendingBadge = (i == 3 && sellerCounts[0] > 0) ||
-                                              (i == 3 && sellerCounts[3] > 0) ||
+                        // Badge pada tab Seller (index 2) dan Courier (index 0) jika ada pending
+                        final isPendingBadge = (i == 2 && sellerCounts[0] > 0) ||
+                                              (i == 2 && sellerCounts[3] > 0) ||
                                               (i == 0 && courierCounts[0] > 0);
-                        final badgeCount = i == 3
+                        final badgeCount = i == 2
                             ? sellerCounts[0] + sellerCounts[3]
                             : courierCounts[0];
                         return GestureDetector(
@@ -194,9 +195,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                             ? 'COURIER MANAGEMENT'
                             : isPaymentTab
                                 ? 'PAYMENT MANAGEMENT'
-                                : isRefundTab
-                                    ? 'REFUND MANAGEMENT'
-                                    : 'VERIFICATION',
+                                : 'VERIFICATION',
                     style: textTheme.labelSmall?.copyWith(
                         color: cs.primary, fontWeight: FontWeight.w800,
                         letterSpacing: 1.2),
@@ -209,9 +208,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                             ? 'Courier Account Verification'
                             : isPaymentTab
                                 ? 'Payment Verification'
-                                : isRefundTab
-                                    ? 'Refund Claims'
-                                    : 'Pending Approvals',
+                                : 'Pending Approvals',
                     style: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800, color: cs.onSurface),
                   ),
@@ -223,9 +220,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                             ? 'Review and verify new courier account registrations before they go live.'
                             : isPaymentTab
                                 ? 'Review and process incoming payment transactions.'
-                                : isRefundTab
-                                    ? 'Review and manage refund requests from buyers.'
-                                    : 'Review and manage pending verifications.',
+                                : 'Review and manage pending verifications.',
                     style: textTheme.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.55), height: 1.5),
                   ),
@@ -241,10 +236,6 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                   if (isPaymentTab) ...[
                     const SizedBox(height: 20),
                     _buildPaymentFilterBar(cs, textTheme),
-                  ],
-                  if (isRefundTab) ...[
-                    const SizedBox(height: 20),
-                    _buildRefundFilterBar(cs, textTheme),
                   ],
 
                   const SizedBox(height: 28),
@@ -262,9 +253,7 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
                     ? _buildCourierContent(context, isCourierLoading, filteredCourierApps)
                     : isPaymentTab
                         ? _buildPaymentContent(context)
-                        : isRefundTab
-                            ? _buildRefundContent(context)
-                            : SliverToBoxAdapter(child: _buildEmptyState(context)),
+                        : SliverToBoxAdapter(child: _buildEmptyState(context)),
           ),
         ],
       ),
@@ -928,7 +917,14 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
 
   Widget _buildRefundFilterBar(ColorScheme cs, TextTheme tt) {
     final filterColors = [cs.primary, const Color(0xFF2E7D32), cs.error];
-    final counts = [0, 0, 0]; // placeholder until data model exists
+    final pendingAsync  = ref.watch(allReturnRequestsStreamProvider(status: 'pending'));
+    final approvedAsync = ref.watch(allReturnRequestsStreamProvider(status: 'approved'));
+    final rejectedAsync = ref.watch(allReturnRequestsStreamProvider(status: 'rejected'));
+    final counts = [
+      pendingAsync.value?.length  ?? 0,
+      approvedAsync.value?.length ?? 0,
+      rejectedAsync.value?.length ?? 0,
+    ];
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -980,15 +976,153 @@ class _AdminVerifyScreenState extends ConsumerState<AdminVerifyScreen>
   }
 
   Widget _buildRefundContent(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: _buildGenericEmptyState(
-        context,
-        icon: Icons.assignment_return_outlined,
-        iconColor: Theme.of(context).colorScheme.error,
-        title: 'Tidak ada Refund ${_refundFilterLabels[_refundFilter]}',
-        subtitle: 'Klaim refund dengan status "${_refundFilterLabels[_refundFilter]}"\nakan muncul di sini.',
+    final statusKey = _refundFilter == 0 ? 'pending'
+        : _refundFilter == 1 ? 'approved' : 'rejected';
+    final returnsAsync = ref.watch(allReturnRequestsStreamProvider(status: statusKey));
+
+    return returnsAsync.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Center(child: Padding(
+          padding: EdgeInsets.all(48),
+          child: CircularProgressIndicator(),
+        )),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Center(child: Text('Error: $e')),
+      ),
+      data: (returns) {
+        if (returns.isEmpty) {
+          return SliverToBoxAdapter(
+            child: _buildGenericEmptyState(
+              context,
+              icon: Icons.assignment_return_outlined,
+              iconColor: Theme.of(context).colorScheme.error,
+              title: 'Tidak ada Refund ${_refundFilterLabels[_refundFilter]}',
+              subtitle: 'Klaim refund dengan status "${_refundFilterLabels[_refundFilter]}"\nakan muncul di sini.',
+            ),
+          );
+        }
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (ctx, i) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _ReturnCard(
+                key: ValueKey(returns[i].returnId),
+                returnItem: returns[i],
+                onApprove: returns[i].isPending ? () => _handleRefundApprove(returns[i]) : null,
+                onReject:  returns[i].isPending ? () => _handleRefundReject(returns[i])  : null,
+              ),
+            ),
+            childCount: returns.length,
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Refund handler methods ─────────────────────────────────────────────────
+
+  Future<void> _handleRefundApprove(ReturnModel returnItem) async {
+    final fmt = NumberFormat('#,###', 'id_ID');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.check_circle_outline, color: Color(0xFF2E7D32), size: 20),
+          SizedBox(width: 8),
+          Text('Setujui Refund?', style: TextStyle(fontWeight: FontWeight.w700)),
+        ]),
+        content: Text(
+          'Dana Rp ${fmt.format(returnItem.total)} akan ditambahkan '
+          'ke saldo refund ${returnItem.buyerName}.\n\nTindakan ini tidak dapat dibatalkan.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            child: const Text('Setujui'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) return;
+    final repo = ref.read(adminReturnRepositoryProvider);
+    try {
+      await repo.approveRefund(returnItem);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Refund ${returnItem.buyerName} disetujui — saldo Rp ${fmt.format(returnItem.total)} ditambahkan'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _handleRefundReject(ReturnModel returnItem) async {
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+          SizedBox(width: 8),
+          Text('Tolak Refund', style: TextStyle(fontWeight: FontWeight.w700)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Alasan penolakan untuk ${returnItem.buyerName}:',
+                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Jelaskan alasan penolakan...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Tolak'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    final repo = ref.read(adminReturnRepositoryProvider);
+    try {
+      await repo.rejectRefund(returnItem, reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Refund ${returnItem.buyerName} ditolak'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   // ── GENERIC EMPTY STATE ──────────────────────────────────────────────────
@@ -2727,6 +2861,292 @@ class _PaymentDetailPanelState extends State<_PaymentDetailPanel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Return Card ───────────────────────────────────────────────────────────────
+class _ReturnCard extends StatelessWidget {
+  const _ReturnCard({
+    super.key,
+    required this.returnItem,
+    this.onApprove,
+    this.onReject,
+  });
+
+  final ReturnModel returnItem;
+  final Future<void> Function()? onApprove;
+  final Future<void> Function()? onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs  = Theme.of(context).colorScheme;
+    final tt  = Theme.of(context).textTheme;
+    final fmt = NumberFormat('#,###', 'id_ID');
+
+    final (statusColor, statusLabel, statusIcon) = switch (returnItem.status) {
+      'approved' => (const Color(0xFF2E7D32), 'Disetujui', Icons.check_circle_rounded),
+      'rejected' => (Colors.red,              'Ditolak',   Icons.cancel_rounded),
+      _          => (const Color(0xFFF57F17), 'Pending',   Icons.hourglass_top_rounded),
+    };
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.06),
+            blurRadius: 12, offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              children: [
+                // Product image
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: returnItem.productImageUrl.isNotEmpty
+                      ? Image.network(
+                          returnItem.productImageUrl,
+                          width: 52, height: 52, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 52, height: 52,
+                            color: cs.surfaceContainerLow,
+                            child: Icon(Icons.inventory_2_outlined, color: cs.onSurfaceVariant),
+                          ),
+                        )
+                      : Container(
+                          width: 52, height: 52,
+                          color: cs.surfaceContainerLow,
+                          child: Icon(Icons.inventory_2_outlined, color: cs.onSurfaceVariant),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(returnItem.productTitle,
+                          style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text('Pembeli: ${returnItem.buyerName}',
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.onSurface.withValues(alpha: 0.6))),
+                    ],
+                  ),
+                ),
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 12, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(statusLabel,
+                          style: tt.labelSmall?.copyWith(
+                              color: statusColor, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Divider(height: 1),
+          ),
+
+          // ── Info rows ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Alasan retur
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.report_problem_outlined, size: 14,
+                        color: cs.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Alasan: ${returnItem.reason}',
+                        style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.7)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Total
+                Row(
+                  children: [
+                    Icon(Icons.monetization_on_outlined, size: 14,
+                        color: cs.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Total Refund: Rp ${fmt.format(returnItem.total)}',
+                      style: tt.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary),
+                    ),
+                  ],
+                ),
+                // Tanggal
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today_outlined, size: 14,
+                        color: cs.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('dd MMM yyyy, HH:mm').format(returnItem.createdAt),
+                      style: tt.bodySmall?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.55)),
+                    ),
+                  ],
+                ),
+                // Admin note (jika ada)
+                if (returnItem.adminNote != null && returnItem.adminNote!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.sticky_note_2_outlined, size: 14,
+                            color: cs.onSurface.withValues(alpha: 0.5)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text('Note: ${returnItem.adminNote}',
+                              style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.65),
+                                  fontStyle: FontStyle.italic)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // ── Foto bukti retur ──
+          if (returnItem.photoUrls.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Foto Kondisi Produk',
+                  style: tt.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface.withValues(alpha: 0.6))),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 80,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: returnItem.photoUrls.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (ctx, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    returnItem.photoUrls[i],
+                    width: 80, height: 80, fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            width: 80, height: 80,
+                            color: cs.surfaceContainerLow,
+                            child: const Center(child: SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )),
+                          ),
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 80, height: 80,
+                      color: cs.surfaceContainerLow,
+                      child: Icon(Icons.broken_image_outlined,
+                          color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          // ── Action buttons (hanya jika pending) ──
+          if (onApprove != null || onReject != null) ...[
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              child: Row(
+                children: [
+                  // Reject button
+                  if (onReject != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onReject,
+                        icon: Icon(Icons.close_rounded, size: 16, color: cs.error),
+                        label: Text('Tolak',
+                            style: TextStyle(color: cs.error, fontWeight: FontWeight.w700)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: cs.error),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  if (onApprove != null && onReject != null)
+                    const SizedBox(width: 10),
+                  // Approve button
+                  if (onApprove != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onApprove,
+                        icon: const Icon(Icons.check_rounded, size: 16),
+                        label: const Text('Setujui Refund',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ] else
+            const SizedBox(height: 14),
+        ],
+      ),
     );
   }
 }

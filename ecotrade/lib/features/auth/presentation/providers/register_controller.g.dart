@@ -34,7 +34,7 @@ final class RegisterControllerProvider
 }
 
 String _$registerControllerHash() =>
-    r'a9c730fac15d03b9863b78092c33f742f5f01d77';
+    r'dcc73623c75dcd8b10b7ee24d23ee76df51296eb';
 
 abstract class _$RegisterController extends $AsyncNotifier<void> {
   FutureOr<void> build();

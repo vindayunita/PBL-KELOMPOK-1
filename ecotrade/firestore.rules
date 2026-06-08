@@ -2,126 +2,145 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Users ─────────────────────────────────────────────────────────
-    match /users/{uid} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
-      // Admin can update roles
-      allow update: if request.auth != null
-                    && (request.auth.uid == uid
-                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+    // ── Helper: admin check (custom claim ATAU roles di Firestore) ────────────
+    // Menggunakan dua metode sekaligus agar tidak bergantung pada satu cara saja:
+    // 1. Firebase Auth custom claim: {admin: true}
+    // 2. Firestore users/{uid}.roles berisi 'admin'
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.get('admin', false) == true
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roles', []).hasAny(['admin']))
+      );
     }
 
-    // ── Usernames (index unik untuk login via username) ────────────────
-    // Koleksi ini berisi mapping username → uid.
-    // Bisa dibaca siapa saja (untuk cek ketersediaan saat registrasi).
-    // Hanya pemilik akun yang bisa menulis (claim username).
+    // ── Users ─────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null && request.auth.uid == uid;
+      allow update: if isAdmin();
+    }
+
+    // ── Usernames ─────────────────────────────────────────────────────────────
     match /usernames/{username} {
       allow read:  if true;
       allow write: if request.auth != null;
     }
 
-    // ── Courier Applications ──────────────────────────────────────────
+    // ── Courier Applications ──────────────────────────────────────────────────
     match /courier_applications/{uid} {
-      // Kurir: bisa baca & update dokumen milik sendiri (untuk toggle isActive)
-      allow read:   if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null
-                    && (request.auth.uid == uid
-                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
-      // Admin: bisa baca semua aplikasi kurir
-      allow read:   if request.auth != null
-                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
-      // Seller: bisa baca semua (untuk proses assign kurir otomatis)
-      allow read:   if request.auth != null
-                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['seller']);
+      allow read:         if request.auth != null && request.auth.uid == uid;
+      allow create:       if request.auth != null && request.auth.uid == uid;
+      allow update:       if request.auth != null && request.auth.uid == uid;
+      allow read, update: if isAdmin();
+      // Seller bisa baca semua courier (untuk assign otomatis)
+      allow read: if request.auth != null
+                  && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roles', []).hasAny(['seller']);
     }
 
-    // ── Seller Applications ───────────────────────────────────────────
+    // ── Seller Applications ───────────────────────────────────────────────────
     match /seller_applications/{uid} {
-      // Buyer: bisa buat & baca milik sendiri
-      allow read:   if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      // Admin: bisa baca semua dan update status
-      allow read, update: if request.auth != null
-                          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+      allow read:                 if request.auth != null && request.auth.uid == uid;
+      allow create:               if request.auth != null && request.auth.uid == uid;
+      allow read, create, update: if isAdmin();
     }
 
-    // ── Products ──────────────────────────────────────────────────────
+    // ── Products ──────────────────────────────────────────────────────────────
     match /products/{document=**} {
       allow read:  if true;
       allow write: if request.auth != null;
     }
 
-    // ── Seller Registrations (legacy) ─────────────────────────────────
+    // ── Seller Registrations (legacy) ─────────────────────────────────────────
     match /seller_registrations/{document=**} {
-      allow read:   if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
+      allow read:           if request.auth != null;
+      allow create:         if request.auth != null
+                            && request.resource.data.userId == request.auth.uid;
       allow update, delete: if request.auth != null
                             && resource.data.userId == request.auth.uid;
     }
 
-    // ── Carts ──────────────────────────────────────────────────────────
-    // Each buyer has their own cart document with an 'items' subcollection.
-    // Only the authenticated owner can read/write their own cart.
+    // ── Carts ─────────────────────────────────────────────────────────────────
     match /carts/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
-
       match /items/{itemId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
     }
 
-    // ── Orders ─────────────────────────────────────────────────────────
-    // Buyers  : buat order milik sendiri; baca & update (review/konfirmasi) milik sendiri
-    // Sellers : baca & update (confirm/assign) order milik tokonya
-    // Couriers: baca & update status (picked_up/delivered) tugas miliknya
-    // Admins  : baca & update semua
+    // ── Orders ────────────────────────────────────────────────────────────────
+    // Admin bisa baca & update SEMUA orders (verifikasi payment, refund, dll.)
     match /orders/{orderId} {
       allow create: if request.auth != null
                     && request.resource.data.buyerId == request.auth.uid;
 
-      allow read: if request.auth != null
-                  && (resource.data.buyerId    == request.auth.uid
-                      || resource.data.sellerId  == request.auth.uid
-                      || resource.data.courierId == request.auth.uid
-                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin'])
-                      // Seller bisa baca semua order di tokonya (via sellerIds array)
-                      || resource.data.sellerIds.hasAny([request.auth.uid]));
+      // Admin: akses penuh ke semua orders
+      allow read, update: if isAdmin();
 
-      allow update: if request.auth != null
-                    && (resource.data.buyerId   == request.auth.uid   // buyer: konfirmasi / submit review
+      // Pelaku terkait: bisa baca & update order mereka masing-masing
+      allow read:   if request.auth != null
+                    && (resource.data.buyerId    == request.auth.uid
                         || resource.data.sellerId  == request.auth.uid
                         || resource.data.courierId == request.auth.uid
-                        || resource.data.sellerIds.hasAny([request.auth.uid]) // seller via sellerIds
-                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+                        || resource.data.sellerIds.hasAny([request.auth.uid]));
+      allow update: if request.auth != null
+                    && (resource.data.buyerId   == request.auth.uid
+                        || resource.data.sellerId  == request.auth.uid
+                        || resource.data.courierId == request.auth.uid
+                        || resource.data.sellerIds.hasAny([request.auth.uid]));
     }
 
-    // ── Reviews ────────────────────────────────────────────────────────
-    // Semua user yang login bisa membaca review (agar buyer lain bisa lihat)
-    // Hanya buyer yang punya akun yang bisa menulis review
+    // ── Payments ──────────────────────────────────────────────────────────────
+    match /payments/{paymentId} {
+      // Semua user yang login bisa baca & buat payment (buyer upload bukti, admin verifikasi)
+      allow read, create: if request.auth != null;
+      // Admin bisa update payment; buyer pemilik juga bisa update miliknya
+      allow update: if isAdmin();
+      allow update: if request.auth != null && resource.data.buyerId == request.auth.uid;
+    }
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
     match /reviews/{reviewId} {
-      allow read:   if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.buyerId == request.auth.uid;
+      allow read:           if request.auth != null;
+      allow create:         if request.auth != null
+                            && request.resource.data.buyerId == request.auth.uid;
       allow update, delete: if request.auth != null
                             && resource.data.buyerId == request.auth.uid;
     }
 
-    // ── Notifications ──────────────────────────────────────────────────
-    // Setiap user terautentikasi dapat membuat notifikasi (saat ada proses bisnis).
-    // Hanya penerima (recipientId) yang dapat membaca & mengupdate (isRead) notifikasi miliknya.
-    // Admin dapat membaca & update semua notifikasi (termasuk ADMIN_ALL).
+    // ── Returns ───────────────────────────────────────────────────────────────
+    // Koleksi retur produk: buyer buat dokumen, admin/seller bisa baca & update.
+    match /returns/{returnId} {
+      allow read:   if request.auth != null
+                    && (resource.data.buyerId == request.auth.uid || isAdmin()
+                        || resource.data.sellerIds.hasAny([request.auth.uid]));
+      allow create: if request.auth != null;
+      allow update: if isAdmin()
+                    || (request.auth != null
+                        && resource.data.sellerIds.hasAny([request.auth.uid]));
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
     match /notifications/{notificationId} {
       allow create: if request.auth != null;
       allow read, update: if request.auth != null
                           && (resource.data.recipientId == request.auth.uid
                               || resource.data.recipientId == 'ADMIN_ALL'
-                              || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']));
+                              || isAdmin());
     }
 
-    // ── Fallback: authenticated users (read-only untuk koleksi lain) ────
+    // ── Payouts ───────────────────────────────────────────────────────────────
+    // Field yang dipakai: userId (bukan sellerId) — berlaku untuk buyer & seller.
+    match /payouts/{payoutId} {
+      allow read:   if request.auth != null
+                    && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    // ── Fallback: authenticated users (read-only untuk koleksi lain) ──────────
     match /{document=**} {
       allow read: if request.auth != null;
     }

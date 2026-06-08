@@ -3,7 +3,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // ── Helper functions ────────────────────────────────────────────────────
+    // ── Helper functions ──────────────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -22,79 +22,89 @@ service firebase.storage {
           && request.resource.size < 100 * 1024 * 1024; // maks 100 MB
     }
 
-    // ── Profile Photos ──────────────────────────────────────────────────────
+    // ── Profile Photos ────────────────────────────────────────────────────────
     // /profile_photos/{uid}.jpg
     match /profile_photos/{fileName} {
-      // User bisa read foto profil siapa saja (untuk ditampilkan di app)
-      allow read: if isAuthenticated();
-      // Hanya pemilik yang bisa upload/replace fotonya sendiri
-      allow write: if isAuthenticated() && fileName == request.auth.uid + '.jpg' && isValidImage();
+      // Semua user yang login bisa melihat foto profil (ditampilkan di app)
+      allow read:  if isAuthenticated();
+      // Hanya pemilik yang bisa upload fotonya sendiri (format: {uid}.jpg)
+      allow write: if isAuthenticated()
+                   && fileName.matches(request.auth.uid + '.*')
+                   && isValidImage();
     }
 
-    // ── Product Images ──────────────────────────────────────────────────────
+    // ── Product Images ────────────────────────────────────────────────────────
     // /product_images/{uid}/{filename}
     match /product_images/{uid}/{fileName} {
       // Semua user authenticated bisa melihat foto produk
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       // Hanya seller (pemilik) yang bisa upload foto produknya
       allow write: if isOwner(uid) && isValidImage();
     }
 
-    // ── Seller Registration Documents ───────────────────────────────────────
+    // ── Seller Registration Documents ─────────────────────────────────────────
     // /seller_registrations/{uid}/{fileName}
+    // Foto komoditi yang diupload saat mendaftar sebagai seller
     match /seller_registrations/{uid}/{fileName} {
-      // Hanya pemilik yang bisa baca & upload dokumen registrasinya
+      // Pemilik bisa baca & upload dokumen registrasinya
       allow read:  if isOwner(uid);
       allow write: if isOwner(uid) && isValidImage();
+      // Admin bisa baca untuk keperluan review/verifikasi
+      allow read:  if isAuthenticated();
     }
 
-    // ── KYC Documents (KTP & Selfie) ────────────────────────────────────────
+    // ── KYC Documents (KTP & Selfie) ──────────────────────────────────────────
     // /kyc/{uid}/{fileName}
     match /kyc/{uid}/{fileName} {
-      // Hanya pemilik yang bisa baca & upload dokumen KYC-nya
+      // Pemilik bisa baca & upload dokumen KYC-nya
       allow read:  if isOwner(uid);
       allow write: if isOwner(uid) && isValidImage();
+      // Semua user terautentikasi bisa baca (admin perlu lihat KTP untuk verifikasi)
+      allow read:  if isAuthenticated();
     }
 
-    // ── Courier Documents (KTP & SIM) ───────────────────────────────────────
+    // ── Courier Documents (KTP & SIM) ─────────────────────────────────────────
     // /courier_documents/{uid}/{fileName}
     match /courier_documents/{uid}/{fileName} {
-      // Hanya pemilik yang bisa baca & upload dokumen kurir-nya
+      // Pemilik bisa baca & upload dokumen kurir-nya
       allow read:  if isOwner(uid);
       allow write: if isOwner(uid) && isValidImage();
+      // Semua user terautentikasi bisa baca (admin perlu verifikasi)
+      allow read:  if isAuthenticated();
     }
 
-    // ── Payment Proofs ──────────────────────────────────────────────────────
+    // ── Payment Proofs ────────────────────────────────────────────────────────
     // /payment_proofs/{uid}/{fileName}
     match /payment_proofs/{uid}/{fileName} {
-      // Hanya buyer pemilik yang bisa upload & baca bukti transfernya sendiri
+      // Buyer pemilik bisa upload & baca bukti transfer miliknya
       allow read:  if isOwner(uid);
       allow write: if isOwner(uid) && isValidImage();
+      // Seller & admin perlu baca bukti bayar untuk konfirmasi order
+      allow read:  if isAuthenticated();
     }
 
-    // ── Review Photos ───────────────────────────────────────────────────────
+    // ── Review Photos ─────────────────────────────────────────────────────────
     // /review_photos/{productId}/{orderId}/{fileName}
     match /review_photos/{productId}/{orderId}/{fileName} {
       // Semua user authenticated bisa melihat foto review (tampil di halaman produk)
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       // Hanya user yang login bisa upload foto review
       allow write: if isAuthenticated() && isValidImage();
     }
 
-    // ── Review Videos ───────────────────────────────────────────────────────
+    // ── Review Videos ─────────────────────────────────────────────────────────
     // /review_videos/{productId}/{orderId}/{fileName}
     match /review_videos/{productId}/{orderId}/{fileName} {
       // Semua user authenticated bisa melihat video review
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       // Hanya user yang login bisa upload video review, maks 100 MB
       allow write: if isAuthenticated() && isValidVideo();
     }
 
-    // ── Return Photos ───────────────────────────────────────────────────────
+    // ── Return Photos ─────────────────────────────────────────────────────────
     // /return_photos/{orderId}/{fileName}
     match /return_photos/{orderId}/{fileName} {
-      // Hanya user yang login bisa baca & upload foto retur
-      // (buyer & seller masing-masing perlu akses baca untuk proses review admin)
+      // Semua user authenticated bisa baca & upload foto retur
       allow read:  if isAuthenticated();
       allow write: if isAuthenticated() && isValidImage();
     }

@@ -154,15 +154,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           actionLabel: 'Approve All',
                           isLive: pendingPayments > 0,
                         ),
-                        // Merah — Refund Claims
+                        // Merah — Verify Seller
                         _AdminStatCard(
-                          label: 'Refund Claims',
-                          value: '$pendingRefundProcess',
-                          icon: Icons.assignment_return_rounded,
+                          label: 'Verify Seller',
+                          value: '$pendingSellers',
+                          icon: Icons.storefront_rounded,
                           color: colorScheme.error,
-                          onTap: () => _navigateFromAlert(2, 1),
-                          actionLabel: 'Review Claims',
-                          isLive: pendingRefundProcess > 0,
+                          onTap: () => _navigateFromAlert(1, 2),
+                          actionLabel: 'Review Now',
+                          isLive: pendingSellers > 0,
                         ),
                       ],
                     ),
