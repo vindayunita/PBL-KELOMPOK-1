@@ -780,26 +780,31 @@ class _RouteRow extends StatelessWidget {
       children: [
         Icon(icon, color: iconColor, size: 22),
         const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.45),
-                letterSpacing: 0.8,
-                fontWeight: FontWeight.w600,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.45),
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              location,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 1),
+              Text(
+                location,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
