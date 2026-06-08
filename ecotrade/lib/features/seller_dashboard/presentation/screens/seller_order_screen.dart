@@ -177,7 +177,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     final qty = firstItem?.quantity ?? 0;
     final unit = firstItem?.unit ?? 'kg';
     final purchaseType = firstItem?.purchaseType ?? '';
-    final price = fmt.format(order.total);
+    // Harga BERSIH = total / 1.11 (membuang 11% biaya layanan milik platform)
+    final price = fmt.format(order.total / 1.11);
 
     final isVerified   = order.status == OrderStatus.verified;
     final isProcessing = order.status == OrderStatus.processing;
@@ -496,7 +497,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
   // ── Return card (ReturnModel) ──────────────────────────────────────────────
   Widget _buildReturnCard(ReturnModel ret) {
     final fmt   = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final price = fmt.format(ret.total);
+    // Harga BERSIH tanpa biaya layanan 11%
+    final price = fmt.format(ret.total / 1.11);
 
     const labelStyle = TextStyle(
       fontSize: 10, fontWeight: FontWeight.w600,
@@ -1145,7 +1147,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               // Info dasar
               _infoRow('Pembeli', ret.buyerName.isNotEmpty ? ret.buyerName : '-'),
               const SizedBox(height: 8),
-              _infoRow('Total Nilai', fmt.format(ret.total)),
+              // Tampilkan harga bersih (tanpa biaya layanan 11%)
+              _infoRow('Total Nilai', fmt.format(ret.total / 1.11)),
               const SizedBox(height: 8),
               _infoRow('Tanggal Retur', _formatDate(ret.createdAt)),
               const SizedBox(height: 16),
@@ -1359,7 +1362,8 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
                 const Text('Total',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
                 Text(
-                  fmt.format(order.total),
+                  // Harga bersih tanpa biaya layanan platform 11%
+                  fmt.format(order.total / 1.11),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryBlue),
                 ),
               ],
