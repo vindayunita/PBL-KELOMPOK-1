@@ -383,6 +383,13 @@ class _ReviewCard extends StatelessWidget {
   final ColorScheme cs;
   final TextTheme tt;
 
+  static const _months = [
+    'Jan','Feb','Mar','Apr','Mei','Jun',
+    'Jul','Agu','Sep','Okt','Nov','Des'
+  ];
+  String _fmtDate(DateTime d) =>
+      '${d.day} ${_months[d.month - 1]} ${d.year}';
+
   @override
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -394,6 +401,7 @@ class _ReviewCard extends StatelessWidget {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header: avatar + nama + tanggal + bintang
                 Row(children: [
                   CircleAvatar(
                       radius: 16,
@@ -413,23 +421,131 @@ class _ReviewCard extends StatelessWidget {
                         Text(review.buyerName,
                             style: tt.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700)),
-                        Row(
-                            children: List.generate(
-                                5,
-                                (i) => Icon(
-                                    i < review.rating
-                                        ? Icons.star_rounded
-                                        : Icons.star_outline_rounded,
-                                    color: const Color(0xFFFFC107),
-                                    size: 14))),
+                        Text(_fmtDate(review.createdAt),
+                            style: tt.labelSmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.45))),
                       ])),
+                  Row(
+                      children: List.generate(
+                          5,
+                          (i) => Icon(
+                              i < review.rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: const Color(0xFFFFC107),
+                              size: 14))),
                 ]),
+                const SizedBox(height: 8),
+                // Badge tipe pembelian
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: cs.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(
+                        review.isSample
+                            ? Icons.science_outlined
+                            : Icons.shopping_bag_outlined,
+                        size: 11,
+                        color: cs.primary),
+                    const SizedBox(width: 4),
+                    Text(review.isSample ? 'Sampel' : 'Standard',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: cs.primary)),
+                  ]),
+                ),
+                // Teks ulasan
                 if (review.reviewText.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(review.reviewText,
                       style: tt.bodySmall?.copyWith(
                           color: cs.onSurface.withValues(alpha: 0.8),
                           height: 1.5)),
+                ],
+                // Foto & Video
+                if (review.photoUrls.isNotEmpty ||
+                    review.videoUrl != null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    ...review.photoUrls.map((url) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(url,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                  width: 80,
+                                  height: 80,
+                                  color: cs.surfaceContainerHigh,
+                                  child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: cs.onSurface
+                                          .withValues(alpha: 0.3)))),
+                        )),
+                    if (review.videoUrl != null)
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Stack(alignment: Alignment.center, children: [
+                          const Icon(Icons.play_circle_fill_rounded,
+                              color: Colors.white, size: 32),
+                          Positioned(
+                            bottom: 5,
+                            right: 5,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(3)),
+                              child: const Text('VIDEO',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                        ]),
+                      ),
+                  ]),
+                ],
+                // Balasan seller
+                if (review.sellerReply != null &&
+                    review.sellerReply!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Balasan Penjual:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: cs.primary)),
+                          const SizedBox(height: 4),
+                          Text(review.sellerReply!,
+                              style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurface
+                                      .withValues(alpha: 0.8),
+                                  height: 1.4)),
+                        ]),
+                  ),
                 ],
               ])));
 }
