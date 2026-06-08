@@ -635,4 +635,15 @@ class SellerOrderRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  // ── Balas Ulasan ─────────────────────────────────────────────────────────
+  Future<void> replyToReview({
+    required String reviewId,
+    required String replyText,
+  }) async {
+    await _db.collection('reviews').doc(reviewId).update({
+      'sellerReply': replyText,
+      'repliedAt':   FieldValue.serverTimestamp(),
+    });
+  }
 }

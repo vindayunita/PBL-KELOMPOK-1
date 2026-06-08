@@ -63,6 +63,7 @@ class CartRepository {
     required String purchaseType,
     required String sellerId,
     required String sellerName,
+    int quantity = 1,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
@@ -79,7 +80,7 @@ class CartRepository {
     if (existing.docs.isNotEmpty) {
       final doc = existing.docs.first;
       final currentQty = (doc.data()['quantity'] as num?)?.toInt() ?? 1;
-      await doc.reference.update({'quantity': currentQty + 1});
+      await doc.reference.update({'quantity': currentQty + quantity});
     } else {
       await col.add({
         'productId': productId,
@@ -88,7 +89,7 @@ class CartRepository {
         'productPrice': productPrice,
         'unit': unit,
         'purchaseType': purchaseType,
-        'quantity': 1,
+        'quantity': quantity,
         'sellerId': sellerId,
         'sellerName': sellerName,
         'addedAt': FieldValue.serverTimestamp(),

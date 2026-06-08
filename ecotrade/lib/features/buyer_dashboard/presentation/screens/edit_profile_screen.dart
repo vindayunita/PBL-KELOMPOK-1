@@ -168,22 +168,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         elevation: 0,
         title: const Text('Edit Profil',
             style: TextStyle(fontWeight: FontWeight.w700)),
-        actions: [
-          _saving
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : TextButton(
-                  onPressed: _save,
-                  child: const Text('Simpan',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15)),
-                ),
-        ],
       ),
       body: Form(
         key: _formKey,

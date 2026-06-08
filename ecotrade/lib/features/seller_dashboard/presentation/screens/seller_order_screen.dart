@@ -1549,6 +1549,9 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
     final rawPhotos    = r['photoUrls']    as List<dynamic>? ?? [];
     final photoUrls    = rawPhotos.cast<String>();
     final videoUrl     = r['videoUrl']     as String?;
+    final reviewId     = r['reviewId']     as String? ?? '';
+    final sellerReply  = r['sellerReply']  as String?;
+    final repliedAt    = r['repliedAt'];
     final ts           = r['createdAt'];
     String dateStr = '';
     if (ts != null) {
@@ -1666,9 +1669,102 @@ class _SellerOrderScreenState extends ConsumerState<SellerOrderScreen> {
               ),
             ),
           },
+          // Balasan Penjual
+          if (sellerReply != null && sellerReply.isNotEmpty) ...{
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFC8E6C9)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Balasan Anda:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                  const SizedBox(height: 4),
+                  Text(sellerReply,
+                      style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)),
+                ],
+              ),
+            ),
+          } else if (reviewId.isNotEmpty) ...{
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: () => _handleReplyToReview(reviewId),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: primaryBlue),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: const Text('Balas Ulasan',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: primaryBlue)),
+              ),
+            ),
+          },
         ],
       ),
     );
+  }
+
+  Future<void> _handleReplyToReview(String reviewId) async {
+    final replyCtrl = TextEditingController();
+    final reply = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Balas Ulasan', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: replyCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Tulis balasan untuk ulasan ini...',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.all(12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, replyCtrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Kirim Balasan'),
+          ),
+        ],
+      ),
+    );
+
+    if (reply == null || reply.isEmpty) return;
+
+    final repo = ref.read(sellerOrderRepositoryProvider);
+    try {
+      await repo.replyToReview(reviewId: reviewId, replyText: reply);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('✅ Balasan ulasan berhasil dikirim!'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal mengirim balasan: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
   }
 
   // ── Approve & Reject Return ────────────────────────────────────────────────

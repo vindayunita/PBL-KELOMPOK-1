@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../data/order_model.dart';
 import '../../data/order_repository.dart';
+import 'buyer_dashboard_screen.dart';
 
 // ─── Riverpod stream provider ─────────────────────────────────────────────────
 final _myOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
@@ -37,8 +38,15 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: _tabs.length, vsync: this);
-    _tab.addListener(() => setState(() {}));
+    // Gunakan initial index dari provider
+    final initialIndex = ref.read(buyerOrderTabIndexProvider);
+    _tab = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
+    
+    // Update local state and provider when tab changes manually
+    _tab.addListener(() {
+      ref.read(buyerOrderTabIndexProvider.notifier).updateIndex(_tab.index);
+      setState(() {});
+    });
   }
 
   @override
@@ -80,6 +88,13 @@ class _BuyerOrderScreenState extends ConsumerState<BuyerOrderScreen>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final ordersAsync = ref.watch(_myOrdersProvider);
+    
+    // Listen to provider changes to update tab index externally
+    ref.listen<int>(buyerOrderTabIndexProvider, (previous, next) {
+      if (_tab.index != next) {
+        _tab.animateTo(next);
+      }
+    });
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,

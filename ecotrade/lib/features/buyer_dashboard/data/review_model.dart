@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Model untuk review produk yang disimpan di koleksi `reviews` Firestore.
 class ReviewModel {
@@ -12,6 +12,9 @@ class ReviewModel {
     required this.reviewText,
     required this.photoUrls,
     required this.createdAt,
+    this.sellerId = '',
+    this.sellerReply,
+    this.repliedAt,
     this.videoUrl,
     this.purchaseType = 'standard',
   });
@@ -26,6 +29,9 @@ class ReviewModel {
   final List<String>    photoUrls;     // maks 5 foto
   final String?         videoUrl;      // maks 1 video (nullable)
   final DateTime        createdAt;
+  final String          sellerId;
+  final String?         sellerReply;
+  final DateTime?       repliedAt;
   final String          purchaseType;  // 'standard' | 'sample'
 
   /// Inisial nama buyer untuk avatar
@@ -42,6 +48,10 @@ class ReviewModel {
     DateTime createdAt = DateTime.now();
     if (ts is Timestamp) createdAt = ts.toDate();
 
+    final rTs = data['repliedAt'];
+    DateTime? repliedAt;
+    if (rTs is Timestamp) repliedAt = rTs.toDate();
+
     final rawPhotos = data['photoUrls'] as List<dynamic>? ?? [];
 
     return ReviewModel(
@@ -55,6 +65,9 @@ class ReviewModel {
       photoUrls:    rawPhotos.map((e) => e as String).toList(),
       videoUrl:     data['videoUrl']     as String?,
       createdAt:    createdAt,
+      sellerId:     data['sellerId']     as String? ?? '',
+      sellerReply:  data['sellerReply']  as String?,
+      repliedAt:    repliedAt,
       purchaseType: data['purchaseType'] as String? ?? 'standard',
     );
   }

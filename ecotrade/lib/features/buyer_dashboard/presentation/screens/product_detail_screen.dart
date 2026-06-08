@@ -431,7 +431,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         children: [
           // Cart button
           GestureDetector(
-            onTap: () => _addToCart(context, cs, buyerCity),
+            onTap: () {
+              if (widget.product.stock <= 0) return;
+              final userAsync = ref.read(currentUserDocProvider);
+              final addresses = userAsync.value?.addresses ?? [];
+              if (addresses.isEmpty) {
+                _showNoAddressDialog(context, cs);
+                return;
+              }
+              if (buyerCity.toLowerCase() != widget.product.sellerCity.toLowerCase()) {
+                _showLocationError(context, cs);
+                return;
+              }
+              _showQuantitySheet(
+                context, cs, tt, widget.product,
+                buttonText: 'Tambah ke Keranjang',
+                onConfirm: (qty) => _addToCart(context, cs, buyerCity, qty),
+              );
+            },
             child: Container(
               width: 54, height: 54,
               decoration: BoxDecoration(
@@ -628,7 +645,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     ));
   }
 
-  Future<void> _addToCart(BuildContext context, ColorScheme cs, String buyerCity) async {
+  Future<void> _addToCart(BuildContext context, ColorScheme cs, String buyerCity, int quantity) async {
     final p = widget.product;
     if (p.stock <= 0) return;
 
@@ -656,6 +673,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 _purchaseType == PurchaseType.sample ? 'sample' : 'standard',
             sellerId: p.sellerId,
             sellerName: p.sellerName,
+            quantity: quantity,
           );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -724,7 +742,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     // Standard — show quantity picker bottom sheet
-    _showQuantitySheet(context, cs, tt, p);
+    _showQuantitySheet(
+      context, cs, tt, p,
+      buttonText: 'Beli Langsung',
+      onConfirm: (qty) {
+        final orderItem = OrderItem(
+          productId: p.id,
+          productTitle: p.title,
+          productImageUrl: p.imageUrl,
+          purchaseType: 'standard',
+          unitPrice: _effectivePrice,
+          quantity: qty,
+          unit: p.unit,
+          sellerId: p.sellerId,
+          sellerName: p.sellerName,
+        );
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => CheckoutScreen(items: [orderItem]),
+        ));
+      },
+    );
   }
 
   void _showNoAddressDialog(BuildContext context, ColorScheme cs) {
@@ -798,10 +835,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     BuildContext context,
     ColorScheme cs,
     TextTheme tt,
-    ProductModel p,
-  ) {
+    ProductModel p, {
+    required String buttonText,
+    required void Function(int qty) onConfirm,
+  }) {
     // Use a local ValueNotifier so the sheet rebuilds without setState on parent
     final qtyNotifier = ValueNotifier<int>(1);
+    final TextEditingController textCtrl = TextEditingController(text: '1');
     final maxStock = p.stock;
 
     showModalBottomSheet(
@@ -908,16 +948,43 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             cs: cs,
                             enabled: qty > 1,
                             onTap: () {
-                              if (qty > 1) qtyNotifier.value = qty - 1;
+                              if (qty > 1) {
+                                qtyNotifier.value = qty - 1;
+                                textCtrl.text = qtyNotifier.value.toString();
+                              }
                             },
                           ),
                           // Value
                           Expanded(
                             child: Center(
-                              child: Text(
-                                '$qty',
-                                style: tt.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.w800),
+                              child: SizedBox(
+                                width: 80,
+                                child: TextFormField(
+                                  controller: textCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (val) {
+                                    int? newQty = int.tryParse(val);
+                                    if (newQty != null) {
+                                      if (newQty > maxStock) newQty = maxStock;
+                                      if (newQty < 1) newQty = 1;
+                                      qtyNotifier.value = newQty;
+                                      // Don't update textCtrl.text here to avoid jumping cursor
+                                    } else {
+                                      qtyNotifier.value = 1;
+                                    }
+                                  },
+                                  onEditingComplete: () {
+                                    FocusScope.of(sheetCtx).unfocus();
+                                    textCtrl.text = qtyNotifier.value.toString();
+                                  },
+                                ),
                               ),
                             ),
                           ),
@@ -929,6 +996,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             onTap: () {
                               if (qty < maxStock) {
                                 qtyNotifier.value = qty + 1;
+                                textCtrl.text = qtyNotifier.value.toString();
                               } else {
                                 ScaffoldMessenger.of(context)
                                     .showSnackBar(SnackBar(
@@ -998,33 +1066,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ),
                           onPressed: () {
                             Navigator.of(sheetCtx).pop();
-                            final orderItem = OrderItem(
-                              productId: p.id,
-                              productTitle: p.title,
-                              productImageUrl: p.imageUrl,
-                              purchaseType: 'standard',
-                              unitPrice: _effectivePrice,
-                              quantity: qty,
-                              unit: p.unit,
-                              sellerId: p.sellerId,
-                              sellerName: p.sellerName,
-                            );
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => CheckoutScreen(
-                                    items: [orderItem]),
-                              ),
-                            );
+                            onConfirm(qtyNotifier.value);
                           },
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.bolt_rounded, size: 20),
                               const SizedBox(width: 6),
-                              Text('Beli Sekarang ($qty ${p.unit})',
+                              Text(buttonText,
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15)),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16)),
                             ],
                           ),
                         ),
@@ -1437,6 +1488,35 @@ class _ReviewCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                ],
+              ),
+            ),
+          ],
+
+          // Balasan Penjual
+          if (review.sellerReply != null && review.sellerReply!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Balasan Penjual:',
+                      style: tt.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.primary,
+                      )),
+                  const SizedBox(height: 4),
+                  Text(review.sellerReply!,
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.8),
+                        height: 1.4,
+                      )),
                 ],
               ),
             ),

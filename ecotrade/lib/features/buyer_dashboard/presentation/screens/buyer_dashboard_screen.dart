@@ -137,6 +137,24 @@ class ProductFilter {
 // Providers
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Notifier for bottom nav index
+class BuyerNavIndexNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void updateIndex(int index) => state = index;
+}
+
+final buyerNavIndexProvider = NotifierProvider<BuyerNavIndexNotifier, int>(BuyerNavIndexNotifier.new);
+
+/// Notifier for order screen tab index
+class BuyerOrderTabIndexNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void updateIndex(int index) => state = index;
+}
+
+final buyerOrderTabIndexProvider = NotifierProvider<BuyerOrderTabIndexNotifier, int>(BuyerOrderTabIndexNotifier.new);
+
 /// Notifier for product filter state (Riverpod 3.x compatible)
 class ProductFilterNotifier extends Notifier<ProductFilter> {
   @override
@@ -373,10 +391,9 @@ class BuyerDashboardScreen extends ConsumerStatefulWidget {
 
 class _BuyerDashboardScreenState
     extends ConsumerState<BuyerDashboardScreen> {
-  int _selectedNavIndex = 0;
 
-  Widget _buildBody() {
-    switch (_selectedNavIndex) {
+  Widget _buildBody(int index) {
+    switch (index) {
       case 1:
         return const BuyerOrderScreen();
       case 2:
@@ -391,13 +408,20 @@ class _BuyerDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final selectedNavIndex = ref.watch(buyerNavIndexProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
-      body: SafeArea(child: _buildBody()),
+      body: SafeArea(child: _buildBody(selectedNavIndex)),
       bottomNavigationBar: _BottomNav(
-        selectedIndex: _selectedNavIndex,
-        onTap: (i) => setState(() => _selectedNavIndex = i),
+        selectedIndex: selectedNavIndex,
+        onTap: (i) {
+          if (i == 1) {
+            // Reset ke tab 'Semua' (0) jika menekan My Orders dari navbar
+            ref.read(buyerOrderTabIndexProvider.notifier).updateIndex(0);
+          }
+          ref.read(buyerNavIndexProvider.notifier).updateIndex(i);
+        },
       ),
     );
   }

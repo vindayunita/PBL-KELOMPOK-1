@@ -17,6 +17,7 @@ import '../../../courier_dashboard/presentation/screens/courier_pendaftaran.dart
 import '../../../courier_dashboard/presentation/screens/courier_status_verif.dart';
 import 'edit_profile_screen.dart';
 import 'manage_address_screen.dart';
+import 'buyer_dashboard_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile Screen
@@ -169,7 +170,12 @@ class BuyerProfileScreen extends ConsumerWidget {
                       iconBgColor: const Color(0xFFD4F5E2),
                       iconColor: const Color(0xFF27AE60),
                       label: 'Purchase History',
-                      onTap: () {},
+                      onTap: () {
+                        // Switch to Selesai tab (index 4) di BuyerOrderScreen
+                        ref.read(buyerOrderTabIndexProvider.notifier).updateIndex(4);
+                        // Pindah ke tab BuyerOrderScreen di bottom nav (index 1)
+                        ref.read(buyerNavIndexProvider.notifier).updateIndex(1);
+                      },
                       isLast: true,
                     ),
                   ]),

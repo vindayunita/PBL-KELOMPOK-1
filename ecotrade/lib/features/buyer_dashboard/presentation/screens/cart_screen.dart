@@ -539,17 +539,12 @@ class _CartItemTile extends ConsumerWidget {
                       Padding(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 14),
-                        child: Column(
-                          children: [
-                            Text('${item.quantity}',
-                                style: tt.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700)),
-                            Text(
-                                item.unit,
-                                style: tt.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                    fontSize: 9)),
-                          ],
+                        child: _CartItemQtyInput(
+                          initialQty: item.quantity,
+                          enabled: !isSample,
+                          tt: tt,
+                          unit: item.unit,
+                          onChanged: onQtyChanged,
                         ),
                       ),
                       _QtyBtn(
@@ -617,6 +612,90 @@ class _QtyBtn extends StatelessWidget {
             size: 16,
             color: enabled ? cs.onSurface : cs.onSurfaceVariant),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quantity Input Field
+// ─────────────────────────────────────────────────────────────────────────────
+class _CartItemQtyInput extends StatefulWidget {
+  const _CartItemQtyInput({
+    required this.initialQty,
+    required this.onChanged,
+    required this.enabled,
+    required this.tt,
+    required this.unit,
+  });
+  final int initialQty;
+  final ValueChanged<int> onChanged;
+  final bool enabled;
+  final TextTheme tt;
+  final String unit;
+
+  @override
+  State<_CartItemQtyInput> createState() => _CartItemQtyInputState();
+}
+
+class _CartItemQtyInputState extends State<_CartItemQtyInput> {
+  late final TextEditingController _ctrl;
+  
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialQty.toString());
+  }
+
+  @override
+  void didUpdateWidget(covariant _CartItemQtyInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialQty != oldWidget.initialQty && 
+        _ctrl.text != widget.initialQty.toString()) {
+      _ctrl.text = widget.initialQty.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (!widget.enabled) {
+      return Column(
+        children: [
+          Text('${widget.initialQty}', style: widget.tt.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Text(widget.unit, style: widget.tt.labelSmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 9)),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        SizedBox(
+          width: 40,
+          child: TextFormField(
+            controller: _ctrl,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: widget.tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+            ),
+            onChanged: (val) {
+              final newQty = int.tryParse(val);
+              if (newQty != null && newQty >= 1) {
+                widget.onChanged(newQty);
+              }
+            },
+          ),
+        ),
+        Text(widget.unit, style: widget.tt.labelSmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 9)),
+      ],
     );
   }
 }
