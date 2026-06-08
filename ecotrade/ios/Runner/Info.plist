@@ -72,6 +72,8 @@
 		<string>Aplikasi memerlukan akses ke kamera untuk mengambil foto komoditi</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Aplikasi memerlukan akses ke mikrofon untuk merekam video</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Aplikasi memerlukan akses lokasi untuk membantu Anda memilih alamat pengiriman di peta</string>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

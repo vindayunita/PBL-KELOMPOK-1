@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -18,7 +19,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="EcoTrade - Waste Management Marketplace">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -27,11 +28,128 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png" />
 
-  <title>ecotrade</title>
+  <title>EcoTrade</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Google Maps JavaScript API -->
+  <script>
+    // Bridge antara Flutter dan Google Maps JS
+    // Dipanggil oleh Flutter via dart:js_interop
+    window._mapInstances = {};
+
+    window.initEcoTradeMap = function (elementId, lat, lng) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+
+      const map = new google.maps.Map(el, {
+        center: { lat: lat, lng: lng },
+        zoom: 16,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_CENTER
+        }
+      });
+
+      const marker = new google.maps.Marker({
+        position: { lat: lat, lng: lng },
+        map: map,
+        draggable: true,
+        animation: google.maps.Animation.DROP,
+        title: 'Geser untuk memilih lokasi'
+      });
+
+      window._mapInstances[elementId] = { map: map, marker: marker, lat: lat, lng: lng };
+
+      // Geocode saat awal
+      window._geocodePoint(lat, lng);
+
+      marker.addListener('dragend', function (e) {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        window._mapInstances[elementId].lat = lat;
+        window._mapInstances[elementId].lng = lng;
+        window._geocodePoint(lat, lng);
+      });
+
+      map.addListener('click', function (e) {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        marker.setPosition(e.latLng);
+        window._mapInstances[elementId].lat = lat;
+        window._mapInstances[elementId].lng = lng;
+        window._geocodePoint(lat, lng);
+      });
+    };
+
+    window.getMapCoordinates = function (elementId) {
+      const inst = window._mapInstances[elementId];
+      if (!inst) return JSON.stringify({ lat: -6.2088, lng: 106.8456 });
+      return JSON.stringify({ lat: inst.lat, lng: inst.lng });
+    };
+
+    window.setMapCenter = function (elementId, lat, lng) {
+      const inst = window._mapInstances[elementId];
+      if (!inst) return;
+      const pos = new google.maps.LatLng(lat, lng);
+      inst.map.panTo(pos);
+      inst.marker.setPosition(pos);
+      inst.lat = lat;
+      inst.lng = lng;
+    };
+
+    // ── JS Geocoder (tidak ada CORS, pakai Maps JS API langsung) ──────────────
+    window._lastGeocode = null;
+    window._isGeocoding = false;
+
+    window._geocodePoint = function (lat, lng) {
+      if (typeof google === 'undefined' || !google.maps || !google.maps.Geocoder) {
+        return;
+      }
+      window._isGeocoding = true;
+      window._lastGeocode = null;
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode(
+        { location: { lat: lat, lng: lng }, language: 'id' },
+        function (results, status) {
+          window._isGeocoding = false;
+          if (status === 'OK' && results && results.length > 0) {
+            window._lastGeocode = JSON.stringify({
+              formatted_address: results[0].formatted_address,
+              address_components: results[0].address_components
+            });
+          }
+        }
+      );
+    };
+
+    window.getLastGeocode = function () {
+      return window._lastGeocode;
+    };
+
+    window.isGeocoding = function () {
+      return window._isGeocoding;
+    };
+  </script>
+
+  <!-- Load API key dari env.js (git-ignored, tidak hardcoded di sini) -->
+  <script src="env.js"></script>
+  <!-- Load Google Maps JS API dinamis menggunakan key dari env.js -->
+  <script>
+    (function () {
+      var key = window._MAPS_API_KEY || '';
+      var s = document.createElement('script');
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&libraries=places&callback=Function.prototype';
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    })();
+  </script>
 </head>
+
 <body>
   <!--
     You can customize the "flutter_bootstrap.js" script.
@@ -43,4 +161,5 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
+
 </html>

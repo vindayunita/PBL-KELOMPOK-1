@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../features/user/data/user_repository.dart';
 import '../../../../features/user/domain/user_providers.dart';
+import '../../../../shared/services/geocoding_service.dart';
+import '../../../../shared/widgets/map_picker_screen.dart';
 
 class ManageAddressScreen extends ConsumerWidget {
   const ManageAddressScreen({super.key});
@@ -314,6 +316,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
   late final TextEditingController _postalCtrl;
   late bool _isDefault;
   bool _saving = false;
+  double? _pickedLat;
+  double? _pickedLng;
 
   static const _labels = ['Rumah', 'Kantor', 'Kos', 'Lainnya'];
 
@@ -327,6 +331,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
     _postalCtrl =
         TextEditingController(text: e?['postalCode'] as String? ?? '');
     _isDefault = e?['isDefault'] as bool? ?? false;
+    _pickedLat = e?['lat'] as double?;
+    _pickedLng = e?['lng'] as double?;
   }
 
   @override
@@ -355,6 +361,8 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
         'city': _cityCtrl.text.trim(),
         'postalCode': _postalCtrl.text.trim(),
         'isDefault': _isDefault,
+        if (_pickedLat != null) 'lat': _pickedLat,
+        if (_pickedLng != null) 'lng': _pickedLng,
       };
 
       // Jika set sebagai default, reset semua isDefault dulu
@@ -435,6 +443,28 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 20),
+
+              // ── Tombol Pilih di Maps ────────────────────────────────────
+              _MapPickerButton(
+                onPick: (MapPickResult result) {
+                  setState(() {
+                    _pickedLat = result.lat;
+                    _pickedLng = result.lng;
+                    if (result.detail.isNotEmpty) {
+                      _detailCtrl.text = result.detail;
+                    }
+                    if (result.city.isNotEmpty) {
+                      _cityCtrl.text = result.city;
+                    }
+                    if (result.postalCode.isNotEmpty) {
+                      _postalCtrl.text = result.postalCode;
+                    }
+                  });
+                },
+                pickedLat: _pickedLat,
+                pickedLng: _pickedLng,
+              ),
+              const SizedBox(height: 16),
 
               // Label
               Text('Label', style: _labelStyle(context)),
@@ -575,3 +605,151 @@ class _AddressFormSheetState extends ConsumerState<_AddressFormSheet> {
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: Tombol Pilih Lokasi di Maps
+// ─────────────────────────────────────────────────────────────────────────────
+class _MapPickerButton extends StatelessWidget {
+  const _MapPickerButton({
+    required this.onPick,
+    required this.pickedLat,
+    required this.pickedLng,
+  });
+
+  final void Function(MapPickResult result) onPick;
+  final double? pickedLat;
+  final double? pickedLng;
+
+  Future<void> _openPicker(BuildContext context) async {
+    // rootNavigator: true penting agar push bekerja benar
+    // dari dalam modal bottom sheet
+    final result = await Navigator.of(context, rootNavigator: true)
+        .push<MapPickResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => MapPickerScreen(
+          initialLat: pickedLat,
+          initialLng: pickedLng,
+        ),
+      ),
+    );
+
+    debugPrint('[MapPicker] result: $result');
+
+    if (result != null) {
+      debugPrint('[MapPicker] detail="${result.detail}" city="${result.city}" postal="${result.postalCode}"');
+      onPick(result);
+    } else {
+      debugPrint('[MapPicker] result is null — user cancelled or navigator failed');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasPicked = pickedLat != null && pickedLng != null;
+
+    return GestureDetector(
+      onTap: () => _openPicker(context),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: hasPicked
+              ? LinearGradient(
+                  colors: [
+                    const Color(0xFF27AE60).withValues(alpha: 0.12),
+                    const Color(0xFF2ECC71).withValues(alpha: 0.06),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                )
+              : null,
+          color: hasPicked ? null : cs.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasPicked
+                ? const Color(0xFF27AE60).withValues(alpha: 0.5)
+                : cs.primary.withValues(alpha: 0.35),
+            width: 1.5,
+          ),
+          boxShadow: hasPicked
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF27AE60).withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: hasPicked
+                    ? const Color(0xFF27AE60).withValues(alpha: 0.15)
+                    : cs.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                hasPicked
+                    ? Icons.location_on_rounded
+                    : Icons.add_location_alt_outlined,
+                color: hasPicked ? const Color(0xFF27AE60) : cs.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPicked ? 'Lokasi Dipilih' : 'Pilih Lokasi di Maps',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: hasPicked ? const Color(0xFF27AE60) : cs.primary,
+                    ),
+                  ),
+                  if (hasPicked) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${pickedLat!.toStringAsFixed(5)}, ${pickedLng!.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.5),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Tap untuk membuka peta interaktif',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              hasPicked ? Icons.edit_location_alt_outlined : Icons.chevron_right_rounded,
+              color: hasPicked
+                  ? const Color(0xFF27AE60).withValues(alpha: 0.7)
+                  : cs.onSurface.withValues(alpha: 0.3),
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

@@ -45,6 +45,15 @@ dependencies:
   flutter_native_splash: ^2.4.1
   video_player: ^2.11.1
 
+  # Maps & Location (Address Picker)
+  google_maps_flutter: ^2.10.0
+  google_maps_flutter_web: ^0.5.10
+  http: ^1.2.0
+  geolocator: ^13.0.2
+
+  # Environment variables (API keys, secrets)
+  flutter_dotenv: ^5.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -64,6 +73,7 @@ flutter:
 
   assets:
     - assets/images/
+    - .env
 
 # ── Native Splash Screen configuration ──────────────────────────────────────
 flutter_native_splash:
