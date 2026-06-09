@@ -141,33 +141,6 @@ class AdminProfileScreen extends ConsumerWidget {
 
                     const SizedBox(height: 32),
 
-                    // ── Manage Account Card ──
-                    _ProfileMenuCard(
-                      icon: Icons.manage_accounts_outlined,
-                      iconBg: colorScheme.primaryContainer,
-                      iconColor: colorScheme.primary,
-                      title: 'Manage Account',
-                      description:
-                          'Update your security credentials, personal identification, and specialized permissions within the global marketplace.',
-                      onTap: () {},
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── System Settings Card ──
-                    _ProfileMenuCard(
-                      icon: Icons.settings_outlined,
-                      iconBg: colorScheme.surfaceContainerHigh,
-                      iconColor: colorScheme.onSurface,
-                      title: 'System Settings',
-                      description:
-                          'Configure global logistics parameters and fiscal notification triggers.',
-                      onTap: () {},
-                      backgroundColor: colorScheme.surfaceContainerLow,
-                    ),
-
-                    const SizedBox(height: 16),
-
                     // ── Logout Card ──
                     _LogoutCard(
                       onTap: () async {
