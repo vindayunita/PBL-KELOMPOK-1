@@ -54,6 +54,40 @@ class OrderRepository {
     // Kumpulkan semua sellerId unik agar seller bisa query dgn arrayContains
     final sellerIds = items.map((i) => i.sellerId).toSet().toList();
 
+    // Ambil alamat lengkap seller pertama dari Firestore
+    String sellerAddress = '';
+    if (sellerIds.isNotEmpty) {
+      try {
+        final sellerDoc =
+            await _db.collection('users').doc(sellerIds.first).get();
+        final addresses =
+            sellerDoc.data()?['addresses'] as List<dynamic>? ?? [];
+        if (addresses.isNotEmpty) {
+          final addr = addresses.first as Map<String, dynamic>;
+          final parts = <String>[
+            if ((addr['street'] as String?)?.isNotEmpty == true)
+              addr['street'] as String,
+            if ((addr['detail'] as String?)?.isNotEmpty == true)
+              addr['detail'] as String,
+            if ((addr['district'] as String?)?.isNotEmpty == true)
+              addr['district'] as String,
+            if ((addr['city'] as String?)?.isNotEmpty == true)
+              addr['city'] as String,
+            if ((addr['province'] as String?)?.isNotEmpty == true)
+              addr['province'] as String,
+          ];
+          sellerAddress = parts.join(', ');
+          // Fallback jika tidak ada field spesifik, coba field 'address' atau 'fullAddress'
+          if (sellerAddress.isEmpty) {
+            sellerAddress = addr['address'] as String? ??
+                addr['fullAddress'] as String? ??
+                addr['city'] as String? ??
+                '';
+          }
+        }
+      } catch (_) {}
+    }
+
     final batch = _db.batch();
     final ref = _db.collection('orders').doc();
     batch.set(ref, {
@@ -68,6 +102,7 @@ class OrderRepository {
       'status':          'pending_verification',
       'paymentMethod':   'bank_transfer',
       'sellerIds':       sellerIds,
+      'sellerAddress':   sellerAddress,
       'createdAt':       FieldValue.serverTimestamp(),
       'updatedAt':       FieldValue.serverTimestamp(),
     });

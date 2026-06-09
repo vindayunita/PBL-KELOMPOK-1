@@ -469,12 +469,11 @@ class _TaskCard extends ConsumerWidget {
               iconBg: const Color(0xFFFFF3E0),
               iconColor: const Color(0xFFE65100),
               name: task.sellerName,
-              address: task.sellerCity.isNotEmpty
-                  ? task.sellerCity
-                  : 'Hubungi seller untuk alamat',
-              actionIcon: Icons.call_rounded,
-              actionColor: const Color(0xFF2E7D32),
-              onAction: () {},
+              address: task.sellerAddress.isNotEmpty
+                  ? task.sellerAddress
+                  : task.sellerCity.isNotEmpty
+                      ? task.sellerCity
+                      : 'Alamat seller belum tersedia',
             ),
 
             Padding(
@@ -502,9 +501,6 @@ class _TaskCard extends ConsumerWidget {
               address: task.buyerAddress.isNotEmpty
                   ? task.buyerAddress
                   : 'Alamat belum tersedia',
-              actionIcon: Icons.call_rounded,
-              actionColor: const Color(0xFF005DA7),
-              onAction: () {},
             ),
 
             const SizedBox(height: 16),
@@ -605,9 +601,6 @@ class _TaskCard extends ConsumerWidget {
     required Color iconColor,
     required String name,
     required String address,
-    required IconData actionIcon,
-    required Color actionColor,
-    required VoidCallback onAction,
   }) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
@@ -639,18 +632,6 @@ class _TaskCard extends ConsumerWidget {
             style: tt.bodySmall?.copyWith(
                 color: cs.onSurface.withOpacity(0.55), height: 1.4)),
       ])),
-      const SizedBox(width: 10),
-      GestureDetector(
-        onTap: onAction,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-              color: actionColor.withOpacity(0.1),
-              shape: BoxShape.circle),
-          child: Icon(actionIcon, color: actionColor, size: 18),
-        ),
-      ),
     ]);
   }
 

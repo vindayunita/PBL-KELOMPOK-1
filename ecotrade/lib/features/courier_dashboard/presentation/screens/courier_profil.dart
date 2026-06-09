@@ -192,44 +192,6 @@ class _CourierProfilScreenState extends ConsumerState<CourierProfilScreen> {
 
                   const SizedBox(height: 24),
 
-                  // ── Pengaturan Akun ────────────────────────────────────────
-                  Text(
-                    'Pengaturan Akun',
-                    style: tt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  _SettingsCard(
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.security_outlined,
-                        iconColor: cs.primary,
-                        title: 'Keamanan Akun',
-                        onTap: () {},
-                      ),
-                      _SettingsDivider(),
-                      _SettingsTile(
-                        icon: Icons.notifications_outlined,
-                        iconColor: cs.primary,
-                        title: 'Notifikasi',
-                        onTap: () {},
-                      ),
-                      _SettingsDivider(),
-                      _SettingsTile(
-                        icon: Icons.help_outline_rounded,
-                        iconColor: cs.primary,
-                        title: 'Bantuan & FAQ',
-                        onTap: () {},
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
                   // ── Cek Status Verifikasi ─────────────────────────────────
                   _CekStatusButton(
                     onTap: () => Navigator.of(context).push(

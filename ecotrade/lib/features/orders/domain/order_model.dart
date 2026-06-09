@@ -79,6 +79,7 @@ class OrderModel {
     required this.unit,
     required this.totalPrice,
     required this.status,
+    this.sellerAddress = '',
     this.productImageUrl = '',
     this.productCategory = '',
     this.courierId,
@@ -96,6 +97,7 @@ class OrderModel {
   final String sellerId;
   final String sellerName;
   final String sellerCity;
+  final String sellerAddress;
   final String productId;
   final String productName;
   final String productImageUrl;
@@ -139,6 +141,7 @@ class OrderModel {
           ? data['sellerName'] as String
           : (firstItem?['sellerName'] as String? ?? 'Seller'),
       sellerCity:      data['sellerCity']    as String? ?? '',
+      sellerAddress:   data['sellerAddress'] as String? ?? '',
       productId:       data['productId']     as String? ?? firstItem?['productId'] as String? ?? '',
       productName:     data['productName']   as String? ?? firstItem?['productTitle'] as String? ?? 'Produk',
       productImageUrl: data['productImageUrl'] as String?
@@ -169,6 +172,7 @@ class OrderModel {
     'sellerId':      sellerId,
     'sellerName':    sellerName,
     'sellerCity':    sellerCity,
+    'sellerAddress': sellerAddress,
     'productId':     productId,
     'productName':   productName,
     'quantity':      quantity,
